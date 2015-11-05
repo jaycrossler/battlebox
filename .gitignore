@@ -1,0 +1,15 @@
+CACHE/*
+.cache
+.cache/*
+
+.idea
+.idea/*
+*.log
+*.pot
+*.pyc
+*.pyo
+*.DS_Store
+*.swp
+
+node_modules
+node_modules/*

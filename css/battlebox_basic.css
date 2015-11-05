@@ -1,0 +1,19 @@
+.disabled {
+  pointer-events: all !important;
+}
+
+body{
+	text-shadow:none;
+}
+.icon-lg{
+	height:42px;
+	width:42px;
+}
+.icon-sm{
+	height:16px;
+	width:16px;
+	margin: 2px 0 -2px 0;
+}
+h1{
+    margin-bottom: 0px;
+}
