@@ -3,6 +3,40 @@
     var $pointers = {};
 
     _c.draw_initial_display = function(game, options) {
+        $pointers.canvas_holder = $('#container');
+
+        game.display = new ROT.Display({
+            width: game.game_options.cols,
+            height: game.game_options.rows,
+            fontSize: game.game_options.cell_size,
+            layout: "hex"});
+        var container_canvas = game.display.getContainer();
+
+        $pointers.canvas_holder
+            .append(container_canvas);
+
+        _c.generate_battle_map(game);
+
+        _c.build_scheduler(game);
+    };
+
+    _c.drawWholeMap = function (game) {
+        //Make everything black
+        for (var i = 0; i < game.game_options.cols; i++) {
+            for (var j = 0; j < game.game_options.rows; j++) {
+                game.display.draw(i, j, " ", "#000", "#000");
+            }
+        }
+
+        //Have open cells be colored
+        for (var key in game.map) {
+            var parts = key.split(",");
+            var x = parseInt(parts[0]);
+            var y = parseInt(parts[1]);
+
+            var bg = ["#ccc", "#ddd", "#eee", "#fff"].random();
+            game.display.draw(x, y, game.map[key], "#000", bg);
+        }
     };
 
     _c.log_display = function (game) {

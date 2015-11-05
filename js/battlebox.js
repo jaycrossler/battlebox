@@ -20,6 +20,12 @@ var Battlebox = (function ($, _, Helpers, maths) {
         this.times_game_drawn = 0;
         this.initialization_seed = null;
 
+        this.display = null;
+        this.engine = null;
+        this.map = {};
+        this.open_space = [];
+        this.entities = [];
+
         return this.api(option1, option2, option3);
     }
 
