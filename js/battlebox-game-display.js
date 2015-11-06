@@ -6,6 +6,7 @@
         $pointers.canvas_holder = $('#container');
 
         game.display = new ROT.Display({
+//            transpose: true,
             width: game.game_options.cols,
             height: game.game_options.rows,
             fontSize: game.game_options.cell_size,
@@ -24,7 +25,7 @@
         //Make everything black
         for (var i = 0; i < game.game_options.cols; i++) {
             for (var j = 0; j < game.game_options.rows; j++) {
-                game.display.draw(i, j, " ", "#000", "#000");
+                _c.draw_tile(game, i, j, " ", "#000", "#000");
             }
         }
 
@@ -34,9 +35,20 @@
             var x = parseInt(parts[0]);
             var y = parseInt(parts[1]);
 
-            var bg = ["#ccc", "#ddd", "#eee", "#fff"].random();
-            game.display.draw(x, y, game.map[key], "#000", bg);
+            _c.draw_tile(game, x, y, game.map[key]);
         }
+    };
+
+    _c.draw_tile = function(game, x, y, text, color, bg_color) {
+        var bg = "#fff";
+        if (text === undefined) {
+            text = game.map[x + "," + y] || " ";
+        }
+
+        if (text == " ") {
+            bg = ["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"].random();
+        }
+        game.display.draw(x, y, text, color || "#000", bg_color || bg);
     };
 
     _c.log_display = function (game) {

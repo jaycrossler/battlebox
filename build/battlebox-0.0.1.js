@@ -948,6 +948,12 @@ var Battlebox = (function ($, _, Helpers, maths) {
         this.times_game_drawn = 0;
         this.initialization_seed = null;
 
+        this.display = null;
+        this.engine = null;
+        this.map = {};
+        this.open_space = [];
+        this.entities = [];
+
         return this.api(option1, option2, option3);
     }
 
@@ -1185,6 +1191,52 @@ Battlebox.initializeOptions = function (option_type, options) {
     var $pointers = {};
 
     _c.draw_initial_display = function(game, options) {
+        $pointers.canvas_holder = $('#container');
+
+        game.display = new ROT.Display({
+//            transpose: true,
+            width: game.game_options.cols,
+            height: game.game_options.rows,
+            fontSize: game.game_options.cell_size,
+            layout: "hex"});
+        var container_canvas = game.display.getContainer();
+
+        $pointers.canvas_holder
+            .append(container_canvas);
+
+        _c.generate_battle_map(game);
+
+        _c.build_scheduler(game);
+    };
+
+    _c.drawWholeMap = function (game) {
+        //Make everything black
+        for (var i = 0; i < game.game_options.cols; i++) {
+            for (var j = 0; j < game.game_options.rows; j++) {
+                _c.draw_tile(game, i, j, " ", "#000", "#000");
+            }
+        }
+
+        //Have open cells be colored
+        for (var key in game.map) {
+            var parts = key.split(",");
+            var x = parseInt(parts[0]);
+            var y = parseInt(parts[1]);
+
+            _c.draw_tile(game, x, y, game.map[key]);
+        }
+    };
+
+    _c.draw_tile = function(game, x, y, text, color, bg_color) {
+        var bg = "#fff";
+        if (text === undefined) {
+            text = game.map[x + "," + y] || " ";
+        }
+
+        if (text == " ") {
+            bg = ["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"].random();
+        }
+        game.display.draw(x, y, text, color || "#000", bg_color || bg);
     };
 
     _c.log_display = function (game) {
@@ -1221,15 +1273,57 @@ Battlebox.initializeOptions = function (option_type, options) {
 })(Battlebox);
 (function (Battlebox) {
     var _c = new Battlebox('get_private_functions');
+
     _c.initialize_data = function (game, data) {
+        game.data = game.data || {};
 
+        var arrays_to_data_objects = game.game_options.arrays_to_map_to_objects || [];
+        _.each(arrays_to_data_objects, function (game_options_name) {
+            //Add objects for each game_objects array to the game data
+            game.data[game_options_name] = game.data[game_options_name] || {};
+            _.each(game.game_options[game_options_name], function (item) {
+                game.data[game_options_name][item.name] = game.data[game_options_name][item.name] || item.initial || 0;
+            });
+        });
 
+        var arrays_to_array_objects = game.game_options.arrays_to_map_to_arrays || [];
+        _.each(arrays_to_array_objects, function (game_options_name) {
+            //Add an array for game_objects to the game data
+            if (game.data[game_options_name] !== undefined) {
+                //Already exists, don't add it
+            } else {
+                game.data[game_options_name] = game.data[game_options_name] || [];
+                _.each(game.game_options[game_options_name], function (item) {
+                    game.data[game_options_name].push(JSON.parse(JSON.stringify(item)));
+                });
+            }
+        });
+
+        game.data.rand_seed = game.data.rand_seed || game.game_options.rand_seed;
+        game.data.tick_count = game.data.tick_count || 0;
+    };
+    _c.info = function (game, kind, name, sub_var, if_not_listed) {
+        //Usage:  var info = _c.info(game, 'buildings', resource.name);
+        var val = _.find(game.game_options[kind], function (item) {
+            return item.name == name
+        });
+        if (val && sub_var) {
+            val = val[sub_var];
+        }
+        if (!val) val = if_not_listed;
+
+        return val;
+    };
+    _c.variable = function (game, var_name, set_to) {
+        if (set_to === undefined) {
+            return game.data.variables[var_name];
+        } else {
+            game.data.variables[var_name] = set_to;
+        }
     };
 
     _c.initialize_display = function (game) {
-        var options = {};
-
-        _c.draw_initial_display(game, options)
+        _c.draw_initial_display(game, {});
     };
 
     _c.redraw_data = function (game) {
@@ -1238,12 +1332,86 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
 
     _c.start_game_loop = function (game) {
-
+        game.engine.start();
     };
 
     _c.stop_game_loop = function (game) {
 
     };
+
+    _c.generate_battle_map = function (game) {
+        var map;
+        if (game.data.terrain_options) {
+            var ground = _.find(game.data.terrain_options, function (layer) {
+                return layer.ground
+            }) || {name: 'plains', layer: 'ground'};
+
+            if (ground.name == 'plains') {
+                map = new ROT.Map.Cellular(game.game_options.cols, game.game_options.rows, {
+                    //connected: true,
+                    topology: 6,
+                    born: [5, 6, 7],
+                    survive: [3, 4, 5]
+                });
+
+                //        map.randomize(0.5);
+
+                // initialize with irregularly random values with less in middle
+                for (var i = 0; i < game.game_options.cols; i++) {
+                    for (var j = 0; j < game.game_options.rows; j++) {
+                        var dx = i / game.game_options.cols - 0.5;
+                        var dy = j / game.game_options.rows - 0.5;
+                        var dist = Math.pow(dx * dx + dy * dy, 0.3);
+                        if (ROT.RNG.getUniform() < dist) {
+                            map.set(i, j, 1);
+                        }
+                    }
+                }
+
+                // generate four iterations, show the last one
+                var iterations = ground.smoothness || 3;
+                for (var i = iterations-1; i >= 0; i--) {
+                    map.create(i ? null : game.display.DEBUG);
+                }
+
+            } else if (ground.name == 'digger') {
+                map = new ROT.Map.Digger(game.game_options.cols, game.game_options.rows);
+            }
+        }
+
+
+        //For all cells not matched, add to a list
+        var freeCells = [];
+        var digCallback = function (x, y, value) {
+            if (value) {
+                return;
+            }
+            /* do not store walls */
+
+            var key = x + "," + y;
+            freeCells.push(key);
+            game.map[key] = " ";
+        };
+        map.create(digCallback.bind(game));
+
+        game.open_space = freeCells;
+//        this._generateBoxes(game.open_space);
+
+        _c.drawWholeMap(game);
+
+        _c.build_units_from_list(game, game.data.forces);
+
+    };
+
+    _c.build_scheduler = function(game) {
+        var scheduler = new ROT.Scheduler.Simple();
+        _.each(game.entities, function(entity){
+            scheduler.add(entity, true);
+        });
+        game.engine = new ROT.Engine(scheduler);
+
+    };
+
 
 
 })(Battlebox);
@@ -1253,16 +1421,118 @@ Battlebox.initializeOptions = function (option_type, options) {
         rand_seed: 0,
         tick_time: 1000,
 
+        arrays_to_map_to_objects: ''.split(','),
+        arrays_to_map_to_arrays: 'terrain_options,forces,buildings'.split(','),
+
+        cols: 200,
+        rows: 50,
+        cell_size: 12,
+
+        terrain_options: [
+            {name:'plains', layer:'ground', smoothness: 3, color:["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"]},
+            {name:'mountains', density:'sparse', not_center:true},
+            {name:'forest', density:'medium', not_center:true},
+            {name:'lake', density:'small', placement:'left'},
+            {name:'river', density:'medium', placement:'left'}
+        ],
+
+        forces: [
+            {name:'Attacker Main Army Force', side: 'Red', location:'random', troops:[{name:'soldiers', amount:520}, {name:'cavalry', amount:230}, {name:'siege', amount:50}]},
+            {name:'Task Force Alpha', side: 'Red', symbol:'A', location:'random', troops:[{name:'soldiers', amount:20}, {name:'cavalry', amount:50}]},
+            {name:'Task Force Bravo', side: 'Red', symbol:'B', location:'random', troops:[{name:'soldiers', amount:20}, {name:'cavalry', amount:50}]},
+            {name:'Task Force Charlie', side: 'Red', symbol:'C', location:'random', troops:[{name:'soldiers', amount:20}, {name:'cavalry', amount:50}]},
+
+            {name:'Defender City Force', side: 'Blue', location:'center', troops:[{name:'soldiers', amount:320}, {name:'cavalry', amount:290}, {name:'siege', amount:150}]}
+        ],
+
+        buildings:[
+            {name:'Large City', type:'city', population:3000, fortifications:20}
+        ],
+
+        variables: [
+            {name:'test', initial: 1}
+        ],
+
         functions_on_setup:[],
-        functions_each_tick:[],
-
-        buildings:[]
-
+        functions_each_tick:[]
     };
 
 
 
     Battlebox.initializeOptions('game_options', _game_options);
+
+})(Battlebox);
+(function (Battlebox) {
+    var _c = new Battlebox('get_private_functions');
+
+    var movement_last_vertical_left = true;
+
+    var key_map = {};
+    key_map[ROT.VK_Y] = 0;
+    key_map[ROT.VK_NUMPAD7] = 0;
+    key_map[ROT.VK_U] = 1;
+    key_map[ROT.VK_NUMPAD9] = 1;
+    key_map[ROT.VK_L] = 2;
+    key_map[ROT.VK_RIGHT] = 2;
+    key_map[ROT.VK_NUMPAD6] = 2;
+    key_map[ROT.VK_N] = 3;
+    key_map[ROT.VK_NUMPAD3] = 3;
+    key_map[ROT.VK_B] = 4;
+    key_map[ROT.VK_NUMPAD1] = 4;
+    key_map[ROT.VK_H] = 5;
+    key_map[ROT.VK_LEFT] = 5;
+    key_map[ROT.VK_NUMPAD4] = 5;
+    key_map[ROT.VK_K] = 0;
+    key_map[ROT.VK_UP] = 0;
+    key_map[ROT.VK_NUMPAD8] = 0;
+    key_map[ROT.VK_J] = 3;
+    key_map[ROT.VK_DOWN] = 3;
+    key_map[ROT.VK_NUMPAD2] = 3;
+    key_map[ROT.VK_PERIOD] = -1;
+    key_map[ROT.VK_CLEAR] = -1;
+    key_map[ROT.VK_NUMPAD5] = -1;
+
+
+    _c.interpret_command_from_keycode = function (code, unit_options) {
+        var command = {movement: null, func: null, ignore: false};
+
+        if ((code == 13 || code == 32) && unit_options.execute_action) {
+            //TODO: Have some array of commands per unit?
+            command.func = unit_options.execute_action;
+            return command;
+        }
+        if (!(code in key_map)) {
+            command.ignore = true;
+            return command;
+        } else {
+            code = key_map[code];
+        }
+
+        if (code == -1) {
+            command.ignore = true;
+            return command;
+        }
+
+        //Flip left/right walking so not always going top left or bot right with up/down arrows
+        movement_last_vertical_left = !movement_last_vertical_left;
+        if (code == 0 && movement_last_vertical_left) {
+            code = 1;
+        } else if (code == 1 && !movement_last_vertical_left) {
+            code = 0;
+        } else if (code == 4 && movement_last_vertical_left) {
+            code = 3;
+        } else if (code == 3 && !movement_last_vertical_left) {
+            code = 4;
+        }
+
+        var dir = ROT.DIRS[6][code];
+        if (dir) {
+            command.movement = dir;
+        }
+
+        return command;
+    }
+
 
 })(Battlebox);
 (function (Battlebox) {
@@ -1380,5 +1650,179 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
     _c.reset = function (saveType) {
     };
+
+})(Battlebox);
+(function (Battlebox) {
+
+    var _c = new Battlebox('get_private_functions');
+
+    //TODO: Path finding in hex
+    //TODO: Multiple terrain types
+    //TODO: Move from string to array for positions
+    //TODO: Have icons for different units
+    //TODO: Mouseover for unit info
+    //TODO: SetCenter to have large map and only show partial
+
+    _c.build_units_from_list = function (game, list) {
+        _.each(list || [], function (unit_info, id) {
+            game.entities.push(_c.create_unit(game, unit_info, id))
+        });
+        return game.entities;
+    };
+
+    _c.create_unit = function (game, unit_info, id) {
+
+        var index = 0;
+        if (unit_info.location == 'center') {
+            index = Math.floor(.5 * game.open_space.length);
+
+        } else if (unit_info.location == 'random') {
+            index = Math.floor(ROT.RNG.getUniform() * game.open_space.length);
+        }
+
+        var key = game.open_space.splice(index, 1)[0];
+        var parts = key.split(",");
+
+        var x = parseInt(parts[0]);
+        var y = parseInt(parts[1]);
+
+        var EntityType;
+        if (unit_info.side == 'Red') {
+            EntityType = Player;
+        } else {
+            EntityType = OpForce;
+        }
+        return new EntityType(game, x, y, id, unit_info.symbol);
+    };
+
+
+    ///------------------
+    var Player = function (game, x, y, id, symbol) {
+        this._x = x;
+        this._y = y;
+        this._game = game;
+        this._id = id;
+        this._symbol = symbol || "@";
+        this._draw();
+    };
+
+    Player.prototype._draw = function () {
+        _c.draw_tile(this._game, this._x, this._y, this._symbol, "#000", "#ff0");
+    };
+
+    Player.prototype.act = function () {
+        /* wait for user input; do stuff when user hits a key */
+        if (this._id == 0) {
+            this._game.engine.lock();
+            window.addEventListener("keydown", this);
+        }
+    };
+
+    Player.prototype.handleEvent = function (e) {
+        var unit = this;
+        var game = this._game;
+        var command = _c.interpret_command_from_keycode(e.keyCode, unit);
+
+
+        if (command.ignore) {
+            window.removeEventListener("keydown", unit);
+            return;
+        }
+
+        if (command.func) {
+            command.func(game, unit);
+        }
+
+        if (command.movement) {
+            var x = unit._x + command.movement[0];
+            var y = unit._y + command.movement[1];
+
+            var played = unit.try_move(game, x, y);
+            if (played) {
+                _c.draw_tile(game, unit._x, unit._y);
+                unit._x = x;
+                unit._y = y;
+                unit._draw();
+            }
+            window.removeEventListener("keydown", unit);
+            game.engine.unlock();
+        }
+
+    };
+
+    Player.prototype.execute_action = function (game, unit) {
+        var key = unit._x + "," + unit._y;
+
+        var map_val = game.map[key];
+        console.log("Player at x: " + unit._x + ", y: " + unit._y);
+        console.log("Map value here is: [" + map_val + "]");
+
+    };
+    Player.prototype.getX = function () {
+        return this._x;
+    };
+    Player.prototype.getY = function () {
+        return this._y;
+    };
+
+    Player.prototype.try_move = function (game, x, y) {
+        var key = x + "," + y;
+        var result = false;
+
+        if (game.map[key] !== undefined) {
+            result = true;
+        }
+
+        return result;
+    };
+
+    //----------------------------------
+    var OpForce = function (game, x, y) {
+        this._x = x;
+        this._y = y;
+        this._game = game;
+        this._draw();
+    };
+
+    OpForce.prototype._draw = function () {
+        _c.draw_tile(this._game, this._x, this._y, "P", "#000", "red");
+    };
+
+    OpForce.prototype.act = function () {
+        var unit = this;
+        var game = this._game;
+
+        //TODO: Make a get nearest enemy function
+        var x = game.entities[0].getX();
+        var y = game.entities[0].getY();
+
+        var passableCallback = function (x, y) {
+            return (x + "," + y in game.map);
+        };
+        var astar = new ROT.Path.AStar(x, y, passableCallback, {topology: 6});
+        var path = [];
+        var pathCallback = function (x, y) {
+            path.push([x, y]);
+        };
+        astar.compute(this._x, this._y, pathCallback);
+
+        path.shift();
+
+        if (path.length == 1) {
+            this._game.engine.lock();
+            alert("Game over - you were captured by OpForce!");
+
+        } else if (path.length > 1) {
+            //Walk towards the enemy
+            x = path[0][0];
+            y = path[0][1];
+
+            _c.draw_tile(game, unit._x, unit._y);
+            this._x = x;
+            this._y = y;
+            this._draw();
+        }
+    };
+
 
 })(Battlebox);

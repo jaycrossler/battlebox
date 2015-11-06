@@ -55,6 +55,7 @@ module.exports = function (grunt) {
                     specs: 'tests/*.spec.js',
                     helpers: 'tests/helpers/*.js',
                     vendor: [
+                        "js-libs/rot.js",
                         "js-libs/jquery-1.11.3.min.js",
                         "js-libs/bootstrap.min.js",
                         "js-libs/underscore-min.js",
