@@ -4,8 +4,7 @@
 
     //TODO: Have icons for different units
     //TODO: Mouseover for unit info
-    //TODO: SetCenter to have large map and only show partial
-    //TODO: Requires map not_center to draw correctly
+    //TODO: SetCenter to have large map and redraw every movement
 
     _c.build_units_from_list = function (game, list) {
         _.each(list || [], function (unit_info, id) {
@@ -27,11 +26,9 @@
         if (!game.open_space.length) {
             console.error("No open spaces, can't draw units");
         } else {
-            var key = game.open_space.splice(index, 1)[0];
-            var parts = key.split(",");
-
-            var x = parseInt(parts[0]);
-            var y = parseInt(parts[1]);
+            var key = game.open_space[index];
+            var x = parseInt(key[0]);
+            var y = parseInt(key[1]);
 
             var EntityType;
             if (unit_info.side == 'Red') {

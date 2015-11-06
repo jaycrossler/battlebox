@@ -16,7 +16,7 @@
             {name:'mountains', density:'sparse', smoothness: 3, not_center:true, color:['brown'], impassible:true, symbol:'M'},
             {name:'forest', density:'sparse', not_center:true, color:['darkgreen','green'], data:{movement:'slow'}, symbol:'#'},
             {name:'lake', density:'sparse', smoothness:5, placement:'left', color:['#03f','#04b','#00d'], data:{water:true}, symbol:'-'},
-            {name:'river', density:'small', placement:'left', color:['#00f','#00e','#00d'], data:{water:true}, symbol:'/'}
+            {name:'river', density:'small', thickness:.1, placement:'left', color:['#00f','#00e','#00d'], data:{water:true}, symbol:'/'}
         ],
 
         forces: [

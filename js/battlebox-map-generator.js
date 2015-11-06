@@ -17,8 +17,8 @@
             }
         }
 
+        //Build each map layer
         _.each(game.data.terrain_options, function (terrain_layer) {
-
             var map_layer;
             if (terrain_layer.draw_type == 'digger') {
                 map_layer = new ROT.Map.Digger(game.game_options.cols, game.game_options.rows);
@@ -28,6 +28,7 @@
                 var born = [5, 6, 7];
                 var survive = [3, 4, 5];
 
+                //TODO: Add some more levels and drawing types
                 if (terrain_layer.density == 'small') {
                     born = [4];
                     survive = [3];
@@ -63,7 +64,7 @@
                         }
                     }
                 } else {
-                    map_layer.randomize(0.5);
+                    map_layer.randomize(terrain_layer.thickness || 0.5);
                 }
 
                 // generate a few smoothing iterations
@@ -96,10 +97,9 @@
             for (var x = y % 2; x < game.game_options.cols; x += 2) {
 
                 if (cells[x][y] && cells[x][y].impassible) {
-                    //Something in this cell
+                    //Something in this cell that makes it not able to move upon
                 } else {
-                    var key = x + "," + y;
-                    freeCells.push(key);
+                    freeCells.push([x,y]);
                     if (!cells[x][y].name) {
                         cells[x][y] = ground_layer;
                     }
