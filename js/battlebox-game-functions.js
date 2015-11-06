@@ -59,75 +59,13 @@
     };
 
     _c.start_game_loop = function (game) {
+        game.logMessage("Starting game loop");
         game.engine.start();
     };
 
     _c.stop_game_loop = function (game) {
-
-    };
-
-    _c.generate_battle_map = function (game) {
-        var map;
-        if (game.data.terrain_options) {
-            var ground = _.find(game.data.terrain_options, function (layer) {
-                return layer.ground
-            }) || {name: 'plains', layer: 'ground'};
-
-            if (ground.name == 'plains') {
-                map = new ROT.Map.Cellular(game.game_options.cols, game.game_options.rows, {
-                    //connected: true,
-                    topology: 6,
-                    born: [5, 6, 7],
-                    survive: [3, 4, 5]
-                });
-
-                //        map.randomize(0.5);
-
-                // initialize with irregularly random values with less in middle
-                for (var i = 0; i < game.game_options.cols; i++) {
-                    for (var j = 0; j < game.game_options.rows; j++) {
-                        var dx = i / game.game_options.cols - 0.5;
-                        var dy = j / game.game_options.rows - 0.5;
-                        var dist = Math.pow(dx * dx + dy * dy, 0.3);
-                        if (ROT.RNG.getUniform() < dist) {
-                            map.set(i, j, 1);
-                        }
-                    }
-                }
-
-                // generate four iterations, show the last one
-                var iterations = ground.smoothness || 3;
-                for (var i = iterations-1; i >= 0; i--) {
-                    map.create(i ? null : game.display.DEBUG);
-                }
-
-            } else if (ground.name == 'digger') {
-                map = new ROT.Map.Digger(game.game_options.cols, game.game_options.rows);
-            }
-        }
-
-
-        //For all cells not matched, add to a list
-        var freeCells = [];
-        var digCallback = function (x, y, value) {
-            if (value) {
-                return;
-            }
-            /* do not store walls */
-
-            var key = x + "," + y;
-            freeCells.push(key);
-            game.map[key] = " ";
-        };
-        map.create(digCallback.bind(game));
-
-        game.open_space = freeCells;
-//        this._generateBoxes(game.open_space);
-
-        _c.drawWholeMap(game);
-
-        _c.build_units_from_list(game, game.data.forces);
-
+        game.logMessage("Stopping game loop");
+        game.engine.stop();
     };
 
     _c.build_scheduler = function(game) {
@@ -138,7 +76,6 @@
         game.engine = new ROT.Engine(scheduler);
 
     };
-
 
 
 })(Battlebox);

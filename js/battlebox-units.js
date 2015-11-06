@@ -2,12 +2,10 @@
 
     var _c = new Battlebox('get_private_functions');
 
-    //TODO: Path finding in hex
-    //TODO: Multiple terrain types
-    //TODO: Move from string to array for positions
     //TODO: Have icons for different units
     //TODO: Mouseover for unit info
     //TODO: SetCenter to have large map and only show partial
+    //TODO: Requires map not_center to draw correctly
 
     _c.build_units_from_list = function (game, list) {
         _.each(list || [], function (unit_info, id) {
@@ -26,19 +24,23 @@
             index = Math.floor(ROT.RNG.getUniform() * game.open_space.length);
         }
 
-        var key = game.open_space.splice(index, 1)[0];
-        var parts = key.split(",");
-
-        var x = parseInt(parts[0]);
-        var y = parseInt(parts[1]);
-
-        var EntityType;
-        if (unit_info.side == 'Red') {
-            EntityType = Player;
+        if (!game.open_space.length) {
+            console.error("No open spaces, can't draw units");
         } else {
-            EntityType = OpForce;
+            var key = game.open_space.splice(index, 1)[0];
+            var parts = key.split(",");
+
+            var x = parseInt(parts[0]);
+            var y = parseInt(parts[1]);
+
+            var EntityType;
+            if (unit_info.side == 'Red') {
+                EntityType = Player;
+            } else {
+                EntityType = OpForce;
+            }
+            return new EntityType(game, x, y, id, unit_info.symbol);
         }
-        return new EntityType(game, x, y, id, unit_info.symbol);
     };
 
 
@@ -99,9 +101,11 @@
     Player.prototype.execute_action = function (game, unit) {
         var key = unit._x + "," + unit._y;
 
-        var map_val = game.map[key];
+        var cell = game.cells[unit._x][unit._y];
+//        var map_val = game.map[key];
         console.log("Player at x: " + unit._x + ", y: " + unit._y);
-        console.log("Map value here is: [" + map_val + "]");
+//        console.log("Map value here is: [" + map_val + "]");
+        console.log("Cell value here is: [" + JSON.stringify(cell) + "]");
 
     };
     Player.prototype.getX = function () {
@@ -112,10 +116,10 @@
     };
 
     Player.prototype.try_move = function (game, x, y) {
-        var key = x + "," + y;
         var result = false;
 
-        if (game.map[key] !== undefined) {
+        var cell = game.cells[x][y];
+        if (cell && !cell.impassible) {
             result = true;
         }
 
@@ -143,7 +147,7 @@
         var y = game.entities[0].getY();
 
         var passableCallback = function (x, y) {
-            return (x + "," + y in game.map);
+            return game.cells[x][y] && !game.cells[x][y].impassible;
         };
         var astar = new ROT.Path.AStar(x, y, passableCallback, {topology: 6});
         var path = [];

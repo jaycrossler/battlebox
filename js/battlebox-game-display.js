@@ -18,37 +18,39 @@
 
         _c.generate_battle_map(game);
 
+        _c.drawWholeMap(game);
+
+        _c.build_units_from_list(game, game.data.forces);
+
         _c.build_scheduler(game);
     };
 
     _c.drawWholeMap = function (game) {
-        //Make everything black
-        for (var i = 0; i < game.game_options.cols; i++) {
-            for (var j = 0; j < game.game_options.rows; j++) {
-                _c.draw_tile(game, i, j, " ", "#000", "#000");
+        //Draw every tile
+        for (var y = 0; y < game.game_options.rows; y++) {
+            for (var x = y%2; x < game.game_options.cols; x+=2) {
+                _c.draw_tile(game, x, y);
             }
-        }
-
-        //Have open cells be colored
-        for (var key in game.map) {
-            var parts = key.split(",");
-            var x = parseInt(parts[0]);
-            var y = parseInt(parts[1]);
-
-            _c.draw_tile(game, x, y, game.map[key]);
         }
     };
 
     _c.draw_tile = function(game, x, y, text, color, bg_color) {
-        var bg = "#fff";
+        var cell = game.cells[x][y];
         if (text === undefined) {
-            text = game.map[x + "," + y] || " ";
+            text = cell.symbol || " ";
         }
-
-        if (text == " ") {
-            bg = ["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"].random();
+        var bg = bg_color;
+        if (!bg) {
+            if (cell) {
+                bg = cell.color ? cell.color.random() : '#000';
+            } else if (text == " ") {
+                bg = ["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"].random();
+            } else {
+                bg = "#000";
+            }
         }
-        game.display.draw(x, y, text, color || "#000", bg_color || bg);
+        //First draw it black, then redraw it with the chosen color to help get edges proper color
+        game.display.draw(x, y, text, color || "#000", bg);
     };
 
     _c.log_display = function (game) {
