@@ -29,9 +29,10 @@
     key_map[ROT.VK_NUMPAD5] = -1;
 
 
-    _c.interpret_command_from_keycode = function (code, unit_options) {
+    _c.interpret_command_from_keycode = function (key_code, unit_options) {
         var command = {movement: null, func: null, ignore: false};
 
+        var code = key_code;
         if ((code == 13 || code == 32) && unit_options.execute_action) {
             //TODO: Have some array of commands per unit?
             command.func = unit_options.execute_action;
@@ -51,13 +52,13 @@
 
         //Flip left/right walking so not always going top left or bot right with up/down arrows
         movement_last_vertical_left = !movement_last_vertical_left;
-        if (code == 0 && movement_last_vertical_left) {
+        if (key_code == ROT.VK_UP && movement_last_vertical_left) {
             code = 1;
-        } else if (code == 1 && !movement_last_vertical_left) {
+        } else if (key_code == ROT.VK_UP && !movement_last_vertical_left) {
             code = 0;
-        } else if (code == 4 && movement_last_vertical_left) {
+        } else if (key_code == ROT.VK_DOWN && movement_last_vertical_left) {
             code = 3;
-        } else if (code == 3 && !movement_last_vertical_left) {
+        } else if (key_code == ROT.VK_DOWN && !movement_last_vertical_left) {
             code = 4;
         }
 

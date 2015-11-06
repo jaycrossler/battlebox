@@ -16,6 +16,9 @@
         $pointers.canvas_holder
             .append(container_canvas);
 
+        $pointers.info_box = $('<div>')
+            .appendTo($pointers.canvas_holder);
+
         _c.generate_battle_map(game);
 
         _c.drawWholeMap(game);
@@ -23,6 +26,8 @@
         _c.build_units_from_list(game, game.data.forces);
 
         _c.build_scheduler(game);
+
+        return container_canvas;
     };
 
     _c.drawWholeMap = function (game) {
@@ -35,7 +40,26 @@
     };
 
     _c.draw_tile = function(game, x, y, text, color, bg_color) {
-        var cell = game.cells[x][y];
+        //Cell is used to get color and symbol
+        //TODO: Draw complex cells based on composition
+
+        var cell = game.cells[x];
+        if (cell) {
+            cell = cell[y];
+        }
+
+        if (!color) {
+            //No information was passed in, assume it's the default cell draw without player in it
+            var was_drawn = false;
+            _.each(game.entities, function (entity) {
+                if (entity._x == x && entity._y == y && entity._draw) {
+                    entity._draw(entity._x, entity._y);
+                    was_drawn = true;
+                }
+            });
+            if (was_drawn) return;
+        }
+
         if (text === undefined) {
             text = cell.symbol || " ";
         }
@@ -49,6 +73,7 @@
                 bg = "#000";
             }
         }
+
         //First draw it black, then redraw it with the chosen color to help get edges proper color
         game.display.draw(x, y, text, color || "#000", bg);
     };
@@ -83,5 +108,32 @@
         }
     };
 
+    var highlighted_hex = null;
+    _c.highlight_position = function (game, location) {
+        if (highlighted_hex && highlighted_hex.length == 2) {
+            _c.draw_tile(game, highlighted_hex[0], highlighted_hex[1]);
+        }
+
+        if (location.length == 2) {
+            highlighted_hex = location;
+            _c.draw_tile(game, location[0], location[1], undefined, undefined, 'orange');
+        } else {
+            highlighted_hex = null;
+        }
+
+    };
+
+
+
+    _c.show_info = function (info) {
+        var out;
+        if (_.isString(info)) {
+            out = info;
+        } else {
+            out = JSON.stringify(info);
+        }
+        $pointers.info_box
+            .html(out);
+    }
 
 })(Battlebox);

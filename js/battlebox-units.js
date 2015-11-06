@@ -5,7 +5,6 @@
     var controlled_entity_id = 0;
 
     //TODO: Have icons for different units
-    //TODO: Mouseover for unit info
     //TODO: SetCenter to have large map and redraw every movement
 
     _c.build_units_from_list = function (game, list) {
@@ -38,23 +37,34 @@
             } else {
                 EntityType = OpForce;
             }
-            return new EntityType(game, x, y, id, unit_info.symbol);
+            return new EntityType(game, x, y, id, unit_info);
         }
     };
 
+    function try_to_move_to_and_draw (game, unit, x, y) {
+        var previous_x = unit._x;
+        var previous_y = unit._y;
+        unit._x = x;
+        unit._y = y;
+        _c.draw_tile(game, previous_x, previous_y);
+        unit._draw();
+
+    }
+
 
     ///------------------
-    var Player = function (game, x, y, id, symbol) {
+    var Player = function (game, x, y, id, unit) {
         this._x = x;
         this._y = y;
         this._game = game;
         this._id = id;
-        this._symbol = symbol || "@";
+        this._symbol = unit.symbol || "@";
+        this._data = unit;
         this._draw();
     };
 
-    Player.prototype._draw = function () {
-        _c.draw_tile(this._game, this._x, this._y, this._symbol, "#000", "#ff0");
+    Player.prototype._draw = function (x, y) {
+        _c.draw_tile(this._game, x || this._x, y || this._y, this._symbol, "#000", "#ff0");
     };
 
     Player.prototype.act = function () {
@@ -86,14 +96,12 @@
             var x = unit._x + command.movement[0];
             var y = unit._y + command.movement[1];
 
-            var played = unit.try_move(game, x, y);
-            if (played) {
-                _c.draw_tile(game, unit._x, unit._y);
-                unit._x = x;
-                unit._y = y;
-                unit._draw();
+            var can_move = unit.try_move(game, x, y);
+            if (can_move) {
+                try_to_move_to_and_draw(game, unit, x, y);
             }
-            window.removeEventListener("keydown", unit);
+
+            window.removeEventListener("keydown", this);
             game.engine.unlock();
         }
 
@@ -128,15 +136,18 @@
     };
 
     //----------------------------------
-    var OpForce = function (game, x, y) {
+    var OpForce = function (game, x, y, id, unit) {
         this._x = x;
         this._y = y;
         this._game = game;
+        this._id = id;
+        this._symbol = unit.symbol || "@";
+        this._data = unit;
         this._draw();
     };
 
-    OpForce.prototype._draw = function () {
-        _c.draw_tile(this._game, this._x, this._y, "P", "#000", "red");
+    OpForce.prototype._draw = function (x, y) {
+        _c.draw_tile(this._game, x || this._x, y || this._y, "P", "#000", "red");
     };
 
     OpForce.prototype.act = function () {
@@ -168,10 +179,13 @@
             x = path[0][0];
             y = path[0][1];
 
-            _c.draw_tile(game, unit._x, unit._y);
-            this._x = x;
-            this._y = y;
-            this._draw();
+            try_to_move_to_and_draw(game, unit, x, y);
+
+
+//            _c.draw_tile(game, unit._x, unit._y);
+//            this._x = x;
+//            this._y = y;
+//            this._draw();
         }
     };
 

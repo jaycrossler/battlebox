@@ -50,7 +50,15 @@
     };
 
     _c.initialize_display = function (game) {
-        _c.draw_initial_display(game, {});
+        var canvas = _c.draw_initial_display(game, {});
+
+        canvas.addEventListener("mousemove", function(ev){
+            var loc = game.display.eventToPosition(ev);
+            _c.highlight_position(game, loc);
+
+            _c.show_info(_c.tile_info(game, loc[0], loc[1]));
+        });
+
     };
 
     _c.redraw_data = function (game) {
@@ -76,6 +84,27 @@
         game.engine = new ROT.Engine(scheduler);
 
     };
+
+    _c.tile_info = function(game, x, y) {
+        var info = {};
+
+        var cell = game.cells[x];
+        if (cell) {
+            cell = cell[y];
+        }
+        if (cell) {
+            info = _.clone(cell);
+        }
+
+        _.each(game.entities, function (entity, id) {
+            if (entity._x == x && entity._y == y && entity._draw) {
+                info.forces = info.forces || [];
+                info.forces.push({id: id, data:entity._data});
+            }
+        });
+
+        return info;
+    }
 
 
 })(Battlebox);

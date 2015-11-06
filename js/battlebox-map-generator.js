@@ -81,6 +81,8 @@
                         cells[x] = cells[x] || [];
                         cells[x][y] = _.clone(terrain_layer);
                         cells[x][y].color = cells[x][y].color.random();
+
+                        //TODO: Have cell be a mix of multiple layers
                     }
                 };
                 map_layer.create(digCallback.bind(game));
