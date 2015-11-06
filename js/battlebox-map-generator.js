@@ -79,7 +79,8 @@
                 var digCallback = function (x, y, value) {
                     if (value) {
                         cells[x] = cells[x] || [];
-                        cells[x][y] = terrain_layer;
+                        cells[x][y] = _.clone(terrain_layer);
+                        cells[x][y].color = cells[x][y].color.random();
                     }
                 };
                 map_layer.create(digCallback.bind(game));
@@ -101,7 +102,8 @@
                 } else {
                     freeCells.push([x,y]);
                     if (!cells[x][y].name) {
-                        cells[x][y] = ground_layer;
+                        cells[x][y] = _.clone(ground_layer);
+                        cells[x][y].color = cells[x][y].color.random();
                     }
                 }
             }

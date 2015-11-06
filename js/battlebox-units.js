@@ -2,6 +2,8 @@
 
     var _c = new Battlebox('get_private_functions');
 
+    var controlled_entity_id = 0;
+
     //TODO: Have icons for different units
     //TODO: Mouseover for unit info
     //TODO: SetCenter to have large map and redraw every movement
@@ -57,7 +59,7 @@
 
     Player.prototype.act = function () {
         /* wait for user input; do stuff when user hits a key */
-        if (this._id == 0) {
+        if (this._id == controlled_entity_id) {
             this._game.engine.lock();
             window.addEventListener("keydown", this);
         }
@@ -73,6 +75,8 @@
             window.removeEventListener("keydown", unit);
             return;
         }
+
+        //TODO: If tab, then switch controlled_entity_id
 
         if (command.func) {
             command.func(game, unit);

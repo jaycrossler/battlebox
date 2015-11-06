@@ -42,7 +42,7 @@
         var bg = bg_color;
         if (!bg) {
             if (cell) {
-                bg = cell.color ? cell.color.random() : '#000';
+                bg = cell.color || '#000';
             } else if (text == " ") {
                 bg = ["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"].random();
             } else {
