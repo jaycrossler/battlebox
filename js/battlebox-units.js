@@ -15,7 +15,6 @@
     };
 
     _c.create_unit = function (game, unit_info, id) {
-
         var index = 0;
         if (unit_info.location == 'center') {
             index = Math.floor(.5 * game.open_space.length);
@@ -32,7 +31,7 @@
             var y = parseInt(key[1]);
 
             var EntityType;
-            if (unit_info.side == 'Red') {
+            if (unit_info.side == 'Yellow') {
                 EntityType = Player;
             } else {
                 EntityType = OpForce;
@@ -54,9 +53,8 @@
         return valid;
     };
 
-
-    ///------------------
-    var Player = function (game, x, y, id, unit) {
+    //--------------------
+    var Entity = function(game, x, y, id, unit) {
         this._x = x;
         this._y = y;
         this._game = game;
@@ -66,9 +64,58 @@
         this._draw();
     };
 
-    Player.prototype._draw = function (x, y) {
-        _c.draw_tile(this._game, x || this._x, y || this._y, this._symbol || "!", "#000", "#ff0");
+    Entity.prototype.describe = function() {
+    	return this._data.name + " (<span style='color:" + this._data.side + "'>" + this._symbol  +"</span>)";
     };
+
+    Entity.prototype.getSpeed = function() {
+    	return this._data.speed || 100;
+    };
+
+    Entity.prototype.setPosition = function(x, y) {
+    	this._x = x;
+        this._y = y;
+    	return this;
+    };
+
+    Entity.prototype.getPosition = function() {
+    	return {x: this._x, y: this._y};
+    };
+
+    Entity.prototype.act = function() {
+    };
+
+    /* Other unit bumps into */
+    Entity.prototype.bump = function(who, power) {
+    };
+
+    Entity.prototype._draw = function (x, y) {
+        //TODO: Handle x = 0
+        _c.draw_tile(this._game, x || this._x, y || this._y, this._symbol || "@", "#000", this._data.color || this._data.side);
+    };
+    Entity.prototype.getX = function () {
+        return this._x;
+    };
+    Entity.prototype.getY = function () {
+        return this._y;
+    };
+    Entity.prototype.try_move = function (game, x, y) {
+        var result = false;
+
+        var cell = game.cells[x][y];
+        if (cell && !cell.impassible) {
+            result = true;
+        }
+
+        return result;
+    };
+
+
+    //--------------------
+    var Player = function (game, x, y, id, unit) {
+        Entity.call(this, game, x, y, id, unit)
+    };
+    Player.extend(Entity);
 
     Player.prototype.act = function () {
         /* wait for user input; do stuff when user hits a key */
@@ -115,38 +162,15 @@
         console.log("Player at x: " + unit._x + ", y: " + unit._y);
         console.log("Cell value here is: [" + JSON.stringify(cell) + "]");
     };
-    Player.prototype.getX = function () {
-        return this._x;
-    };
-    Player.prototype.getY = function () {
-        return this._y;
-    };
 
-    Player.prototype.try_move = function (game, x, y) {
-        var result = false;
 
-        var cell = game.cells[x][y];
-        if (cell && !cell.impassible) {
-            result = true;
-        }
-
-        return result;
-    };
 
     //----------------------------------
     var OpForce = function (game, x, y, id, unit) {
-        this._x = x;
-        this._y = y;
-        this._game = game;
-        this._id = id;
-        this._symbol = unit.symbol || "@";
-        this._data = unit;
-        this._draw();
+        Entity.call(this, game, x, y, id, unit);
     };
+    OpForce.extend(Entity);
 
-    OpForce.prototype._draw = function (x, y) {
-        _c.draw_tile(this._game, x || this._x, y || this._y, this._symbol || "P", "#000", "red");
-    };
 
     OpForce.prototype.act = function () {
         var unit = this;

@@ -22,19 +22,19 @@
         ],
 
         forces: [
-            {name:'Attacker Main Army Force', side: 'Red', location:'random',
+            {name:'Attacker Main Army Force', side: 'Yellow', location:'random',
                 troops:{soldiers:520, cavalry:230, siege:50}},
 
-            {name:'Task Force Alpha', side: 'Red', symbol:'#A', location:'random',
+            {name:'Task Force Alpha', side: 'Yellow', symbol:'#A', location:'random',
                 troops:{soldiers:80, cavalry:20, siege:10}},
 
-            {name:'Task Force Bravo', side: 'Red', symbol:'#B', location:'random',
+            {name:'Task Force Bravo', side: 'Yellow', symbol:'#B', location:'random',
                 troops:{cavalry:20}},
 
-            {name:'Task Force Charlie', side: 'Red', symbol:'#C', location:'random',
+            {name:'Task Force Charlie', side: 'Yellow', symbol:'#C', location:'random',
                 troops:{cavalry:20}},
 
-            {name:'Defender City Force', side: 'Blue', location:'center',
+            {name:'Defender City Force', side: 'Pink', location:'center',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops:{soldiers:620, cavalry:40, siege:100}}
         ],
