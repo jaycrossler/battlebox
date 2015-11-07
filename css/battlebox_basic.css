@@ -17,3 +17,18 @@ body{
 h1{
     margin-bottom: 0px;
 }
+#message_display{
+    display: inline-block;
+    background-color: black;
+    width: 300px;
+    vertical-align: top;
+    height: 754px;
+    margin: 51px 0px 0px 0px;
+    padding: 0px;
+    color: white;
+}
+#message_display div{
+    margin: 6px;
+    padding: 6px;
+    font-weight: bold;
+}

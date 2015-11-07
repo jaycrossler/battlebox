@@ -2,15 +2,20 @@
     var _c = new Battlebox('get_private_functions');
     var $pointers = {};
 
-    _c.draw_initial_display = function(game, options) {
+    _c.draw_initial_display = function (game, options) {
         $pointers.canvas_holder = $('#container');
+        $pointers.message_display = $('#message_display');
 
         game.display = new ROT.Display({
 //            transpose: true,
             width: game.game_options.cols,
             height: game.game_options.rows,
             fontSize: game.game_options.cell_size,
-            layout: "hex"});
+            layout: "hex",
+//            fontFamily: "droid sans mono",
+            border: 0.1,
+            spacing: .88
+        });
         var container_canvas = game.display.getContainer();
 
         $pointers.canvas_holder
@@ -33,13 +38,13 @@
     _c.drawWholeMap = function (game) {
         //Draw every tile
         for (var y = 0; y < game.game_options.rows; y++) {
-            for (var x = y%2; x < game.game_options.cols; x+=2) {
+            for (var x = y % 2; x < game.game_options.cols; x += 2) {
                 _c.draw_tile(game, x, y);
             }
         }
     };
 
-    _c.draw_tile = function(game, x, y, text, color, bg_color) {
+    _c.draw_tile = function (game, x, y, text, color, bg_color) {
         //Cell is used to get color and symbol
         //TODO: Draw complex cells based on composition
 
@@ -51,8 +56,8 @@
         if (!color) {
             //No information was passed in, assume it's the default cell draw without player in it
             var was_drawn = false;
-            _.each(game.entities, function (entity) {
-                if (entity._x == x && entity._y == y && entity._draw) {
+            _.each(_c.entities(game), function (entity) {
+                if (entity && entity._x == x && entity._y == y && entity._draw) {
                     entity._draw(entity._x, entity._y);
                     was_drawn = true;
                 }
@@ -123,6 +128,24 @@
 
     };
 
+    _c.log_message_to_user = function (game, message, importance, color) {
+        var $msg = $('<div>')
+            .html(message)
+            .prependTo($pointers.message_display);
+
+        if (importance == 4) {
+            $msg.css({backgroundColor:color || 'red', color:'black', border:'1px solid white'});
+        }
+        if (importance == 3) {
+            $msg.css({backgroundColor:color || 'orange', color:'black'});
+        }
+        if (importance == 2) {
+            $msg.css({color:'red'});
+        }
+        if (importance == 1) {
+            $msg.css({color:'orange'});
+        }
+    };
 
 
     _c.show_info = function (info) {

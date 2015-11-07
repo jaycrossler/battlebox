@@ -1,6 +1,11 @@
 var Battlebox = (function ($, _, Helpers, maths) {
     //Uses jquery and Underscore
 
+    //TODO: Move rot random functions into all game systems
+    //TODO: rename "funcs" to "callbacks"
+    //TODO: Add note of why hex skips alternate y xs
+    //TODO: Have better way to track free-cells, or pick places on sides of screen
+
     //-----------------------------
     //Private Global variables
     var version = '0.0.1',

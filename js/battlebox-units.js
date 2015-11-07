@@ -11,7 +11,7 @@
         _.each(list || [], function (unit_info, id) {
             game.entities.push(_c.create_unit(game, unit_info, id))
         });
-        return game.entities;
+        return _c.entities(game);
     };
 
     _c.create_unit = function (game, unit_info, id) {
@@ -43,14 +43,36 @@
     _c.try_to_move_to_and_draw = function (game, unit, x, y, move_through_impassibles) {
         var valid = _c.is_valid_location(game, x, y, move_through_impassibles);
         if (valid) {
-            var previous_x = unit._x;
-            var previous_y = unit._y;
-            unit._x = x;
-            unit._y = y;
-            _c.draw_tile(game, previous_x, previous_y);
-            unit._draw();
+            var is_unit_there = _c.find_unit_status(game, unit, {location:{x:x, y:y}});
+            if (is_unit_there) {
+                if (is_unit_there.side != unit.side) {
+                    valid = _c.entity_attacks_entity(game, unit, is_unit_there, _c.log_message_to_user);
+                } else {
+                    //TODO: What to do if on same sides?
+                }
+            }
+
+            if (valid) {
+                var previous_x = unit._x;
+                var previous_y = unit._y;
+                unit._x = x;
+                unit._y = y;
+                _c.draw_tile(game, previous_x, previous_y);
+                unit._draw();
+            }
         }
         return valid;
+    };
+
+    _c.remove_entity = function(game, unit) {
+        var entity_id = _.indexOf(game.entities, unit);
+        if (entity_id > -1) {
+            var x = unit._x;
+            var y = unit._y;
+            delete game.entities[entity_id];
+            //TODO: Collapse entities
+            _c.draw_tile(game, x, y);
+        }
     };
 
     //--------------------
@@ -141,7 +163,7 @@
             _c.movement_strategies.avoid(game, unit, target_status, options)
         }
 
-    }
+    };
 
 
     //--------------------
@@ -158,7 +180,7 @@
             unit._game.engine.lock();
             window.addEventListener("keydown", this);
         } else {
-            if (unit._data.plan) {
+            if (!unit.is_dead && unit._data.plan) {
                 unit.execute_plan();
             }
         }
@@ -214,7 +236,7 @@
     OpForce.prototype.act = function () {
         var unit = this;
 
-        if (unit._data.plan) {
+        if (!unit.is_dead && unit._data.plan) {
             unit.execute_plan()
         }
 

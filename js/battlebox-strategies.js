@@ -23,8 +23,13 @@
 
     _c.find_unit_status = function (game, current_unit, options) {
 
-        var targets = game.entities;
+        var targets = _c.entities(game);
 
+        if (options.location) {
+            targets = _.filter(targets, function (t) {
+                return (t._x == options.location.x && t._y == options.location.y);
+            });
+        }
         if (options.side) {
             targets = _.filter(targets, function (t) {
                 return (options.side == 'enemy' ? (current_unit._data.side != t._data.side) : current_unit._data.side == t._data.side);
@@ -43,13 +48,30 @@
             }
         }
 
-        var target = targets[0] || game.entities[0];
-        var closest_path = _c.path_from_to(game, current_unit._x, current_unit._y, target._x, target._y);
-        var range = closest_path.length || 0;
+        var target, range, closest_path, x, y;
+        if (options.return_multiple) {
+            if (targets.length) {
+                closest_path = _c.path_from_to(game, current_unit._x, current_unit._y, targets[0]._x, targets[0]._y);
+                range = closest_path.length || 0;
 
-        var x, y;
-        if (target.getX) x = target.getX();
-        if (target.getY) y = target.getY();
+                if (targets[0].getX) x = targets[0].getX();
+                if (targets[0].getY) y = targets[0].getY();
+                target = targets;
+            } else {
+                target = [];
+                x = 0;
+                y = 0;
+                range = 0;
+            }
+
+        } else {
+            target = targets[0] || _c.entities(game)[0];
+            closest_path = _c.path_from_to(game, current_unit._x, current_unit._y, target._x, target._y);
+            range = closest_path.length || 0;
+
+            if (target.getX) x = target.getX();
+            if (target.getY) y = target.getY();
+        }
 
         return {target: target, x: x, y: y, range: range};
     };
@@ -94,6 +116,7 @@
             }
         }
 
+        //TODO: Only if in likely range
         var path = _c.path_from_to(game, unit._x, unit._y, x, y);
 
         //If too far, then just wander
@@ -107,9 +130,8 @@
         }
 
         path.shift();
-        if (path.length == 1) {
-            game.engine.lock();
-            alert("Game over - you were captured by OpForce!");
+        if (path.length <= 1) {
+            _c.entity_attacks_entity(game, unit, target_status.target, _c.log_message_to_user);
 
         } else if (path.length > 1) {
             //Walk towards the enemy

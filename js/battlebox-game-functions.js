@@ -78,11 +78,21 @@
 
     _c.build_scheduler = function(game) {
         var scheduler = new ROT.Scheduler.Simple();
-        _.each(game.entities, function(entity){
+        _.each(_c.entities(game), function(entity){
             scheduler.add(entity, true);
         });
         game.engine = new ROT.Engine(scheduler);
 
+    };
+
+    _c.entities = function(game) {
+        var entities = [];
+        for (var i=0; i<game.entities.length; i++) {
+            if (game.entities[i]) {
+                entities.push(game.entities[i]);
+            }
+        }
+        return entities;
     };
 
     _c.tile_info = function(game, x, y) {
@@ -96,7 +106,7 @@
             info = _.clone(cell);
         }
 
-        _.each(game.entities, function (entity, id) {
+        _.each(_c.entities(game), function (entity, id) {
             if (entity._x == x && entity._y == y && entity._draw) {
                 info.forces = info.forces || [];
                 info.forces.push({id: id, data:entity._data});
@@ -104,6 +114,11 @@
         });
 
         return info;
+    };
+
+    _c.game_over = function(game, side_wins) {
+
+        _c.log_message_to_user(game, "Game Over!  " + side_wins + ' wins!', 4, side_wins);
     }
 
 

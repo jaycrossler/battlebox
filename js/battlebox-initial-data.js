@@ -9,7 +9,7 @@
 
         cols: 200,
         rows: 50,
-        cell_size: 15,
+        cell_size: 17,
 
         height: 'mountainous',
 
