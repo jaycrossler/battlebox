@@ -61,7 +61,7 @@
         }
 
         if (text === undefined) {
-            text = cell.symbol || " ";
+            text = cell ? cell.symbol || " " : " "
         }
         var bg = bg_color;
         if (!bg) {

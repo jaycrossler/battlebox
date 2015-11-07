@@ -41,15 +41,18 @@
         }
     };
 
-    function try_to_move_to_and_draw (game, unit, x, y) {
-        var previous_x = unit._x;
-        var previous_y = unit._y;
-        unit._x = x;
-        unit._y = y;
-        _c.draw_tile(game, previous_x, previous_y);
-        unit._draw();
-
-    }
+    _c.try_to_move_to_and_draw = function (game, unit, x, y) {
+        var valid = _c.is_valid_location(game, x, y);
+        if (valid) {
+            var previous_x = unit._x;
+            var previous_y = unit._y;
+            unit._x = x;
+            unit._y = y;
+            _c.draw_tile(game, previous_x, previous_y);
+            unit._draw();
+        }
+        return valid;
+    };
 
 
     ///------------------
@@ -64,7 +67,7 @@
     };
 
     Player.prototype._draw = function (x, y) {
-        _c.draw_tile(this._game, x || this._x, y || this._y, this._symbol, "#000", "#ff0");
+        _c.draw_tile(this._game, x || this._x, y || this._y, this._symbol || "!", "#000", "#ff0");
     };
 
     Player.prototype.act = function () {
@@ -98,7 +101,7 @@
 
             var can_move = unit.try_move(game, x, y);
             if (can_move) {
-                try_to_move_to_and_draw(game, unit, x, y);
+                _c.try_to_move_to_and_draw(game, unit, x, y);
             }
 
             window.removeEventListener("keydown", this);
@@ -108,14 +111,9 @@
     };
 
     Player.prototype.execute_action = function (game, unit) {
-        var key = unit._x + "," + unit._y;
-
         var cell = game.cells[unit._x][unit._y];
-//        var map_val = game.map[key];
         console.log("Player at x: " + unit._x + ", y: " + unit._y);
-//        console.log("Map value here is: [" + map_val + "]");
         console.log("Cell value here is: [" + JSON.stringify(cell) + "]");
-
     };
     Player.prototype.getX = function () {
         return this._x;
@@ -147,46 +145,36 @@
     };
 
     OpForce.prototype._draw = function (x, y) {
-        _c.draw_tile(this._game, x || this._x, y || this._y, "P", "#000", "red");
+        _c.draw_tile(this._game, x || this._x, y || this._y, this._symbol || "P", "#000", "red");
     };
 
     OpForce.prototype.act = function () {
         var unit = this;
         var game = this._game;
 
-        //TODO: Make a get nearest enemy function
-        var x = game.entities[0].getX();
-        var y = game.entities[0].getY();
 
-        var passableCallback = function (x, y) {
-            return game.cells[x][y] && !game.cells[x][y].impassible;
-        };
-        var astar = new ROT.Path.AStar(x, y, passableCallback, {topology: 6});
-        var path = [];
-        var pathCallback = function (x, y) {
-            path.push([x, y]);
-        };
-        astar.compute(this._x, this._y, pathCallback);
+        var plan = unit._data.plan || 'seek closest';
+        var options, target_status;
 
-        path.shift();
+        if (plan == 'seek closest') {
+            options = {side:'enemy', filter:'closest', range:20, plan:plan};
+            target_status = _c.find_unit_status(game, unit, options);
+            _c.movement_strategies.seek(game, unit, target_status, options)
 
-        if (path.length == 1) {
-            this._game.engine.lock();
-            alert("Game over - you were captured by OpForce!");
+        } else if (plan == 'vigilant') {
+            options = {side:'enemy', filter:'closest', range:12, plan:plan, backup_strategy:'wait'};
+            target_status = _c.find_unit_status(game, unit, options);
+            _c.movement_strategies.seek(game, unit, target_status, options)
 
-        } else if (path.length > 1) {
-            //Walk towards the enemy
-            x = path[0][0];
-            y = path[0][1];
+        } else if (plan == 'wander') {
+            _c.movement_strategies.wander(game, unit);
 
-            try_to_move_to_and_draw(game, unit, x, y);
-
-
-//            _c.draw_tile(game, unit._x, unit._y);
-//            this._x = x;
-//            this._y = y;
-//            this._draw();
+        } else if (plan == 'seek weakest') {
+            options = {side:'enemy', filter:'weakest', range:20, plan:plan};
+            target_status = _c.find_unit_status(game, unit, options);
+            _c.movement_strategies.seek(game, unit, target_status, options)
         }
+
     };
 
 

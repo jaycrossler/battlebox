@@ -168,6 +168,9 @@ var Battlebox = (function ($, _, Helpers, maths) {
     BattleboxClass.prototype.randomSetSeed = function (seed) {
         this.game_options = this.game_options || {};
         this.game_options.rand_seed = seed || Math.random();
+
+        //Also set the Rot.JS seed
+        ROT.RNG.setSeed(this.game_options.rand_seed);
     };
 
     function random(game_options) {

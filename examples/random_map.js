@@ -1,5 +1,5 @@
 var battlebox = null;
 
 $(function () {
-    battlebox = new Battlebox();
+    battlebox = new Battlebox({rand_seed:42});
 });

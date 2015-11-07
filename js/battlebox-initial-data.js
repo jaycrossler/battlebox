@@ -11,6 +11,8 @@
         rows: 50,
         cell_size: 15,
 
+        height: 'mountainous',
+
         terrain_options: [
             {name:'plains', ground:true, draw_type: 'flat', color:["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"], symbol:' '},
             {name:'mountains', density:'sparse', smoothness: 3, not_center:true, color:['brown'], impassible:true, symbol:'M'},
@@ -20,12 +22,21 @@
         ],
 
         forces: [
-            {name:'Attacker Main Army Force', side: 'Red', location:'random', troops:[{name:'soldiers', amount:520}, {name:'cavalry', amount:230}, {name:'siege', amount:50}]},
-            {name:'Task Force Alpha', side: 'Red', symbol:'#A', location:'random', troops:[{name:'soldiers', amount:20}, {name:'cavalry', amount:50}]},
-            {name:'Task Force Bravo', side: 'Red', symbol:'#B', location:'random', troops:[{name:'soldiers', amount:20}, {name:'cavalry', amount:50}]},
-            {name:'Task Force Charlie', side: 'Red', symbol:'#C', location:'random', troops:[{name:'soldiers', amount:20}, {name:'cavalry', amount:50}]},
+            {name:'Attacker Main Army Force', side: 'Red', location:'random',
+                troops:{soldiers:520, cavalry:230, siege:50}},
 
-            {name:'Defender City Force', side: 'Blue', location:'center', troops:[{name:'soldiers', amount:320}, {name:'cavalry', amount:290}, {name:'siege', amount:150}]}
+            {name:'Task Force Alpha', side: 'Red', symbol:'#A', location:'random',
+                troops:{soldiers:80, cavalry:20, siege:10}},
+
+            {name:'Task Force Bravo', side: 'Red', symbol:'#B', location:'random',
+                troops:{cavalry:20}},
+
+            {name:'Task Force Charlie', side: 'Red', symbol:'#C', location:'random',
+                troops:{cavalry:20}},
+
+            {name:'Defender City Force', side: 'Blue', location:'center',
+                plan: 'seek closest', backup_strategy: 'vigilant',
+                troops:{soldiers:620, cavalry:40, siege:100}}
         ],
 
         buildings:[
