@@ -26,12 +26,15 @@
                 troops:{soldiers:520, cavalry:230, siege:50}},
 
             {name:'Task Force Alpha', side: 'Yellow', symbol:'#A', location:'random',
+                plan: 'run away', backup_strategy: 'bombard',
                 troops:{soldiers:80, cavalry:20, siege:10}},
 
             {name:'Task Force Bravo', side: 'Yellow', symbol:'#B', location:'random',
+                plan: 'seek closest', backup_strategy: 'vigilant',
                 troops:{cavalry:20}},
 
             {name:'Task Force Charlie', side: 'Yellow', symbol:'#C', location:'random',
+                plan: 'wander',
                 troops:{cavalry:20}},
 
             {name:'Defender City Force', side: 'Pink', location:'center',

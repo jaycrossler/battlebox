@@ -40,8 +40,8 @@
         }
     };
 
-    _c.try_to_move_to_and_draw = function (game, unit, x, y) {
-        var valid = _c.is_valid_location(game, x, y);
+    _c.try_to_move_to_and_draw = function (game, unit, x, y, move_through_impassibles) {
+        var valid = _c.is_valid_location(game, x, y, move_through_impassibles);
         if (valid) {
             var previous_x = unit._x;
             var previous_y = unit._y;
@@ -109,6 +109,39 @@
 
         return result;
     };
+    Entity.prototype.execute_plan = function() {
+        var unit = this;
+        var game = unit._game;
+
+
+        var plan = unit._data.plan || 'seek closest';
+        var options, target_status;
+
+        if (plan == 'seek closest') {
+            options = {side:'enemy', filter:'closest', range:20, plan:plan};
+            target_status = _c.find_unit_status(game, unit, options);
+            _c.movement_strategies.seek(game, unit, target_status, options)
+
+        } else if (plan == 'vigilant') {
+            options = {side:'enemy', filter:'closest', range:12, plan:plan};
+            target_status = _c.find_unit_status(game, unit, options);
+            _c.movement_strategies.seek(game, unit, target_status, options)
+
+        } else if (plan == 'wander') {
+            _c.movement_strategies.wander(game, unit);
+
+        } else if (plan == 'seek weakest') {
+            options = {side:'enemy', filter:'weakest', range:20, plan:plan};
+            target_status = _c.find_unit_status(game, unit, options);
+            _c.movement_strategies.seek(game, unit, target_status, options)
+
+        } else if (plan == 'run away') {
+            options = {side:'enemy', filter:'closest', range:12, plan:plan, backup_strategy:'vigilant'};
+            target_status = _c.find_unit_status(game, unit, options);
+            _c.movement_strategies.avoid(game, unit, target_status, options)
+        }
+
+    }
 
 
     //--------------------
@@ -118,10 +151,16 @@
     Player.extend(Entity);
 
     Player.prototype.act = function () {
+        var unit = this;
+
         /* wait for user input; do stuff when user hits a key */
-        if (this._id == controlled_entity_id) {
-            this._game.engine.lock();
+        if (unit._id == controlled_entity_id) {
+            unit._game.engine.lock();
             window.addEventListener("keydown", this);
+        } else {
+            if (unit._data.plan) {
+                unit.execute_plan();
+            }
         }
     };
 
@@ -174,29 +213,9 @@
 
     OpForce.prototype.act = function () {
         var unit = this;
-        var game = this._game;
 
-
-        var plan = unit._data.plan || 'seek closest';
-        var options, target_status;
-
-        if (plan == 'seek closest') {
-            options = {side:'enemy', filter:'closest', range:20, plan:plan};
-            target_status = _c.find_unit_status(game, unit, options);
-            _c.movement_strategies.seek(game, unit, target_status, options)
-
-        } else if (plan == 'vigilant') {
-            options = {side:'enemy', filter:'closest', range:12, plan:plan, backup_strategy:'wait'};
-            target_status = _c.find_unit_status(game, unit, options);
-            _c.movement_strategies.seek(game, unit, target_status, options)
-
-        } else if (plan == 'wander') {
-            _c.movement_strategies.wander(game, unit);
-
-        } else if (plan == 'seek weakest') {
-            options = {side:'enemy', filter:'weakest', range:20, plan:plan};
-            target_status = _c.find_unit_status(game, unit, options);
-            _c.movement_strategies.seek(game, unit, target_status, options)
+        if (unit._data.plan) {
+            unit.execute_plan()
         }
 
     };
