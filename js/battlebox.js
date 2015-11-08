@@ -179,10 +179,12 @@ var Battlebox = (function ($, _, Helpers, maths) {
     };
 
     function random(game_options) {
-        game_options = game_options || {};
-        game_options.rand_seed = game_options.rand_seed || Math.random();
-        var x = Math.sin(game_options.rand_seed++) * 300000;
-        return x - Math.floor(x);
+        return ROT.RNG.getUniform();
+
+//        game_options = game_options || {};
+//        game_options.rand_seed = game_options.rand_seed || Math.random();
+//        var x = Math.sin(game_options.rand_seed++) * 300000;
+//        return x - Math.floor(x);
     }
 
     function randInt(max, game_options) {

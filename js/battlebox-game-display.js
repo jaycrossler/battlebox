@@ -33,6 +33,12 @@
 
         _c.build_scheduler(game);
 
+        $pointers.logs = $("<div>")
+            .css({color:'gray'})
+            .appendTo($pointers.message_display);
+
+        game.logMessage(game.log());
+
         return container_canvas;
     };
 

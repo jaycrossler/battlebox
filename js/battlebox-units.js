@@ -15,29 +15,16 @@
     };
 
     _c.create_unit = function (game, unit_info, id) {
-        var index = 0;
-        if (unit_info.location == 'center') {
-            index = Math.floor(.5 * game.open_space.length);
 
-        } else if (unit_info.location == 'random') {
-            index = Math.floor(ROT.RNG.getUniform() * game.open_space.length);
-        }
+        var location = _c.find_location(game, unit_info);
 
-        if (!game.open_space.length) {
-            console.error("No open spaces, can't draw units");
+        var EntityType;
+        if (unit_info.player) {
+            EntityType = Player;
         } else {
-            var key = game.open_space[index];
-            var x = parseInt(key[0]);
-            var y = parseInt(key[1]);
-
-            var EntityType;
-            if (unit_info.side == 'Yellow') {
-                EntityType = Player;
-            } else {
-                EntityType = OpForce;
-            }
-            return new EntityType(game, x, y, id, unit_info);
+            EntityType = OpForce;
         }
+        return new EntityType(game, location.x, location.y, id, unit_info);
     };
 
     _c.try_to_move_to_and_draw = function (game, unit, x, y, move_through_impassibles) {
@@ -147,12 +134,9 @@
             _c.movement_strategies.seek(game, unit, target_status, options)
 
         } else if (plan == 'vigilant') {
-            options = {side:'enemy', filter:'closest', range:12, plan:plan};
+            options = {side:'enemy', filter:'closest', range:4, plan:plan};
             target_status = _c.find_unit_status(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
-
-        } else if (plan == 'wander') {
-            _c.movement_strategies.wander(game, unit);
 
         } else if (plan == 'seek weakest') {
             options = {side:'enemy', filter:'weakest', range:20, plan:plan};
@@ -163,6 +147,9 @@
             options = {side:'enemy', filter:'closest', range:12, plan:plan, backup_strategy:'vigilant'};
             target_status = _c.find_unit_status(game, unit, options);
             _c.movement_strategies.avoid(game, unit, target_status, options)
+
+        } else { //if (plan == 'wander') {
+            _c.movement_strategies.wander(game, unit);
         }
 
     };

@@ -1,6 +1,120 @@
 (function (Battlebox) {
     var _c = new Battlebox('get_private_functions');
 
+    _c.tile_info = function (game, x, y) {
+        var info = {};
+
+        var cell = game.cells[x];
+        if (cell) {
+            cell = cell[y];
+        }
+        if (cell) {
+            info = _.clone(cell);
+        }
+
+        _.each(_c.entities(game), function (entity, id) {
+            if (entity._x == x && entity._y == y && entity._draw) {
+                info.forces = info.forces || [];
+                info.forces.push({id: id, data: entity._data});
+            }
+        });
+        return info;
+    };
+
+    _c.is_valid_location = function (game, x, y, move_through_impassibles, only_impassible) {
+        var valid_num = (x >= 0) && (y >= 0) && (x < _c.cols(game)) && (y < _c.rows(game));
+        if (valid_num) {
+            var cell = game.cells[x];
+            if (cell !== undefined && cell[y] !== undefined) {
+                cell = cell[y];
+                if (!move_through_impassibles && cell.impassible) {
+                    valid_num = false;
+                }
+                if (only_impassible && cell.impassible) {
+                    valid_num = true;
+                }
+            } else {
+                valid_num = false;
+            }
+
+        }
+        return valid_num
+    };
+
+
+    _c.find_location = function (game, options) {
+
+        var x, y, i, tries = 50, index = 0, key;
+        if (options.location == 'center') {
+            for (i = 0; i < tries; i++) {
+                x = (_c.cols(game) / 2) + _c.randInt(_c.cols(game) / 6) - (_c.cols(game) / 12) - 1;
+                y = (_c.rows(game) / 2) + _c.randInt(_c.rows(game) / 6) - (_c.rows(game) / 12) - 1;
+
+                x = Math.floor(x);
+                y = Math.floor(y);
+                if (_c.is_valid_location(game, x, y, false)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'left') {
+
+            for (i = 0; i < tries; i++) {
+                x = _c.randOption([0, 1, 2]);
+                y = _c.randInt(_c.rows(game));
+
+                if (_c.is_valid_location(game, x, y, false)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'right') {
+
+            var right = _c.cols(game);
+            for (i = 0; i < tries; i++) {
+                x = _c.randOption([right - 1, right - 2, right - 3]);
+                y = _c.randInt(_c.rows(game));
+
+                if (_c.is_valid_location(game, x, y, false)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'impassible') {
+            for (i = 0; i < tries; i++) {
+                x = (_c.randInt(_c.cols(game)));
+                y = (_c.randInt(_c.rows(game)));
+
+                var loc = _c.is_valid_location(game, x, y, true, true);
+                if (loc) {
+                    break;
+                }
+            }
+
+        } else { //if (options.location == 'random') {
+            index = Math.floor(ROT.RNG.getUniform() * game.open_space.length);
+            key = game.open_space[index];
+            x = parseInt(key[0]);
+            y = parseInt(key[1]);
+        }
+
+        //Do a last final check for valid
+        if (!_c.is_valid_location(game, x, y, true)) {
+            index = Math.floor(ROT.RNG.getUniform() * game.open_space.length);
+            key = game.open_space[index];
+            x = parseInt(key[0]);
+            y = parseInt(key[1]);
+        }
+
+        if (!game.open_space.length || x === undefined || y === undefined) {
+            console.error("No open spaces, can't draw units");
+            x = 0;
+            y = game.randInt(_c.rows(gmae), game.game_options);
+        }
+
+        return {x: x, y: y};
+    };
+
     _c.generate_battle_map = function (game) {
         game.data.terrain_options = game.data.terrain_options || [];
         if (game.data.terrain_options.length == 0) {
@@ -102,7 +216,7 @@
                 if (cells[x][y] && cells[x][y].impassible) {
                     //Something in this cell that makes it not able to move upon
                 } else {
-                    freeCells.push([x,y]);
+                    freeCells.push([x, y]);
                     if (!cells[x][y].name) {
                         cells[x][y] = _.clone(ground_layer);
                         cells[x][y].color = cells[x][y].color.random();

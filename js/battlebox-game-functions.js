@@ -80,7 +80,7 @@
     _c.build_scheduler = function(game) {
         var scheduler = new ROT.Scheduler.Simple();
         _.each(_c.entities(game), function(entity){
-            scheduler.add(entity, true);
+            scheduler.add(entity, true);  //TODO: Is there a scheduler.remove that should trigger on death?
         });
         game.engine = new ROT.Engine(scheduler);
 
@@ -96,26 +96,7 @@
         return entities;
     };
 
-    _c.tile_info = function(game, x, y) {
-        var info = {};
 
-        var cell = game.cells[x];
-        if (cell) {
-            cell = cell[y];
-        }
-        if (cell) {
-            info = _.clone(cell);
-        }
-
-        _.each(_c.entities(game), function (entity, id) {
-            if (entity._x == x && entity._y == y && entity._draw) {
-                info.forces = info.forces || [];
-                info.forces.push({id: id, data:entity._data});
-            }
-        });
-
-        return info;
-    };
 
     _c.game_over = function(game, side_wins) {
 

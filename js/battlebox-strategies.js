@@ -78,24 +78,12 @@
         return {target: target, x: x, y: y, range: range};
     };
 
-    _c.is_valid_location = function (game, x, y, move_through_impassibles) {
-        var valid_num = (x >= 0) && (y >= 0) && (x < _c.cols(game)) && (y < _c.rows(game));
-        if (valid_num) {
-            var cell = game.cells[x];
-            if (cell !== undefined && cell[y] !== undefined) {
-                cell = cell[y];
-                if (!move_through_impassibles && cell.impassible) {
-                    valid_num = false;
-                }
-            } else {
-                valid_num = false;
-            }
-
-        }
-        return valid_num
-    };
-
     _c.movement_strategies = _c.movement_strategies || {};
+
+
+    _c.movement_strategies.vigilant = function (game, unit) {
+        _c.log_message_to_user(game, unit.describe() + ' ' + "stays vigilant and doesn't move", 1);
+    };
 
     _c.movement_strategies.wander = function (game, unit) {
         var code = Helpers.randOption([0, 1, 2, 3, 4, 5]);
@@ -103,14 +91,23 @@
         var y = unit._y + dir[1];
         var x = unit._x + dir[0];
 
-        _c.try_to_move_to_and_draw(game, unit, x, y);
+        var msg = unit.describe() + ' ';
+
+        var moves = _c.try_to_move_to_and_draw(game, unit, x, y);
+        if (moves) {
+            _c.log_message_to_user(game, msg+ "wanders a space", 1);
+        } else {
+            _c.log_message_to_user(game, msg+ "stays vigilant and doesn't move", 1);
+        }
     };
 
     _c.movement_strategies.seek = function (game, unit, target_status, options) {
         var x = target_status.target ? target_status.target.getX() : -1;
         var y = target_status.target ? target_status.target.getY() : -1;
+
         if (!_c.is_valid_location(game, x, y)) {
             if (options.backup_strategy == 'vigilant') {
+                _c.movement_strategies.vigilant(game, unit);
                 return;
             } else { //wander
                 _c.movement_strategies.wander(game, unit);
@@ -124,6 +121,7 @@
         //If too far, then just wander
         if (options.range && path && path.length > options.range) {
             if (options.backup_strategy == 'vigilant') {
+                _c.movement_strategies.vigilant(game, unit);
                 return;
             } else { //if (options.backup_strategy == 'wander') {
                 _c.movement_strategies.wander(game, unit);
@@ -133,6 +131,7 @@
 
         path.shift();
         if (path.length <= 1) {
+            _c.log_message_to_user(game, unit.describe() + " attacks nearby target: " + target_status.target.describe(), 1);
             _c.entity_attacks_entity(game, unit, target_status.target, _c.log_message_to_user);
 
         } else if (path.length > 1) {
@@ -140,6 +139,7 @@
             x = path[0][0];
             y = path[0][1];
             _c.try_to_move_to_and_draw(game, unit, x, y);
+            _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + target_status.target.describe(), 1);
         }
     };
 
@@ -148,6 +148,7 @@
         var y = target_status.target ? target_status.target.getY() : -1;
         if (!_c.is_valid_location(game, x, y)) {
             if (options.backup_strategy == 'vigilant') {
+                _c.movement_strategies.vigilant(game, unit);
                 return;
             } else { //wander
                 _c.movement_strategies.wander(game, unit, options);
@@ -177,15 +178,13 @@
                 if (!could_move) {
                     _c.movement_strategies.wander(game, unit);
                 }
-
             }
 
         } else {
             if (options.backup_strategy == 'vigilant') {
-                return;
+                _c.movement_strategies.vigilant(game, unit);
             } else { //if (options.backup_strategy == 'wander') {
                 _c.movement_strategies.wander(game, unit);
-                return;
             }
         }
     };

@@ -1,5 +1,7 @@
 (function (Battlebox) {
 
+    //TODO: Game still goes on if main player's force is killed - move to all autonomous on timer
+
     var _c = new Battlebox('get_private_functions');
 
     _c.entity_attacks_entity = function (game, attacker, defender, callback) {
