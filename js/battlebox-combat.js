@@ -7,13 +7,13 @@
         defender._data.troops = defender._data.troops || {};
         callback = callback || _c.log_message_to_user;
 
-        var a_name = attacker._name || "Attacker";
+        var a_name = attacker._data.name || "Attacker";
         var a_side = attacker._data.side || "Side 1";
-        var a_count = (attacker._data.troops.soldiers || 0) + (attacker._data.troops.cavalry || 0) + (attacker._data.troops.siege || 0);
+        var a_count = (attacker._data.troops.soldiers || 0) + (attacker._data.troops.cavalry || 0) + (attacker._data.troops.siege || 0) + (1000 * (attacker._data.troops.adult_dragon || 0));
 
-        var d_name = defender._name || "Defender";
+        var d_name = defender._data.name || "Defender";
         var b_side = defender._data.side || "Side 2";
-        var d_count = (defender._data.troops.soldiers || 0) + (defender._data.troops.cavalry || 0) + (defender._data.troops.siege || 0);
+        var d_count = (defender._data.troops.soldiers || 0) + (defender._data.troops.cavalry || 0) + (defender._data.troops.siege || 0) + (1000 * (defender._data.troops.adult_dragon || 0));
 
         var enemies_alive;
         var message = "";
