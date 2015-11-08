@@ -7,14 +7,14 @@
         $pointers.message_display = $('#message_display');
 
         game.display = new ROT.Display({
-//            transpose: true,
-            width: game.game_options.cols,
-            height: game.game_options.rows,
+            transpose: game.game_options.transpose,
+            width: _c.cols(game),
+            height: _c.rows(game),
             fontSize: game.game_options.cell_size,
             layout: "hex",
 //            fontFamily: "droid sans mono",
-            border: 0.1,
-            spacing: .88
+            border: game.game_options.cell_border || 0.1,
+            spacing: game.game_options.cell_spacing || .88
         });
         var container_canvas = game.display.getContainer();
 
@@ -26,8 +26,9 @@
 
         _c.generate_battle_map(game);
 
-        _c.drawWholeMap(game);
+        _c.draw_whole_map(game);
 
+        ROT.RNG.setSeed(game.data.fight_seed || game.data.rand_seed);
         _c.build_units_from_list(game, game.data.forces);
 
         _c.build_scheduler(game);
@@ -35,10 +36,17 @@
         return container_canvas;
     };
 
-    _c.drawWholeMap = function (game) {
+    _c.rows = function (game) {
+        return game.game_options.transpose ? game.game_options.cols: game.game_options.rows;
+    };
+    _c.cols = function (game) {
+        return game.game_options.transpose ? game.game_options.rows: game.game_options.cols;
+    };
+
+    _c.draw_whole_map = function (game) {
         //Draw every tile
-        for (var y = 0; y < game.game_options.rows; y++) {
-            for (var x = y % 2; x < game.game_options.cols; x += 2) {
+        for (var y = 0; y < _c.rows(game); y++) {
+            for (var x = y % 2; x < _c.cols(game); x += 2) {
                 _c.draw_tile(game, x, y);
             }
         }

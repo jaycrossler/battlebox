@@ -10,8 +10,8 @@
         }
 
         var cells = [];
-        for (var y = 0; y < game.game_options.rows; y++) {
-            for (var x = y % 2; x < game.game_options.cols; x += 2) {
+        for (var y = 0; y < _c.rows(game); y++) {
+            for (var x = y % 2; x < _c.cols(game); x += 2) {
                 cells[x] = cells[x] || [];
                 cells[x][y] = {};
             }
@@ -21,7 +21,7 @@
         _.each(game.data.terrain_options, function (terrain_layer) {
             var map_layer;
             if (terrain_layer.draw_type == 'digger') {
-                map_layer = new ROT.Map.Digger(game.game_options.cols, game.game_options.rows);
+                map_layer = new ROT.Map.Digger(_c.cols(game), _c.rows(game));
 
             } else if (terrain_layer.draw_type != 'flat') {
                 //Use Cellular generation style
@@ -43,7 +43,7 @@
                     survive = [3, 4, 5, 6];
                 }
 
-                map_layer = new ROT.Map.Cellular(game.game_options.cols, game.game_options.rows, {
+                map_layer = new ROT.Map.Cellular(_c.cols(game), _c.rows(game), {
                     //connected: true,
                     topology: 6,
                     born: born,
@@ -53,10 +53,10 @@
 
                 // initialize with irregularly random values with less in middle
                 if (terrain_layer.not_center) {
-                    for (var i = 0; i < game.game_options.cols; i++) {
-                        for (var j = 0; j < game.game_options.rows; j++) {
-                            var dx = i / game.game_options.cols - 0.5;
-                            var dy = j / game.game_options.rows - 0.5;
+                    for (var i = 0; i < _c.cols(game); i++) {
+                        for (var j = 0; j < _c.rows(game); j++) {
+                            var dx = i / _c.cols(game) - 0.5;
+                            var dy = j / _c.rows(game) - 0.5;
                             var dist = Math.pow(dx * dx + dy * dy, 0.3);
                             if (ROT.RNG.getUniform() < dist) {
                                 map_layer.set(i, j, 1);
@@ -96,8 +96,8 @@
             return l.ground
         }) || game.data.terrain_options[0];
 
-        for (var y = 0; y < game.game_options.rows; y++) {
-            for (var x = y % 2; x < game.game_options.cols; x += 2) {
+        for (var y = 0; y < _c.rows(game); y++) {
+            for (var x = y % 2; x < _c.cols(game); x += 2) {
 
                 if (cells[x][y] && cells[x][y].impassible) {
                     //Something in this cell that makes it not able to move upon

@@ -27,6 +27,7 @@
         });
 
         game.data.rand_seed = game.data.rand_seed || game.game_options.rand_seed;
+        game.data.fight_seed = game.data.fight_seed || game.game_options.fight_seed || game.data.rand_seed;
         game.data.tick_count = game.data.tick_count || 0;
     };
     _c.info = function (game, kind, name, sub_var, if_not_listed) {

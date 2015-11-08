@@ -124,11 +124,13 @@
     Entity.prototype.try_move = function (game, x, y) {
         var result = false;
 
-        var cell = game.cells[x][y];
-        if (cell && !cell.impassible) {
-            result = true;
+        var cell = game.cells[x];
+        if (cell) {
+            cell = cell[y];
+            if (cell && !cell.impassible) {
+                result = true;
+            }
         }
-
         return result;
     };
     Entity.prototype.execute_plan = function() {

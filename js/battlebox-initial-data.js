@@ -9,9 +9,13 @@
 
         cols: 200,
         rows: 50,
-        cell_size: 17,
+        cell_size: 13,
+        cell_spacing: 1.1,
+        cell_border: 0.01,
+        transpose: false, //TODO: If using transpose, a number of other functions for placement should be tweaked
 
-        height: 'mountainous',
+        render_style: 'outdoors', //TODO
+        height: 'mountainous', //TODO
 
         terrain_options: [
             {name:'plains', ground:true, draw_type: 'flat', color:["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"], symbol:' '},

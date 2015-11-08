@@ -19,6 +19,7 @@ h1{
 }
 #message_display{
     display: inline-block;
+    position: absolute;
     background-color: black;
     width: 300px;
     vertical-align: top;

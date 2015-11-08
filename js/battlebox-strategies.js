@@ -37,6 +37,8 @@
         }
         if (options.filter) {
             if (options.filter == 'closest') {
+                //TODO: Performance: First filter they are within a certain range. If too slow with many units, consider using a Dijkstra cached search each turn
+
                 targets = targets.sort(function (a, b) {
                     var path_a = _c.path_from_to(game, current_unit._x, current_unit._y, a._x, a._y);
                     var path_b = _c.path_from_to(game, current_unit._x, current_unit._y, b._x, b._y);
@@ -77,7 +79,7 @@
     };
 
     _c.is_valid_location = function (game, x, y, move_through_impassibles) {
-        var valid_num = (x >= 0) && (y >= 0) && (x < game.game_options.cols) && (y < game.game_options.rows);
+        var valid_num = (x >= 0) && (y >= 0) && (x < _c.cols(game)) && (y < _c.rows(game));
         if (valid_num) {
             var cell = game.cells[x];
             if (cell !== undefined && cell[y] !== undefined) {
