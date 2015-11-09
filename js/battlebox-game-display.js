@@ -42,6 +42,19 @@
 
         game.logMessage(game.log());
 
+        $pointers.play_pause_button = $('<button>')
+            .text('Pause')
+            .on('click', function () {
+                if ($pointers.play_pause_button.text() == 'Pause') {
+                    $pointers.play_pause_button.text('Play');
+                    _c.stop_game_loop(game);
+                } else {
+                    $pointers.play_pause_button.text('Pause');
+                    _c.start_game_loop(game);
+                }
+            })
+            .appendTo($pointers.canvas_holder);
+
         return container_canvas;
     };
 

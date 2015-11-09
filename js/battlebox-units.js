@@ -77,8 +77,11 @@
         return 100;
     };
     TimeKeeper.prototype.act = function () {
-        this._game.data.tick_count++;
-        console.log('Game Tick: ' + this._game.data.tick_count);
+        var time_keeper = this;
+        var game = time_keeper._game;
+
+        game.data.tick_count++;
+//        console.log('Game Tick: ' + game.data.tick_count);
 
         var done = null;
         var promise = {
@@ -87,9 +90,16 @@
             }
         };
 
-        setTimeout(function () {
-            done();
-        }, this._game.game_options.delay_between_ticks || 500);
+        //Allow game to be paused
+        var next_tick = function (done) {
+            if (game.data.in_progress) {
+                done();
+            } else {
+                setTimeout(function(){next_tick(done)}, game.game_options.delay_between_ticks || 500);
+            }
+        };
+
+        setTimeout(function(){next_tick(done)}, game.game_options.delay_between_ticks || 500);
 
         return promise;
     };
@@ -130,8 +140,18 @@
     };
 
     Entity.prototype._draw = function (x, y) {
-        //TODO: Handle x = 0
-        _c.draw_tile(this._game, x || this._x, y || this._y, this._symbol || "@", "#000", this._data.color || this._data.side);
+        var use_x, use_y;
+        if (x === undefined) {
+            use_x = this._x;
+        } else {
+            use_x = x;
+        }
+        if (y === undefined) {
+            use_y = this._y;
+        } else {
+            use_y = y;
+        }
+        _c.draw_tile(this._game, use_x, use_y, this._symbol || "@", "#000", this._data.color || this._data.side);
     };
     Entity.prototype.getX = function () {
         return this._x;

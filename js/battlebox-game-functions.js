@@ -68,12 +68,13 @@
 
     _c.start_game_loop = function (game) {
         game.logMessage("Starting game loop");
+        game.data.in_progress = true;
         game.engine.start();
     };
 
     _c.stop_game_loop = function (game) {
         game.logMessage("Stopping game loop");
-        game.engine.stop();
+        game.data.in_progress = false;
     };
 
     _c.build_scheduler = function(game) {
