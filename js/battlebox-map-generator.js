@@ -174,6 +174,33 @@
     };
 
     _c.generators = {};
+    _c.generators.storage = function(game, location, storage_info) {
+        var size = 2;
+        var loot_per = {};
+
+        storage_info.resources = storage_info.resources || {};
+        for (key in storage_info.resources) {
+            loot_per[key] = Math.round(storage_info.resources[key] / (size * size));
+        }
+
+
+        //TODO: How to make a hex rectange?
+        for (var x=location.x; x<= location.x+size; x++) {
+            for (var y=location.y; y< location.y+size; y++) {
+                var tile = _c.tile(game, x, y);
+                if (tile) {
+                    tile.loot = tile.loot || {};
+                    for (key in loot_per) {
+                        tile.loot[key] = tile.loot[key] || 0;
+                        tile.loot[key] += loot_per[key];
+                    }
+                    tile.additions = tile.additions || [];
+                    tile.additions.push('storage');
+                }
+            }
+        }
+
+    };
     _c.generators.city = function(game, location, city_info) {
 
         var building_tile_tries = Math.sqrt(city_info.population);
@@ -233,6 +260,9 @@
                 })
             }
         }
+
+        //TODO: Add city walls
+
         return city_cells;
     };
 
@@ -245,17 +275,15 @@
                 _c.generators.city(game, location, building_layer);
 
             } else if (building_layer.type == 'storage') {
+                _c.generators.storage(game, location, building_layer);
 
             } else if (building_layer.type == 'dungeon') {
+//    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
 
             }
         });
     };
 
-//    {name:'Large City', title:'Anchorage' type:'city', population:3000, fortifications:20, location:'center'},
-//    {name:'Grain Storage', type:'storage', resources:{food:10000, gold:2, herbs:100}, location:'random'},
-//    {name:'Metal Storage', type:'storage', resources:{metal:1000, gold:2, ore:1000}, location:'random'},
-//    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
 
 
     _c.generate_battle_map = function (game) {

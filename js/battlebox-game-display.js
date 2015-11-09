@@ -78,7 +78,6 @@
 
     _c.draw_tile = function (game, x, y, text, color, bg_color) {
         //Cell is used to get color and symbol
-        //TODO: Draw complex cells based on composition
 
         var cell = game.cells[x];
         if (cell) {
@@ -129,8 +128,11 @@
 
         if (!color && _c.hex_has(cell, 'road')) {
             text = ":";
-
             bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'),.5).toString();
+        }
+        if (!color && _c.hex_has(cell, 'storage')) {
+            text = "o";
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('red'),.1).toString();
         }
 
 
