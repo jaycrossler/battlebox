@@ -1,13 +1,24 @@
 (function (Battlebox) {
     var _c = new Battlebox('get_private_functions');
 
+    //TODO: Have difficulty of travel tied to color
+
+    _c.tile = function (game, x, y) {
+        var cell;
+        if (y === undefined) {
+            //Assume that x is an array
+            cell = game.cells[x[0]];
+            if (cell) cell = cell[x[1]];
+        } else {
+            cell = game.cells[x];
+            if (cell) cell = cell[y];
+        }
+        return cell;
+    };
     _c.tile_info = function (game, x, y) {
         var info = {};
 
-        var cell = game.cells[x];
-        if (cell) {
-            cell = cell[y];
-        }
+        var cell = _c.tile(game, x, y);
         if (cell) {
             info = _.clone(cell);
         }
@@ -21,12 +32,30 @@
         return info;
     };
 
+    _c.surrounding_cells = function(game, x, y) {
+        var cells = [];
+
+        var cell = _c.tile(game, x, y);
+        if (!cell) {
+            return cells;
+        }
+        _.each(ROT.DIRS[6], function(mods){
+            var new_x = x+mods[0];
+            var new_y = y+mods[1];
+            var new_cell = _c.tile(game, new_x, new_y);
+            if (new_cell) {
+                if (new_cell) cells.push(new_cell);
+            }
+        });
+
+        return cells;
+    };
+
     _c.is_valid_location = function (game, x, y, move_through_impassibles, only_impassible) {
         var valid_num = (x >= 0) && (y >= 0) && (x < _c.cols(game)) && (y < _c.rows(game));
         if (valid_num) {
-            var cell = game.cells[x];
-            if (cell !== undefined && cell[y] !== undefined) {
-                cell = cell[y];
+            var cell = _c.tile(game, x, y);
+            if (cell) {
                 if (!move_through_impassibles && cell.impassible) {
                     valid_num = false;
                 }
@@ -58,7 +87,6 @@
             }
 
         } else if (options.location == 'left') {
-
             for (i = 0; i < tries; i++) {
                 x = _c.randOption([0, 1, 2]);
                 y = _c.randInt(_c.rows(game));
@@ -69,11 +97,31 @@
             }
 
         } else if (options.location == 'right') {
-
             var right = _c.cols(game);
             for (i = 0; i < tries; i++) {
                 x = _c.randOption([right - 1, right - 2, right - 3]);
                 y = _c.randInt(_c.rows(game));
+
+                if (_c.is_valid_location(game, x, y, false)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'top') {
+            for (i = 0; i < tries; i++) {
+                x = _c.randInt(_c.cols(game));
+                y = _c.randOption([0, 1]);
+
+                if (_c.is_valid_location(game, x, y, false)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'bottom') {
+            var bottom = _c.rows(game);
+            for (i = 0; i < tries; i++) {
+                x = _c.randInt(_c.cols(game));
+                y = _c.randOption([bottom - 1, bottom - 2, bottom - 3]);
 
                 if (_c.is_valid_location(game, x, y, false)) {
                     break;
@@ -114,6 +162,101 @@
 
         return {x: x, y: y};
     };
+
+    _c.hex_has = function (cell, feature) {
+        var has = false;
+
+        if (cell.additions && _.indexOf(cell.additions, feature) > -1) {
+            has = true;
+        }
+        return has;
+
+    };
+
+    _c.generators = {};
+    _c.generators.city = function(game, location, city_info) {
+
+        var building_tile_tries = Math.sqrt(city_info.population);
+        var building_tile_radius = Math.pow(city_info.population, 1/3.2);
+        var number_of_roads = Math.pow(city_info.population / 100, 1/4);
+
+        var city_cells = [];
+
+        //Generate roads
+        var tries = 10;
+        var last_side = '';
+        for (var i=0; i<number_of_roads; i++) {
+            var side = _c.randOption(['left','right','top','bottom'], {}, last_side);
+            last_side = side;
+            for (var t=0; t<tries; t++) {
+                var starting = _c.find_location(game, {location: side});
+                var path = _c.path_from_to(game, location.x, location.y, starting.x, starting.y);
+                if (path && path.length) {
+                    path.shift();
+                    for (var step=0; step<path.length; step++) {
+                        var cell = _c.tile(game, path[step]);
+                        if (cell) {
+                            cell.additions = cell.additions || [];
+                            cell.additions.push('road');
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        //Generate city tiles & surrounding tiles
+        for (var i=0; i<building_tile_tries; i++) {
+            var x, y;
+            x = location.x + _c.randInt(building_tile_radius) - (building_tile_radius /2) - 1;
+            y = location.y + _c.randInt(building_tile_radius) - (building_tile_radius /2) - 1;
+
+            x = Math.floor(x);
+            y = Math.floor(y);
+            if (_c.is_valid_location(game, x, y, false)) {
+                game.cells[x][y] = _.clone(city_info);
+                city_cells.push(game.cells[x][y]);
+
+                var neighbors = _c.surrounding_cells(game, x, y);
+                _.each(neighbors, function(neighbor) {
+                    neighbor.additions = neighbor.additions || [];
+                    if (neighbor.type != 'city') {
+                        if (neighbor.name == 'mountains') {
+                            neighbor.additions.push('mine');
+                        } else if (neighbor.name == 'lake') {
+                            neighbor.additions.push('dock');
+                        } else {
+                            neighbor.additions.push('farm');
+                        }
+                        city_cells.push(neighbor);
+                    }
+                })
+            }
+        }
+        return city_cells;
+    };
+
+    _c.generate_buildings = function (game) {
+
+        _.each(game.data.buildings, function (building_layer) {
+            var location = _c.find_location(game, building_layer);
+
+            if (building_layer.type == 'city') {
+                _c.generators.city(game, location, building_layer);
+
+            } else if (building_layer.type == 'storage') {
+
+            } else if (building_layer.type == 'dungeon') {
+
+            }
+        });
+    };
+
+//    {name:'Large City', title:'Anchorage' type:'city', population:3000, fortifications:20, location:'center'},
+//    {name:'Grain Storage', type:'storage', resources:{food:10000, gold:2, herbs:100}, location:'random'},
+//    {name:'Metal Storage', type:'storage', resources:{metal:1000, gold:2, ore:1000}, location:'random'},
+//    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
+
 
     _c.generate_battle_map = function (game) {
         game.data.terrain_options = game.data.terrain_options || [];

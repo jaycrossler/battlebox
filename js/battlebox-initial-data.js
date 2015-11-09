@@ -8,6 +8,7 @@
         arrays_to_map_to_arrays: 'terrain_options,forces,buildings'.split(','),
 
         delay_between_ticks: 400,
+        log_level_to_show: 2,
 
         cols: 200,
         rows: 50,
@@ -23,8 +24,8 @@
             {name:'plains', ground:true, draw_type: 'flat', color:["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"], symbol:' '},
             {name:'mountains', density:'sparse', smoothness: 3, not_center:true, color:['gray', 'darkgray'], impassible:true, symbol:' '},
             {name:'forest', density:'sparse', not_center:true, color:['darkgreen','green'], data:{movement:'slow'}, symbol:' '},
-            {name:'lake', density:'sparse', smoothness:5, placement:'left', color:['#03f','#04b','#00d'], data:{water:true}, symbol:'-'}
-//            {name:'river', density:'small', thickness:.1, placement:'left', color:['#00f','#00e','#00d'], data:{water:true}, symbol:'/'}
+            {name:'lake', density:'sparse', smoothness:5, placement:'left', color:['#03f','#04b','#00d'], data:{water:true}, symbol:'-'},
+            {name:'river', density:'small', thickness:.1, placement:'left', color:['#00f','#00e','#00d'], data:{water:true}, symbol:'/'}
         ],
 
         forces: [
@@ -59,7 +60,7 @@
 
 
             {name:'Sleeping Dragon', side: 'Red', symbol:'D', location:'impassible',
-                plan: 'vigilant', backup_strategy: 'vigilant', size:3,
+                plan: 'vigilant', backup_strategy: 'wait', size:3,
                 troops:{adult_dragon:1}}
 
         ],
@@ -74,10 +75,10 @@
         ],
 
         buildings:[
-            {name:'Large City', type:'city', population:3000, fortifications:20},
-            {name:'Grain Storage', type:'storage', resources:{food:10000, gold:2, herbs:100}},
-            {name:'Metal Storage', type:'storage', resources:{metal:1000, gold:2, ore:1000}},
-            {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}}
+            {name:'Large City', title:'Anchorage', type:'city', population:3000, fortifications:20, location:'center'},
+            {name:'Grain Storage', type:'storage', resources:{food:10000, gold:2, herbs:100}, location:'random'},
+            {name:'Metal Storage', type:'storage', resources:{metal:1000, gold:2, ore:1000}, location:'random'},
+            {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
         ],
 
         variables: [

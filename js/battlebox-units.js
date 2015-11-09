@@ -91,6 +91,7 @@
         };
 
         //Allow game to be paused
+        //TODO: Needs to be reengineered, as it resumes the clock twice - and doubles game speed
         var next_tick = function (done) {
             if (game.data.in_progress) {
                 done();
@@ -180,17 +181,17 @@
         var options, target_status;
 
         if (plan == 'seek closest') {
-            options = {side: 'enemy', filter: 'closest', range: 20, plan: plan};
+            options = {side: 'enemy', filter: 'closest', range: 20, plan: plan, backup_strategy:unit._data.backup_strategy};
             target_status = _c.find_unit_status(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
 
         } else if (plan == 'vigilant') {
-            options = {side: 'enemy', filter: 'closest', range: 4, plan: plan};
+            options = {side: 'enemy', filter: 'closest', range: 3, plan: plan, backup_strategy:unit._data.backup_strategy};
             target_status = _c.find_unit_status(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
 
         } else if (plan == 'seek weakest') {
-            options = {side: 'enemy', filter: 'weakest', range: 20, plan: plan};
+            options = {side: 'enemy', filter: 'weakest', range: 20, plan: plan, backup_strategy:unit._data.backup_strategy};
             target_status = _c.find_unit_status(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
 
@@ -198,6 +199,10 @@
             options = {side: 'enemy', filter: 'closest', range: 12, plan: plan, backup_strategy: 'vigilant'};
             target_status = _c.find_unit_status(game, unit, options);
             _c.movement_strategies.avoid(game, unit, target_status, options)
+
+        } else if (plan == 'wait') {
+            _c.movement_strategies.wait(game, unit)
+
 
         } else { //if (plan == 'wander') {
             _c.movement_strategies.wander(game, unit);

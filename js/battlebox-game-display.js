@@ -27,6 +27,8 @@
 
         _c.generate_battle_map(game);
 
+        _c.generate_buildings(game);
+
         _c.draw_whole_map(game);
 
         ROT.RNG.setSeed(game.data.fight_seed || game.data.rand_seed);
@@ -82,9 +84,25 @@
         if (cell) {
             cell = cell[y];
         }
+        if (!cell) {
+//            console.error('Tried to draw invalid tile:' + x + ":" + y);
+            return;
+        }
 
         if (!color) {
             //No information was passed in, assume it's the default cell draw without player in it
+            //TODO: Have options or some way to tell it to redraw a cell that isn't a player's move
+            if (cell.type == 'city') {
+                bg_color = '#9F572E';
+            }
+            if (_c.hex_has(cell, 'mine')) {
+                bg_color = '#4c362c';
+            } else if (_c.hex_has(cell, 'dock')) {
+                bg_color = '#86fffc';
+            } else if (_c.hex_has(cell, 'farm')) {
+                bg_color = '#7a7110';
+            }
+
             var was_drawn = false;
             _.each(_c.entities(game), function (entity) {
                 if (entity && entity._x == x && entity._y == y && entity._draw) {
@@ -108,6 +126,13 @@
                 bg = "#000";
             }
         }
+
+        if (!color && _c.hex_has(cell, 'road')) {
+            text = ":";
+
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'),.5).toString();
+        }
+
 
         //First draw it black, then redraw it with the chosen color to help get edges proper color
         game.display.draw(x, y, text, color || "#000", bg);
@@ -159,6 +184,8 @@
     };
 
     _c.log_message_to_user = function (game, message, importance, color) {
+        if (importance < (game.game_options.log_level_to_show || 2)) return;
+
         var $msg = $('<div>')
             .html(message)
             .prependTo($pointers.message_display);

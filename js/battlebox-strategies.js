@@ -97,8 +97,12 @@
         if (moves) {
             _c.log_message_to_user(game, msg+ "wanders a space", 1);
         } else {
-            _c.log_message_to_user(game, msg+ "stays vigilant and doesn't move", 1);
+            _c.movement_strategies.wait(game, unit);
         }
+    };
+
+    _c.movement_strategies.wait = function (game, unit) {
+        _c.log_message_to_user(game, unit.describe() + " stays vigilant and doesn't move", 0);
     };
 
     _c.movement_strategies.seek = function (game, unit, target_status, options) {
@@ -108,6 +112,9 @@
         if (!_c.is_valid_location(game, x, y)) {
             if (options.backup_strategy == 'vigilant') {
                 _c.movement_strategies.vigilant(game, unit);
+                return;
+            } else if (options.backup_strategy == 'wait') {
+                _c.movement_strategies.wait(game, unit);
                 return;
             } else { //wander
                 _c.movement_strategies.wander(game, unit);
@@ -119,9 +126,12 @@
         var path = _c.path_from_to(game, unit._x, unit._y, x, y);
 
         //If too far, then just wander
-        if (options.range && path && path.length > options.range) {
+        if (options.range && (path && path.length > options.range) || !path || (path && path.length == 0)) {
             if (options.backup_strategy == 'vigilant') {
                 _c.movement_strategies.vigilant(game, unit);
+                return;
+            } else if (options.backup_strategy == 'wait') {
+                _c.movement_strategies.wait(game, unit);
                 return;
             } else { //if (options.backup_strategy == 'wander') {
                 _c.movement_strategies.wander(game, unit);
@@ -149,6 +159,9 @@
         if (!_c.is_valid_location(game, x, y)) {
             if (options.backup_strategy == 'vigilant') {
                 _c.movement_strategies.vigilant(game, unit);
+                return;
+            } else if (options.backup_strategy == 'wait') {
+                _c.movement_strategies.wait(game, unit);
                 return;
             } else { //wander
                 _c.movement_strategies.wander(game, unit, options);
@@ -183,6 +196,8 @@
         } else {
             if (options.backup_strategy == 'vigilant') {
                 _c.movement_strategies.vigilant(game, unit);
+            } else if (options.backup_strategy == 'wait') {
+                _c.movement_strategies.wait(game, unit);
             } else { //if (options.backup_strategy == 'wander') {
                 _c.movement_strategies.wander(game, unit);
             }
