@@ -59,7 +59,6 @@
 
             _c.show_info(_c.tile_info(game, loc[0], loc[1]));
         });
-
     };
 
     _c.redraw_data = function (game) {
@@ -78,12 +77,12 @@
     };
 
     _c.build_scheduler = function(game) {
-        var scheduler = new ROT.Scheduler.Simple();
+        var scheduler = new ROT.Scheduler.Speed();
         _.each(_c.entities(game), function(entity){
-            scheduler.add(entity, true);  //TODO: Is there a scheduler.remove that should trigger on death?
+            scheduler.add(entity, true);
         });
+        game.scheduler = scheduler;
         game.engine = new ROT.Engine(scheduler);
-
     };
 
     _c.entities = function(game) {
@@ -99,7 +98,7 @@
 
 
     _c.game_over = function(game, side_wins) {
-
+        game.engine.lock();
         _c.log_message_to_user(game, "Game Over!  " + side_wins + ' wins!', 4, side_wins);
     }
 

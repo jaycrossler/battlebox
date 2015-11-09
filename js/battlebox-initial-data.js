@@ -7,6 +7,8 @@
         arrays_to_map_to_objects: ''.split(','),
         arrays_to_map_to_arrays: 'terrain_options,forces,buildings'.split(','),
 
+        delay_between_ticks: 400,
+
         cols: 200,
         rows: 50,
         cell_size: 13,
@@ -19,14 +21,15 @@
 
         terrain_options: [
             {name:'plains', ground:true, draw_type: 'flat', color:["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"], symbol:' '},
-            {name:'mountains', density:'sparse', smoothness: 3, not_center:true, color:['brown'], impassible:true, symbol:'M'},
-            {name:'forest', density:'sparse', not_center:true, color:['darkgreen','green'], data:{movement:'slow'}, symbol:'#'},
-            {name:'lake', density:'sparse', smoothness:5, placement:'left', color:['#03f','#04b','#00d'], data:{water:true}, symbol:'-'},
+            {name:'mountains', density:'sparse', smoothness: 3, not_center:true, color:['gray', 'darkgray'], impassible:true, symbol:' '},
+            {name:'forest', density:'sparse', not_center:true, color:['darkgreen','green'], data:{movement:'slow'}, symbol:' '},
+            {name:'lake', density:'sparse', smoothness:5, placement:'left', color:['#03f','#04b','#00d'], data:{water:true}, symbol:'-'}
 //            {name:'river', density:'small', thickness:.1, placement:'left', color:['#00f','#00e','#00d'], data:{water:true}, symbol:'/'}
         ],
 
         forces: [
             {name:'Attacker Main Army Force', side: 'Yellow', location:'left', player:true,
+                plan: 'invade city', backup_strategy: 'run away',
                 troops:{soldiers:520, cavalry:230, siege:50}},
 
             {name:'Task Force Alpha', side: 'Yellow', symbol:'#A', location:'left', player: true,
@@ -55,10 +58,9 @@
                 troops:{soldiers:20, siege:40}},
 
 
-
             {name:'Sleeping Dragon', side: 'Red', symbol:'D', location:'impassible',
                 plan: 'vigilant', backup_strategy: 'vigilant', size:3,
-                troops:{adult_dragon:1}},
+                troops:{adult_dragon:1}}
 
         ],
 

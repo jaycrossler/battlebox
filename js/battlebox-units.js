@@ -13,6 +13,9 @@
         });
         return _c.entities(game);
     };
+    _c.add_screen_scheduler = function (game) {
+        game.scheduler.add(new TimeKeeper(game), true);
+    };
 
     _c.create_unit = function (game, unit_info, id) {
 
@@ -30,7 +33,7 @@
     _c.try_to_move_to_and_draw = function (game, unit, x, y, move_through_impassibles) {
         var valid = _c.is_valid_location(game, x, y, move_through_impassibles);
         if (valid) {
-            var is_unit_there = _c.find_unit_status(game, unit, {location:{x:x, y:y}});
+            var is_unit_there = _c.find_unit_status(game, unit, {location: {x: x, y: y}});
             if (is_unit_there) {
                 if (is_unit_there.side != unit.side) {
                     valid = _c.entity_attacks_entity(game, unit, is_unit_there, _c.log_message_to_user);
@@ -51,11 +54,12 @@
         return valid;
     };
 
-    _c.remove_entity = function(game, unit) {
+    _c.remove_entity = function (game, unit) {
         var entity_id = _.indexOf(game.entities, unit);
         if (entity_id > -1) {
             var x = unit._x;
             var y = unit._y;
+            game.scheduler.remove(game.entities[entity_id]);
             delete game.entities[entity_id];
             //TODO: Collapse entities
             _c.draw_tile(game, x, y);
@@ -63,7 +67,34 @@
     };
 
     //--------------------
-    var Entity = function(game, x, y, id, unit) {
+    var TimeKeeper = function (game) {
+        this._game = game;
+    };
+    TimeKeeper.prototype.describe = function () {
+        return "Screen";
+    };
+    TimeKeeper.prototype.getSpeed = function () {
+        return 100;
+    };
+    TimeKeeper.prototype.act = function () {
+        this._game.data.tick_count++;
+        console.log('Game Tick: ' + this._game.data.tick_count);
+
+        var done = null;
+        var promise = {
+            then: function (cb) {
+                done = cb;
+            }
+        };
+
+        setTimeout(function () {
+            done();
+        }, this._game.game_options.delay_between_ticks || 500);
+
+        return promise;
+    };
+    //--------------------
+    var Entity = function (game, x, y, id, unit) {
         this._x = x;
         this._y = y;
         this._game = game;
@@ -73,29 +104,29 @@
         this._draw();
     };
 
-    Entity.prototype.describe = function() {
-    	return this._data.name + " (<span style='color:" + this._data.side + "'>" + this._symbol  +"</span>)";
+    Entity.prototype.describe = function () {
+        return this._data.name + " (<span style='color:" + this._data.side + "'>" + this._symbol + "</span>)";
     };
 
-    Entity.prototype.getSpeed = function() {
-    	return this._data.speed || 100;
+    Entity.prototype.getSpeed = function () {
+        return this._data.speed || 40;
     };
 
-    Entity.prototype.setPosition = function(x, y) {
-    	this._x = x;
+    Entity.prototype.setPosition = function (x, y) {
+        this._x = x;
         this._y = y;
-    	return this;
+        return this;
     };
 
-    Entity.prototype.getPosition = function() {
-    	return {x: this._x, y: this._y};
+    Entity.prototype.getPosition = function () {
+        return {x: this._x, y: this._y};
     };
 
-    Entity.prototype.act = function() {
+    Entity.prototype.act = function () {
     };
 
     /* Other unit bumps into */
-    Entity.prototype.bump = function(who, power) {
+    Entity.prototype.bump = function (who, power) {
     };
 
     Entity.prototype._draw = function (x, y) {
@@ -120,7 +151,7 @@
         }
         return result;
     };
-    Entity.prototype.execute_plan = function() {
+    Entity.prototype.execute_plan = function () {
         var unit = this;
         var game = unit._game;
 
@@ -129,22 +160,22 @@
         var options, target_status;
 
         if (plan == 'seek closest') {
-            options = {side:'enemy', filter:'closest', range:20, plan:plan};
+            options = {side: 'enemy', filter: 'closest', range: 20, plan: plan};
             target_status = _c.find_unit_status(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
 
         } else if (plan == 'vigilant') {
-            options = {side:'enemy', filter:'closest', range:4, plan:plan};
+            options = {side: 'enemy', filter: 'closest', range: 4, plan: plan};
             target_status = _c.find_unit_status(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
 
         } else if (plan == 'seek weakest') {
-            options = {side:'enemy', filter:'weakest', range:20, plan:plan};
+            options = {side: 'enemy', filter: 'weakest', range: 20, plan: plan};
             target_status = _c.find_unit_status(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
 
         } else if (plan == 'run away') {
-            options = {side:'enemy', filter:'closest', range:12, plan:plan, backup_strategy:'vigilant'};
+            options = {side: 'enemy', filter: 'closest', range: 12, plan: plan, backup_strategy: 'vigilant'};
             target_status = _c.find_unit_status(game, unit, options);
             _c.movement_strategies.avoid(game, unit, target_status, options)
 
@@ -166,20 +197,19 @@
 
         /* wait for user input; do stuff when user hits a key */
         if (unit._id == controlled_entity_id) {
-            unit._game.engine.lock();
+//            unit._game.engine.lock();
             window.addEventListener("keydown", this);
-        } else {
-            if (!unit.is_dead && unit._data.plan) {
-                unit.execute_plan();
-            }
         }
+        if (!unit.is_dead && unit._data.plan) {
+            unit.execute_plan();
+        }
+
     };
 
     Player.prototype.handleEvent = function (e) {
         var unit = this;
         var game = this._game;
         var command = _c.interpret_command_from_keycode(e.keyCode, unit);
-
 
         if (command.ignore) {
             window.removeEventListener("keydown", unit);
@@ -202,7 +232,7 @@
             }
 
             window.removeEventListener("keydown", this);
-            game.engine.unlock();
+//            game.engine.unlock();
         }
 
     };
@@ -212,7 +242,6 @@
         console.log("Player at x: " + unit._x + ", y: " + unit._y);
         console.log("Cell value here is: [" + JSON.stringify(cell) + "]");
     };
-
 
 
     //----------------------------------

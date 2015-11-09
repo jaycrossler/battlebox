@@ -3,7 +3,8 @@
     var $pointers = {};
 
     _c.draw_initial_display = function (game, options) {
-        $pointers.canvas_holder = $('#container');
+        $pointers.canvas_holder = $('#container')
+            .css({width:'1567px'})
         $pointers.message_display = $('#message_display');
 
         game.display = new ROT.Display({
@@ -32,6 +33,8 @@
         _c.build_units_from_list(game, game.data.forces);
 
         _c.build_scheduler(game);
+
+        _c.add_screen_scheduler(game);
 
         $pointers.logs = $("<div>")
             .css({color:'gray'})

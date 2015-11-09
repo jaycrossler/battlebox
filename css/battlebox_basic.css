@@ -27,6 +27,7 @@ h1{
     margin: 51px 0px 0px 0px;
     padding: 0px;
     color: white;
+    overflow-y: hidden;
 }
 #message_display div{
     margin: 6px;
