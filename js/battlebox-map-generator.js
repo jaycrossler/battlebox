@@ -36,7 +36,7 @@
         }
 
         _.each(_c.entities(game), function (entity, id) {
-            if (entity._x == x && entity._y == y && entity._draw) {
+            if (entity.x == x && entity.y == y && entity._draw) {
                 info.forces = info.forces || [];
                 info.forces.push({id: id, data: entity._data});
             }

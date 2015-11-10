@@ -37,7 +37,7 @@
     _c.try_to_move_to_and_draw = function (game, unit, x, y, move_through_impassibles) {
         var valid = _c.tile_is_traversable(game, x, y, move_through_impassibles);
         if (valid) {
-            var is_unit_there = _c.find_unit_status(game, unit, {location: {x: x, y: y}});
+            var is_unit_there = _c.find_unit_by_filters(game, unit, {location: {x: x, y: y}});
             if (is_unit_there) {
                 if (is_unit_there.side != unit.side) {
                     valid = _c.entity_attacks_entity(game, unit, is_unit_there, _c.log_message_to_user);
@@ -47,10 +47,10 @@
             }
 
             if (valid) {
-                var previous_x = unit._x;
-                var previous_y = unit._y;
-                unit._x = x;
-                unit._y = y;
+                var previous_x = unit.x;
+                var previous_y = unit.y;
+                unit.x = x;
+                unit.y = y;
                 _c.draw_tile(game, previous_x, previous_y);
                 unit._draw();
             }
@@ -61,8 +61,8 @@
     _c.remove_entity = function (game, unit) {
         var entity_id = _.indexOf(game.entities, unit);
         if (entity_id > -1) {
-            var x = unit._x;
-            var y = unit._y;
+            var x = unit.x;
+            var y = unit.y;
             game.scheduler.remove(game.entities[entity_id]);
             delete game.entities[entity_id];
             //TODO: Collapse entities
@@ -114,8 +114,8 @@
     };
     //--------------------
     var Entity = function (game, x, y, id, unit) {
-        this._x = x;
-        this._y = y;
+        this.x = x;
+        this.y = y;
         this._game = game;
         this._id = id;
         this._symbol = unit.symbol || "@";
@@ -132,13 +132,13 @@
     };
 
     Entity.prototype.setPosition = function (x, y) {
-        this._x = x;
-        this._y = y;
+        this.x = x;
+        this.y = y;
         return this;
     };
 
     Entity.prototype.getPosition = function () {
-        return {x: this._x, y: this._y};
+        return {x: this.x, y: this.y};
     };
 
     Entity.prototype.act = function () {
@@ -151,22 +151,22 @@
     Entity.prototype._draw = function (x, y) {
         var use_x, use_y;
         if (x === undefined) {
-            use_x = this._x;
+            use_x = this.x;
         } else {
             use_x = x;
         }
         if (y === undefined) {
-            use_y = this._y;
+            use_y = this.y;
         } else {
             use_y = y;
         }
         _c.draw_tile(this._game, use_x, use_y, this._symbol || "@", "#000", this._data.color || this._data.side);
     };
     Entity.prototype.getX = function () {
-        return this._x;
+        return this.x;
     };
     Entity.prototype.getY = function () {
-        return this._y;
+        return this.y;
     };
     Entity.prototype.try_move = function (game, x, y) {
         var result = false;
@@ -190,23 +190,28 @@
 
         if (plan == 'seek closest') {
             options = {side: 'enemy', filter: 'closest', range: 20, plan: plan, backup_strategy: unit._data.backup_strategy};
-            target_status = _c.find_unit_status(game, unit, options);
+            target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
 
         } else if (plan == 'vigilant') {
             options = {side: 'enemy', filter: 'closest', range: 3, plan: plan, backup_strategy: unit._data.backup_strategy};
-            target_status = _c.find_unit_status(game, unit, options);
+            target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
 
         } else if (plan == 'seek weakest') {
             options = {side: 'enemy', filter: 'weakest', range: 20, plan: plan, backup_strategy: unit._data.backup_strategy};
-            target_status = _c.find_unit_status(game, unit, options);
+            target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
 
         } else if (plan == 'run away') {
             options = {side: 'enemy', filter: 'closest', range: 12, plan: plan, backup_strategy: 'vigilant'};
-            target_status = _c.find_unit_status(game, unit, options);
+            target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.avoid(game, unit, target_status, options)
+
+        } else if (plan == 'invade city') {
+            var location = _.find(game.data.buildings, function(b){return b.type=='city'});
+            options = {side: 'enemy', filter: 'closest', range: 12, plan: plan, backup_strategy: unit._data.backup_strategy};
+            _c.movement_strategies.head_towards(game, unit, location, options);
 
         } else if (plan == 'wait') {
             _c.movement_strategies.wait(game, unit)
@@ -256,8 +261,8 @@
         }
 
         if (command.movement) {
-            var x = unit._x + command.movement[0];
-            var y = unit._y + command.movement[1];
+            var x = unit.x + command.movement[0];
+            var y = unit.y + command.movement[1];
 
             var can_move = unit.try_move(game, x, y);
             if (can_move) {
@@ -271,8 +276,8 @@
     };
 
     Player.prototype.execute_action = function (game, unit) {
-        var cell = game.cells[unit._x][unit._y];
-        console.log("Player at x: " + unit._x + ", y: " + unit._y);
+        var cell = game.cells[unit.x][unit.y];
+        console.log("Player at x: " + unit.x + ", y: " + unit.y);
         console.log("Cell value here is: [" + JSON.stringify(cell) + "]");
     };
 

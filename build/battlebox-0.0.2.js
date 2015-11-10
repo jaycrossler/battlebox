@@ -1203,7 +1203,8 @@ Battlebox.initializeOptions = function (option_type, options) {
 };
 (function (Battlebox) {
 
-    //TODO: Game still goes on if main player's force is killed - move to all autonomous on timer
+    //TODO: Game is over if all of the forces on a defender's side are killed.  How to handle monsters?
+    //TODO: Should there be a list of sides that matter in a conflict?
 
     var _c = new Battlebox('get_private_functions');
 
@@ -1230,7 +1231,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
             message = "<b>" +a_name + " ("+a_side+", size "+a_count+")</b> wins attacking "+ d_name + " ("+b_side+", power "+d_count+")";
 
-            enemies_alive = _c.find_unit_status(game, attacker, {side: 'enemy', return_multiple:true});
+            enemies_alive = _c.find_unit_by_filters(game, attacker, {side: 'enemy', return_multiple:true, only_count_forces:true});
             if (enemies_alive.target.length == 0) {
                 game_over_side = attacker._data.side;
             }
@@ -1242,7 +1243,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
             message = a_name + " ("+a_side+", size "+a_count+") loses attacking <b>"+ d_name + " ("+b_side+", power "+d_count+")</b>";
 
-            enemies_alive = _c.find_unit_status(game, defender, {side: 'enemy', return_multiple:true});
+            enemies_alive = _c.find_unit_by_filters(game, defender, {side: 'enemy', return_multiple:true});
             if (enemies_alive.target.length == 0) {
                 game_over_side = defender._data.side;
             }
@@ -1365,8 +1366,8 @@ Battlebox.initializeOptions = function (option_type, options) {
 
             var was_drawn = false;
             _.each(_c.entities(game), function (entity) {
-                if (entity && entity._x == x && entity._y == y && entity._draw) {
-                    entity._draw(entity._x, entity._y);
+                if (entity && entity.x == x && entity.y == y && entity._draw) {
+                    entity._draw(entity.x, entity.y);
                     was_drawn = true;
                 }
             });
@@ -1597,7 +1598,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         arrays_to_map_to_objects: ''.split(','),
         arrays_to_map_to_arrays: 'terrain_options,forces,buildings'.split(','),
 
-        delay_between_ticks: 400,
+        delay_between_ticks: 50,
         log_level_to_show: 2,
 
         cols: 260,
@@ -1632,7 +1633,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 troops:{cavalry:20}},
 
             {name:'Task Force Charlie', side: 'Yellow', symbol:'#C', location:'left', player:true,
-                plan: 'look for treasure',
+                plan: 'invade city', backup_strategy: 'invade_city',
                 troops:{cavalry:20}},
 
 
@@ -1649,7 +1650,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 troops:{soldiers:20, siege:40}},
 
 
-            {name:'Sleeping Dragon', side: 'Red', symbol:'D', location:'impassible',
+            {name:'Sleeping Dragon', side: 'Red', symbol:'D', location:'impassible', not_part_of_victory:true,
                 plan: 'vigilant', backup_strategy: 'wait', size:3,
                 troops:{adult_dragon:1}}
 
@@ -1913,7 +1914,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
 
         _.each(_c.entities(game), function (entity, id) {
-            if (entity._x == x && entity._y == y && entity._draw) {
+            if (entity.x == x && entity.y == y && entity._draw) {
                 info.forces = info.forces || [];
                 info.forces.push({id: id, data: entity._data});
             }
@@ -2367,13 +2368,23 @@ Battlebox.initializeOptions = function (option_type, options) {
         return path;
     };
 
-    _c.find_unit_status = function (game, current_unit, options) {
+    _c.find_unit_by_filters = function (game, current_unit, options) {
 
         var targets = _c.entities(game);
 
+        if (options.range) {
+            targets = _.filter(targets, function (t) {
+                return (Helpers.distanceXY(current_unit, t) < options.range);
+            });
+        }
+        if (options.only_count_forces) {
+            targets = _.filter(targets, function (t) {
+                return (!t._data.not_part_of_victory);
+            });
+        }
         if (options.location) {
             targets = _.filter(targets, function (t) {
-                return (t._x == options.location.x && t._y == options.location.y);
+                return (t.x == options.location.x && t.y == options.location.y);
             });
         }
         if (options.side) {
@@ -2386,8 +2397,8 @@ Battlebox.initializeOptions = function (option_type, options) {
                 //TODO: Performance: First filter they are within a certain range. If too slow with many units, consider using a Dijkstra cached search each turn
 
                 targets = targets.sort(function (a, b) {
-                    var path_a = _c.path_from_to(game, current_unit._x, current_unit._y, a._x, a._y);
-                    var path_b = _c.path_from_to(game, current_unit._x, current_unit._y, b._x, b._y);
+                    var path_a = _c.path_from_to(game, current_unit.x, current_unit.y, a.x, a.y);
+                    var path_b = _c.path_from_to(game, current_unit.x, current_unit.y, b.x, b.y);
                     var a_len = path_a ? path_a.length : 100;
                     var b_len = path_b ? path_b.length : 100;
 
@@ -2399,7 +2410,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         var target, range, closest_path, x, y;
         if (options.return_multiple) {
             if (targets.length) {
-                closest_path = _c.path_from_to(game, current_unit._x, current_unit._y, targets[0]._x, targets[0]._y);
+                closest_path = _c.path_from_to(game, current_unit.x, current_unit.y, targets[0].x, targets[0].y);
                 range = closest_path.length || 0;
 
                 if (targets[0].getX) x = targets[0].getX();
@@ -2413,12 +2424,14 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
 
         } else {
-            target = targets[0] || _c.entities(game)[0];
-            closest_path = _c.path_from_to(game, current_unit._x, current_unit._y, target._x, target._y);
-            range = closest_path.length || 0;
+            target = targets[0];
+            if (target) {
+                closest_path = _c.path_from_to(game, current_unit.x, current_unit.y, target.x, target.y);
+                range = closest_path.length || 0;
 
-            if (target.getX) x = target.getX();
-            if (target.getY) y = target.getY();
+                if (target.getX) x = target.getX();
+                if (target.getY) y = target.getY();
+            }
         }
 
         return {target: target, x: x, y: y, range: range};
@@ -2434,8 +2447,8 @@ Battlebox.initializeOptions = function (option_type, options) {
     _c.movement_strategies.wander = function (game, unit) {
         var code = Helpers.randOption([0, 1, 2, 3, 4, 5]);
         var dir = ROT.DIRS[6][code];
-        var y = unit._y + dir[1];
-        var x = unit._x + dir[0];
+        var y = unit.y + dir[1];
+        var x = unit.x + dir[0];
 
         var msg = unit.describe() + ' ';
 
@@ -2469,7 +2482,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
 
         //TODO: Only if in likely range
-        var path = _c.path_from_to(game, unit._x, unit._y, x, y);
+        var path = _c.path_from_to(game, unit.x, unit.y, x, y);
 
         //If too far, then just wander
         if (options.range && (path && path.length > options.range) || !path || (path && path.length == 0)) {
@@ -2499,6 +2512,38 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
     };
 
+    _c.movement_strategies.head_towards = function (game, unit, location, options) {
+
+        //TODO: Only if in likely range
+        var path = _c.path_from_to(game, unit.x, unit.y, location.location.x, location.location.y);
+
+        path.shift();
+
+        if (path.length <= 10) {
+            options = {side: 'enemy', filter: 'closest', range: 6, plan: 'invade city', backup_strategy: unit._data.backup_strategy};
+            var target_status = _c.find_unit_by_filters(game, unit, options);
+            _c.movement_strategies.seek(game, unit, target_status, options)
+
+        } else if (path.length > 10) {
+            //Walk towards the enemy
+            var x = path[0][0];
+            var y = path[0][1];
+            _c.try_to_move_to_and_draw(game, unit, x, y);
+            _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + (location.title || location.name), 1);
+        } else {
+
+            if (options.backup_strategy == 'vigilant') {
+                _c.movement_strategies.vigilant(game, unit);
+            } else if (options.backup_strategy == 'wait') {
+                _c.movement_strategies.wait(game, unit);
+            } else { //wander
+                _c.movement_strategies.wander(game, unit, options);
+            }
+        }
+
+
+    };
+
     _c.movement_strategies.avoid = function (game, unit, target_status, options) {
         var x = target_status.target ? target_status.target.getX() : -1;
         var y = target_status.target ? target_status.target.getY() : -1;
@@ -2515,7 +2560,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
         }
 
-        var path = _c.path_from_to(game, unit._x, unit._y, x, y);
+        var path = _c.path_from_to(game, unit.x, unit.y, x, y);
 
         //If too far, then just wander
         if (options.range && path && path.length <= options.range) {
@@ -2526,11 +2571,11 @@ Battlebox.initializeOptions = function (option_type, options) {
                 x = path[0][0];
                 y = path[0][1];
 
-                x = unit._x - x;
-                y = unit._y - y;
+                x = unit.x - x;
+                y = unit.y - y;
 
-                x = unit._x + x;
-                y = unit._y + y;
+                x = unit.x + x;
+                y = unit.y + y;
 
                 //TODO: Pick alternate paths if can't move any more
                 var could_move = _c.try_to_move_to_and_draw(game, unit, x, y);
@@ -2591,7 +2636,7 @@ Battlebox.initializeOptions = function (option_type, options) {
     _c.try_to_move_to_and_draw = function (game, unit, x, y, move_through_impassibles) {
         var valid = _c.tile_is_traversable(game, x, y, move_through_impassibles);
         if (valid) {
-            var is_unit_there = _c.find_unit_status(game, unit, {location: {x: x, y: y}});
+            var is_unit_there = _c.find_unit_by_filters(game, unit, {location: {x: x, y: y}});
             if (is_unit_there) {
                 if (is_unit_there.side != unit.side) {
                     valid = _c.entity_attacks_entity(game, unit, is_unit_there, _c.log_message_to_user);
@@ -2601,10 +2646,10 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
 
             if (valid) {
-                var previous_x = unit._x;
-                var previous_y = unit._y;
-                unit._x = x;
-                unit._y = y;
+                var previous_x = unit.x;
+                var previous_y = unit.y;
+                unit.x = x;
+                unit.y = y;
                 _c.draw_tile(game, previous_x, previous_y);
                 unit._draw();
             }
@@ -2615,8 +2660,8 @@ Battlebox.initializeOptions = function (option_type, options) {
     _c.remove_entity = function (game, unit) {
         var entity_id = _.indexOf(game.entities, unit);
         if (entity_id > -1) {
-            var x = unit._x;
-            var y = unit._y;
+            var x = unit.x;
+            var y = unit.y;
             game.scheduler.remove(game.entities[entity_id]);
             delete game.entities[entity_id];
             //TODO: Collapse entities
@@ -2668,8 +2713,8 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
     //--------------------
     var Entity = function (game, x, y, id, unit) {
-        this._x = x;
-        this._y = y;
+        this.x = x;
+        this.y = y;
         this._game = game;
         this._id = id;
         this._symbol = unit.symbol || "@";
@@ -2686,13 +2731,13 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
 
     Entity.prototype.setPosition = function (x, y) {
-        this._x = x;
-        this._y = y;
+        this.x = x;
+        this.y = y;
         return this;
     };
 
     Entity.prototype.getPosition = function () {
-        return {x: this._x, y: this._y};
+        return {x: this.x, y: this.y};
     };
 
     Entity.prototype.act = function () {
@@ -2705,22 +2750,22 @@ Battlebox.initializeOptions = function (option_type, options) {
     Entity.prototype._draw = function (x, y) {
         var use_x, use_y;
         if (x === undefined) {
-            use_x = this._x;
+            use_x = this.x;
         } else {
             use_x = x;
         }
         if (y === undefined) {
-            use_y = this._y;
+            use_y = this.y;
         } else {
             use_y = y;
         }
         _c.draw_tile(this._game, use_x, use_y, this._symbol || "@", "#000", this._data.color || this._data.side);
     };
     Entity.prototype.getX = function () {
-        return this._x;
+        return this.x;
     };
     Entity.prototype.getY = function () {
-        return this._y;
+        return this.y;
     };
     Entity.prototype.try_move = function (game, x, y) {
         var result = false;
@@ -2744,23 +2789,28 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         if (plan == 'seek closest') {
             options = {side: 'enemy', filter: 'closest', range: 20, plan: plan, backup_strategy: unit._data.backup_strategy};
-            target_status = _c.find_unit_status(game, unit, options);
+            target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
 
         } else if (plan == 'vigilant') {
             options = {side: 'enemy', filter: 'closest', range: 3, plan: plan, backup_strategy: unit._data.backup_strategy};
-            target_status = _c.find_unit_status(game, unit, options);
+            target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
 
         } else if (plan == 'seek weakest') {
             options = {side: 'enemy', filter: 'weakest', range: 20, plan: plan, backup_strategy: unit._data.backup_strategy};
-            target_status = _c.find_unit_status(game, unit, options);
+            target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
 
         } else if (plan == 'run away') {
             options = {side: 'enemy', filter: 'closest', range: 12, plan: plan, backup_strategy: 'vigilant'};
-            target_status = _c.find_unit_status(game, unit, options);
+            target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.avoid(game, unit, target_status, options)
+
+        } else if (plan == 'invade city') {
+            var location = _.find(game.data.buildings, function(b){return b.type=='city'});
+            options = {side: 'enemy', filter: 'closest', range: 12, plan: plan, backup_strategy: unit._data.backup_strategy};
+            _c.movement_strategies.head_towards(game, unit, location, options);
 
         } else if (plan == 'wait') {
             _c.movement_strategies.wait(game, unit)
@@ -2810,8 +2860,8 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
 
         if (command.movement) {
-            var x = unit._x + command.movement[0];
-            var y = unit._y + command.movement[1];
+            var x = unit.x + command.movement[0];
+            var y = unit.y + command.movement[1];
 
             var can_move = unit.try_move(game, x, y);
             if (can_move) {
@@ -2825,8 +2875,8 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
 
     Player.prototype.execute_action = function (game, unit) {
-        var cell = game.cells[unit._x][unit._y];
-        console.log("Player at x: " + unit._x + ", y: " + unit._y);
+        var cell = game.cells[unit.x][unit.y];
+        console.log("Player at x: " + unit.x + ", y: " + unit.y);
         console.log("Cell value here is: [" + JSON.stringify(cell) + "]");
     };
 

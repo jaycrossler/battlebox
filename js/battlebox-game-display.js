@@ -104,8 +104,8 @@
 
             var was_drawn = false;
             _.each(_c.entities(game), function (entity) {
-                if (entity && entity._x == x && entity._y == y && entity._draw) {
-                    entity._draw(entity._x, entity._y);
+                if (entity && entity.x == x && entity.y == y && entity._draw) {
+                    entity._draw(entity.x, entity.y);
                     was_drawn = true;
                 }
             });

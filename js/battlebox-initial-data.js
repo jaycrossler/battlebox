@@ -7,7 +7,7 @@
         arrays_to_map_to_objects: ''.split(','),
         arrays_to_map_to_arrays: 'terrain_options,forces,buildings'.split(','),
 
-        delay_between_ticks: 400,
+        delay_between_ticks: 50,
         log_level_to_show: 2,
 
         cols: 260,
@@ -42,7 +42,7 @@
                 troops:{cavalry:20}},
 
             {name:'Task Force Charlie', side: 'Yellow', symbol:'#C', location:'left', player:true,
-                plan: 'look for treasure',
+                plan: 'invade city', backup_strategy: 'invade_city',
                 troops:{cavalry:20}},
 
 
@@ -59,7 +59,7 @@
                 troops:{soldiers:20, siege:40}},
 
 
-            {name:'Sleeping Dragon', side: 'Red', symbol:'D', location:'impassible',
+            {name:'Sleeping Dragon', side: 'Red', symbol:'D', location:'impassible', not_part_of_victory:true,
                 plan: 'vigilant', backup_strategy: 'wait', size:3,
                 troops:{adult_dragon:1}}
 

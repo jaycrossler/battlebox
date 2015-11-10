@@ -21,13 +21,23 @@
         return path;
     };
 
-    _c.find_unit_status = function (game, current_unit, options) {
+    _c.find_unit_by_filters = function (game, current_unit, options) {
 
         var targets = _c.entities(game);
 
+        if (options.range) {
+            targets = _.filter(targets, function (t) {
+                return (Helpers.distanceXY(current_unit, t) < options.range);
+            });
+        }
+        if (options.only_count_forces) {
+            targets = _.filter(targets, function (t) {
+                return (!t._data.not_part_of_victory);
+            });
+        }
         if (options.location) {
             targets = _.filter(targets, function (t) {
-                return (t._x == options.location.x && t._y == options.location.y);
+                return (t.x == options.location.x && t.y == options.location.y);
             });
         }
         if (options.side) {
@@ -40,8 +50,8 @@
                 //TODO: Performance: First filter they are within a certain range. If too slow with many units, consider using a Dijkstra cached search each turn
 
                 targets = targets.sort(function (a, b) {
-                    var path_a = _c.path_from_to(game, current_unit._x, current_unit._y, a._x, a._y);
-                    var path_b = _c.path_from_to(game, current_unit._x, current_unit._y, b._x, b._y);
+                    var path_a = _c.path_from_to(game, current_unit.x, current_unit.y, a.x, a.y);
+                    var path_b = _c.path_from_to(game, current_unit.x, current_unit.y, b.x, b.y);
                     var a_len = path_a ? path_a.length : 100;
                     var b_len = path_b ? path_b.length : 100;
 
@@ -53,7 +63,7 @@
         var target, range, closest_path, x, y;
         if (options.return_multiple) {
             if (targets.length) {
-                closest_path = _c.path_from_to(game, current_unit._x, current_unit._y, targets[0]._x, targets[0]._y);
+                closest_path = _c.path_from_to(game, current_unit.x, current_unit.y, targets[0].x, targets[0].y);
                 range = closest_path.length || 0;
 
                 if (targets[0].getX) x = targets[0].getX();
@@ -67,12 +77,14 @@
             }
 
         } else {
-            target = targets[0] || _c.entities(game)[0];
-            closest_path = _c.path_from_to(game, current_unit._x, current_unit._y, target._x, target._y);
-            range = closest_path.length || 0;
+            target = targets[0];
+            if (target) {
+                closest_path = _c.path_from_to(game, current_unit.x, current_unit.y, target.x, target.y);
+                range = closest_path.length || 0;
 
-            if (target.getX) x = target.getX();
-            if (target.getY) y = target.getY();
+                if (target.getX) x = target.getX();
+                if (target.getY) y = target.getY();
+            }
         }
 
         return {target: target, x: x, y: y, range: range};
@@ -88,8 +100,8 @@
     _c.movement_strategies.wander = function (game, unit) {
         var code = Helpers.randOption([0, 1, 2, 3, 4, 5]);
         var dir = ROT.DIRS[6][code];
-        var y = unit._y + dir[1];
-        var x = unit._x + dir[0];
+        var y = unit.y + dir[1];
+        var x = unit.x + dir[0];
 
         var msg = unit.describe() + ' ';
 
@@ -123,7 +135,7 @@
         }
 
         //TODO: Only if in likely range
-        var path = _c.path_from_to(game, unit._x, unit._y, x, y);
+        var path = _c.path_from_to(game, unit.x, unit.y, x, y);
 
         //If too far, then just wander
         if (options.range && (path && path.length > options.range) || !path || (path && path.length == 0)) {
@@ -153,6 +165,38 @@
         }
     };
 
+    _c.movement_strategies.head_towards = function (game, unit, location, options) {
+
+        //TODO: Only if in likely range
+        var path = _c.path_from_to(game, unit.x, unit.y, location.location.x, location.location.y);
+
+        path.shift();
+
+        if (path.length <= 10) {
+            options = {side: 'enemy', filter: 'closest', range: 6, plan: 'invade city', backup_strategy: unit._data.backup_strategy};
+            var target_status = _c.find_unit_by_filters(game, unit, options);
+            _c.movement_strategies.seek(game, unit, target_status, options)
+
+        } else if (path.length > 10) {
+            //Walk towards the enemy
+            var x = path[0][0];
+            var y = path[0][1];
+            _c.try_to_move_to_and_draw(game, unit, x, y);
+            _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + (location.title || location.name), 1);
+        } else {
+
+            if (options.backup_strategy == 'vigilant') {
+                _c.movement_strategies.vigilant(game, unit);
+            } else if (options.backup_strategy == 'wait') {
+                _c.movement_strategies.wait(game, unit);
+            } else { //wander
+                _c.movement_strategies.wander(game, unit, options);
+            }
+        }
+
+
+    };
+
     _c.movement_strategies.avoid = function (game, unit, target_status, options) {
         var x = target_status.target ? target_status.target.getX() : -1;
         var y = target_status.target ? target_status.target.getY() : -1;
@@ -169,7 +213,7 @@
             }
         }
 
-        var path = _c.path_from_to(game, unit._x, unit._y, x, y);
+        var path = _c.path_from_to(game, unit.x, unit.y, x, y);
 
         //If too far, then just wander
         if (options.range && path && path.length <= options.range) {
@@ -180,11 +224,11 @@
                 x = path[0][0];
                 y = path[0][1];
 
-                x = unit._x - x;
-                y = unit._y - y;
+                x = unit.x - x;
+                y = unit.y - y;
 
-                x = unit._x + x;
-                y = unit._y + y;
+                x = unit.x + x;
+                y = unit.y + y;
 
                 //TODO: Pick alternate paths if can't move any more
                 var could_move = _c.try_to_move_to_and_draw(game, unit, x, y);

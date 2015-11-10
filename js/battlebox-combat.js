@@ -1,6 +1,7 @@
 (function (Battlebox) {
 
-    //TODO: Game still goes on if main player's force is killed - move to all autonomous on timer
+    //TODO: Game is over if all of the forces on a defender's side are killed.  How to handle monsters?
+    //TODO: Should there be a list of sides that matter in a conflict?
 
     var _c = new Battlebox('get_private_functions');
 
@@ -27,7 +28,7 @@
 
             message = "<b>" +a_name + " ("+a_side+", size "+a_count+")</b> wins attacking "+ d_name + " ("+b_side+", power "+d_count+")";
 
-            enemies_alive = _c.find_unit_status(game, attacker, {side: 'enemy', return_multiple:true});
+            enemies_alive = _c.find_unit_by_filters(game, attacker, {side: 'enemy', return_multiple:true, only_count_forces:true});
             if (enemies_alive.target.length == 0) {
                 game_over_side = attacker._data.side;
             }
@@ -39,7 +40,7 @@
 
             message = a_name + " ("+a_side+", size "+a_count+") loses attacking <b>"+ d_name + " ("+b_side+", power "+d_count+")</b>";
 
-            enemies_alive = _c.find_unit_status(game, defender, {side: 'enemy', return_multiple:true});
+            enemies_alive = _c.find_unit_by_filters(game, defender, {side: 'enemy', return_multiple:true});
             if (enemies_alive.target.length == 0) {
                 game_over_side = defender._data.side;
             }
