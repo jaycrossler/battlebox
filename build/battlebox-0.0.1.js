@@ -1,6 +1,6 @@
 /*
 ------------------------------------------------------------------------------------
--- battlebox.js - v0.0.1 - Built on 2015-11-05 by Jay Crossler using Grunt.js
+-- battlebox.js - v0.0.1 - Built on 2015-11-10 by Jay Crossler using Grunt.js
 ------------------------------------------------------------------------------------
 -- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara 
 ------------------------------------------------------------------------------------
@@ -929,6 +929,11 @@ Helpers.isInArray = function (searchFor, searchIn, ignoreCase) {
 var Battlebox = (function ($, _, Helpers, maths) {
     //Uses jquery and Underscore
 
+    //TODO: Move rot random functions into all game systems
+    //TODO: rename "funcs" to "callbacks"
+    //TODO: Add note of why hex skips alternate y xs
+    //TODO: Have better way to track free-cells, or pick places on sides of screen
+
     //-----------------------------
     //Private Global variables
     var version = '0.0.1',
@@ -1007,11 +1012,11 @@ var Battlebox = (function ($, _, Helpers, maths) {
         game.initialization_options.rand_seed = rand_seed;
         game.randomSetSeed(rand_seed);
 
-        if (!game.data.gui_drawn && game._private_functions.initialize_display && game._private_functions.load) {
+        if (!game.data.gui_drawn && game._private_functions.initialize_ui_display && game._private_functions.load) {
             var game_was_loaded = game._private_functions.load(game, 'localStorage');
             game._private_functions.initialize_data(game);
             if (!game_was_loaded) {
-                game._private_functions.initialize_display(game);
+                game._private_functions.initialize_ui_display(game);
             }
             game.data.gui_drawn = true;
         }
@@ -1096,13 +1101,18 @@ var Battlebox = (function ($, _, Helpers, maths) {
     BattleboxClass.prototype.randomSetSeed = function (seed) {
         this.game_options = this.game_options || {};
         this.game_options.rand_seed = seed || Math.random();
+
+        //Also set the Rot.JS seed
+        ROT.RNG.setSeed(this.game_options.rand_seed);
     };
 
     function random(game_options) {
-        game_options = game_options || {};
-        game_options.rand_seed = game_options.rand_seed || Math.random();
-        var x = Math.sin(game_options.rand_seed++) * 300000;
-        return x - Math.floor(x);
+        return ROT.RNG.getUniform();
+
+//        game_options = game_options || {};
+//        game_options.rand_seed = game_options.rand_seed || Math.random();
+//        var x = Math.sin(game_options.rand_seed++) * 300000;
+//        return x - Math.floor(x);
     }
 
     function randInt(max, game_options) {
@@ -1139,6 +1149,7 @@ var Battlebox = (function ($, _, Helpers, maths) {
         }
         return (closest * multiplier) + min;
     }
+
     function randAverage(rolls, chance, stddev, game_options) {
         stddev = stddev || 5;
         var expected = chance * rolls;
@@ -1146,7 +1157,8 @@ var Battlebox = (function ($, _, Helpers, maths) {
 
         return expected * expected_modifier * 2;
     }
-    function randRange (minVal, maxVal, game_options, floatVal) {
+
+    function randRange(minVal, maxVal, game_options, floatVal) {
         //optional Floatval specifies number of decimal points
         var randVal = minVal + (random(game_options) * (maxVal - minVal + 1));
         return (floatVal !== undefined) ? Math.round(randVal - .5) : randVal.toFixed(floatVal);
@@ -1187,56 +1199,203 @@ Battlebox.initializeOptions = function (option_type, options) {
     civ_pointer.initializeOptions(option_type, options);
 };
 (function (Battlebox) {
+
+    //TODO: Game still goes on if main player's force is killed - move to all autonomous on timer
+
+    var _c = new Battlebox('get_private_functions');
+
+    _c.entity_attacks_entity = function (game, attacker, defender, callback) {
+        attacker._data.troops = attacker._data.troops || {};
+        defender._data.troops = defender._data.troops || {};
+        callback = callback || _c.log_message_to_user;
+
+        var a_name = attacker._data.name || "Attacker";
+        var a_side = attacker._data.side || "Side 1";
+        var a_count = (attacker._data.troops.soldiers || 0) + (attacker._data.troops.cavalry || 0) + (attacker._data.troops.siege || 0) + (1000 * (attacker._data.troops.adult_dragon || 0));
+
+        var d_name = defender._data.name || "Defender";
+        var b_side = defender._data.side || "Side 2";
+        var d_count = (defender._data.troops.soldiers || 0) + (defender._data.troops.cavalry || 0) + (defender._data.troops.siege || 0) + (1000 * (defender._data.troops.adult_dragon || 0));
+
+        var enemies_alive;
+        var message = "";
+        var game_over_side;
+
+        if (a_count >= d_count) {
+            defender.is_dead = true;
+            _c.remove_entity(game, defender);
+
+            message = "<b>" +a_name + " ("+a_side+", size "+a_count+")</b> wins attacking "+ d_name + " ("+b_side+", size "+d_count+")";
+
+            enemies_alive = _c.find_unit_status(game, attacker, {side: 'enemy', return_multiple:true});
+            if (enemies_alive.target.length == 0) {
+                game_over_side = attacker._data.side;
+            }
+            callback(game, message, 3, a_side);
+
+        } else {
+            attacker.is_dead = true;
+            _c.remove_entity(game, attacker);
+
+            message = a_name + " ("+a_side+", size "+a_count+") loses attacking <b>"+ d_name + " ("+b_side+", size "+d_count+")</b>";
+
+            enemies_alive = _c.find_unit_status(game, defender, {side: 'enemy', return_multiple:true});
+            if (enemies_alive.target.length == 0) {
+                game_over_side = defender._data.side;
+            }
+
+            callback(game, message, 3, b_side);
+        }
+
+        if (game_over_side) {
+            _c.game_over(game, game_over_side);
+        }
+
+    }
+
+
+
+})(Battlebox);
+(function (Battlebox) {
     var _c = new Battlebox('get_private_functions');
     var $pointers = {};
 
-    _c.draw_initial_display = function(game, options) {
-        $pointers.canvas_holder = $('#container');
+    _c.draw_initial_display = function (game, options) {
+        $pointers.canvas_holder = $('#container')
+            .css({width: '1567px'})
+        $pointers.message_display = $('#message_display');
 
         game.display = new ROT.Display({
-//            transpose: true,
-            width: game.game_options.cols,
-            height: game.game_options.rows,
+            transpose: game.game_options.transpose,
+            width: _c.cols(game),
+            height: _c.rows(game),
             fontSize: game.game_options.cell_size,
-            layout: "hex"});
+            layout: "hex",
+//            fontFamily: "droid sans mono",
+            border: game.game_options.cell_border || 0.1,
+            spacing: game.game_options.cell_spacing || .88
+        });
         var container_canvas = game.display.getContainer();
 
         $pointers.canvas_holder
             .append(container_canvas);
 
+        $pointers.info_box = $('<div>')
+            .appendTo($pointers.canvas_holder);
+
         _c.generate_battle_map(game);
 
+        _c.generate_buildings(game);
+
+        _c.draw_whole_map(game);
+
+        ROT.RNG.setSeed(game.data.fight_seed || game.data.rand_seed);
+        _c.build_units_from_list(game, game.data.forces);
+
         _c.build_scheduler(game);
+
+        _c.add_screen_scheduler(game);
+
+        $pointers.logs = $("<div>")
+            .css({color: 'gray'})
+            .appendTo($pointers.message_display);
+
+        game.logMessage(game.log());
+
+        $pointers.play_pause_button = $('<button>')
+            .text('Pause')
+            .on('click', function () {
+                if ($pointers.play_pause_button.text() == 'Pause') {
+                    $pointers.play_pause_button.text('Play');
+                    _c.stop_game_loop(game);
+                } else {
+                    $pointers.play_pause_button.text('Pause');
+                    _c.start_game_loop(game);
+                }
+            })
+            .appendTo($pointers.canvas_holder);
+
+        return container_canvas;
     };
 
-    _c.drawWholeMap = function (game) {
-        //Make everything black
-        for (var i = 0; i < game.game_options.cols; i++) {
-            for (var j = 0; j < game.game_options.rows; j++) {
-                _c.draw_tile(game, i, j, " ", "#000", "#000");
+    _c.rows = function (game) {
+        return game.game_options.transpose ? game.game_options.cols : game.game_options.rows;
+    };
+    _c.cols = function (game) {
+        return game.game_options.transpose ? game.game_options.rows : game.game_options.cols;
+    };
+
+    _c.draw_whole_map = function (game) {
+        //Draw every tile
+        for (var y = 0; y < _c.rows(game); y++) {
+            for (var x = y % 2; x < _c.cols(game); x += 2) {
+                _c.draw_tile(game, x, y);
+            }
+        }
+    };
+
+    _c.draw_tile = function (game, x, y, text, color, bg_color) {
+        //Cell is used to get color and symbol
+
+        var cell = game.cells[x];
+        if (cell) {
+            cell = cell[y];
+        }
+        if (!cell) {
+//            console.error('Tried to draw invalid tile:' + x + ":" + y);
+            return;
+        }
+
+        if (!color) {
+            //No information was passed in, assume it's the default cell draw without player in it
+            //TODO: Have options or some way to tell it to redraw a cell that isn't a player's move
+            if (cell.type == 'city') {
+                bg_color = '#9F572E';
+            }
+            if (_c.tile_has(cell, 'mine')) {
+                bg_color = '#4c362c';
+            } else if (_c.tile_has(cell, 'dock')) {
+                bg_color = '#86fffc';
+            } else if (_c.tile_has(cell, 'farm')) {
+                bg_color = '#7a7110';
+            }
+
+            var was_drawn = false;
+            _.each(_c.entities(game), function (entity) {
+                if (entity && entity._x == x && entity._y == y && entity._draw) {
+                    entity._draw(entity._x, entity._y);
+                    was_drawn = true;
+                }
+            });
+            if (was_drawn) return;
+        }
+
+        if (text === undefined) {
+            text = cell ? cell.symbol || " " : " "
+        }
+        var bg = bg_color;
+        if (!bg) {
+            if (cell) {
+                bg = cell.color || '#000';
+            } else if (text == " ") {
+                bg = ["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"].random();
+            } else {
+                bg = "#000";
             }
         }
 
-        //Have open cells be colored
-        for (var key in game.map) {
-            var parts = key.split(",");
-            var x = parseInt(parts[0]);
-            var y = parseInt(parts[1]);
-
-            _c.draw_tile(game, x, y, game.map[key]);
+        if (!color && _c.tile_has(cell, 'road')) {
+            text = ":";
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .5).toString();
         }
-    };
-
-    _c.draw_tile = function(game, x, y, text, color, bg_color) {
-        var bg = "#fff";
-        if (text === undefined) {
-            text = game.map[x + "," + y] || " ";
+        if (!color && _c.tile_has(cell, 'storage')) {
+            text = "o";
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('red'), .1).toString();
         }
 
-        if (text == " ") {
-            bg = ["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"].random();
-        }
-        game.display.draw(x, y, text, color || "#000", bg_color || bg);
+
+        //First draw it black, then redraw it with the chosen color to help get edges proper color
+        game.display.draw(x, y, text, color || "#000", bg);
     };
 
     _c.log_display = function (game) {
@@ -1269,6 +1428,53 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
     };
 
+    var highlighted_hex = null;
+    _c.highlight_position = function (game, location) {
+        if (highlighted_hex && highlighted_hex.length == 2) {
+            _c.draw_tile(game, highlighted_hex[0], highlighted_hex[1]);
+        }
+
+        if (location.length == 2) {
+            highlighted_hex = location;
+            _c.draw_tile(game, location[0], location[1], undefined, undefined, 'orange');
+        } else {
+            highlighted_hex = null;
+        }
+
+    };
+
+    _c.log_message_to_user = function (game, message, importance, color) {
+        if (importance < (game.game_options.log_level_to_show || 2)) return;
+
+        var $msg = $('<div>')
+            .html(message)
+            .prependTo($pointers.message_display);
+
+        if (importance == 4) {
+            $msg.css({backgroundColor: color || 'red', color: 'black', border: '1px solid white'});
+        }
+        if (importance == 3) {
+            $msg.css({backgroundColor: color || 'orange', color: 'black'});
+        }
+        if (importance == 2) {
+            $msg.css({color: 'red'});
+        }
+        if (importance == 1) {
+            $msg.css({color: 'orange'});
+        }
+    };
+
+
+    _c.show_info = function (info) {
+        var out;
+        if (_.isString(info)) {
+            out = info;
+        } else {
+            out = JSON.stringify(info);
+        }
+        $pointers.info_box
+            .html(out);
+    }
 
 })(Battlebox);
 (function (Battlebox) {
@@ -1300,6 +1506,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         });
 
         game.data.rand_seed = game.data.rand_seed || game.game_options.rand_seed;
+        game.data.fight_seed = game.data.fight_seed || game.game_options.fight_seed || game.data.rand_seed;
         game.data.tick_count = game.data.tick_count || 0;
     };
     _c.info = function (game, kind, name, sub_var, if_not_listed) {
@@ -1322,96 +1529,57 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
     };
 
-    _c.initialize_display = function (game) {
-        _c.draw_initial_display(game, {});
+    _c.initialize_ui_display = function (game) {
+        var canvas = _c.draw_initial_display(game, {});
+
+        canvas.addEventListener("mousemove", function (ev) {
+            var loc = game.display.eventToPosition(ev);
+            _c.highlight_position(game, loc);
+
+            _c.show_info(_c.tile_info(game, loc[0], loc[1]));
+        });
     };
 
-    _c.redraw_data = function (game) {
+    _c.update_ui_display = function (game) {
 
 
     };
 
     _c.start_game_loop = function (game) {
+        game.logMessage("Starting game loop");
+        game.data.in_progress = true;
         game.engine.start();
     };
 
     _c.stop_game_loop = function (game) {
-
+        game.logMessage("Stopping game loop");
+        game.data.in_progress = false;
     };
 
-    _c.generate_battle_map = function (game) {
-        var map;
-        if (game.data.terrain_options) {
-            var ground = _.find(game.data.terrain_options, function (layer) {
-                return layer.ground
-            }) || {name: 'plains', layer: 'ground'};
-
-            if (ground.name == 'plains') {
-                map = new ROT.Map.Cellular(game.game_options.cols, game.game_options.rows, {
-                    //connected: true,
-                    topology: 6,
-                    born: [5, 6, 7],
-                    survive: [3, 4, 5]
-                });
-
-                //        map.randomize(0.5);
-
-                // initialize with irregularly random values with less in middle
-                for (var i = 0; i < game.game_options.cols; i++) {
-                    for (var j = 0; j < game.game_options.rows; j++) {
-                        var dx = i / game.game_options.cols - 0.5;
-                        var dy = j / game.game_options.rows - 0.5;
-                        var dist = Math.pow(dx * dx + dy * dy, 0.3);
-                        if (ROT.RNG.getUniform() < dist) {
-                            map.set(i, j, 1);
-                        }
-                    }
-                }
-
-                // generate four iterations, show the last one
-                var iterations = ground.smoothness || 3;
-                for (var i = iterations-1; i >= 0; i--) {
-                    map.create(i ? null : game.display.DEBUG);
-                }
-
-            } else if (ground.name == 'digger') {
-                map = new ROT.Map.Digger(game.game_options.cols, game.game_options.rows);
-            }
-        }
-
-
-        //For all cells not matched, add to a list
-        var freeCells = [];
-        var digCallback = function (x, y, value) {
-            if (value) {
-                return;
-            }
-            /* do not store walls */
-
-            var key = x + "," + y;
-            freeCells.push(key);
-            game.map[key] = " ";
-        };
-        map.create(digCallback.bind(game));
-
-        game.open_space = freeCells;
-//        this._generateBoxes(game.open_space);
-
-        _c.drawWholeMap(game);
-
-        _c.build_units_from_list(game, game.data.forces);
-
-    };
-
-    _c.build_scheduler = function(game) {
-        var scheduler = new ROT.Scheduler.Simple();
-        _.each(game.entities, function(entity){
+    _c.build_scheduler = function (game) {
+        var scheduler = new ROT.Scheduler.Speed();
+        _.each(_c.entities(game), function (entity) {
             scheduler.add(entity, true);
         });
+        game.scheduler = scheduler;
         game.engine = new ROT.Engine(scheduler);
-
     };
 
+    _c.entities = function (game) {
+        var entities = [];
+        for (var i = 0; i < game.entities.length; i++) {
+            if (game.entities[i]) {
+                entities.push(game.entities[i]);
+            }
+        }
+        return entities;
+    };
+
+
+    _c.game_over = function (game, side_wins) {
+        game.engine.lock();
+        _c.log_message_to_user(game, "Game Over!  " + side_wins + ' wins!', 4, side_wins);
+    }
 
 
 })(Battlebox);
@@ -1424,29 +1592,78 @@ Battlebox.initializeOptions = function (option_type, options) {
         arrays_to_map_to_objects: ''.split(','),
         arrays_to_map_to_arrays: 'terrain_options,forces,buildings'.split(','),
 
+        delay_between_ticks: 400,
+        log_level_to_show: 2,
+
         cols: 200,
         rows: 50,
-        cell_size: 12,
+        cell_size: 13,
+        cell_spacing: 1.1,
+        cell_border: 0.01,
+        transpose: false, //TODO: If using transpose, a number of other functions for placement should be tweaked
+
+        render_style: 'outdoors', //TODO
+        height: 'mountainous', //TODO
 
         terrain_options: [
-            {name:'plains', layer:'ground', smoothness: 3, color:["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"]},
-            {name:'mountains', density:'sparse', not_center:true},
-            {name:'forest', density:'medium', not_center:true},
-            {name:'lake', density:'small', placement:'left'},
-            {name:'river', density:'medium', placement:'left'}
+            {name:'plains', ground:true, draw_type: 'flat', color:["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"], symbol:' '},
+            {name:'mountains', density:'sparse', smoothness: 3, not_center:true, color:['gray', 'darkgray'], impassible:true, symbol:' '},
+            {name:'forest', density:'sparse', not_center:true, color:['darkgreen','green'], data:{movement:'slow'}, symbol:' '},
+            {name:'lake', density:'sparse', smoothness:5, placement:'left', color:['#03f','#04b','#00d'], data:{water:true}, symbol:'-'},
+            {name:'river', density:'small', thickness:.1, placement:'left', color:['#00f','#00e','#00d'], data:{water:true}, symbol:'/'}
         ],
 
         forces: [
-            {name:'Attacker Main Army Force', side: 'Red', location:'random', troops:[{name:'soldiers', amount:520}, {name:'cavalry', amount:230}, {name:'siege', amount:50}]},
-            {name:'Task Force Alpha', side: 'Red', symbol:'A', location:'random', troops:[{name:'soldiers', amount:20}, {name:'cavalry', amount:50}]},
-            {name:'Task Force Bravo', side: 'Red', symbol:'B', location:'random', troops:[{name:'soldiers', amount:20}, {name:'cavalry', amount:50}]},
-            {name:'Task Force Charlie', side: 'Red', symbol:'C', location:'random', troops:[{name:'soldiers', amount:20}, {name:'cavalry', amount:50}]},
+            {name:'Attacker Main Army Force', side: 'Yellow', location:'left', player:true,
+                plan: 'invade city', backup_strategy: 'run away',
+                troops:{soldiers:520, cavalry:230, siege:50}},
 
-            {name:'Defender City Force', side: 'Blue', location:'center', troops:[{name:'soldiers', amount:320}, {name:'cavalry', amount:290}, {name:'siege', amount:150}]}
+            {name:'Task Force Alpha', side: 'Yellow', symbol:'#A', location:'left', player: true,
+                plan: 'invade city', backup_strategy: 'run away',
+                troops:{soldiers:80, cavalry:20, siege:10}},
+
+            {name:'Task Force Bravo', side: 'Yellow', symbol:'#B', location:'left', player:true,
+                plan: 'invade city', backup_strategy: 'vigilant',
+                troops:{cavalry:20}},
+
+            {name:'Task Force Charlie', side: 'Yellow', symbol:'#C', location:'left', player:true,
+                plan: 'look for treasure',
+                troops:{cavalry:20}},
+
+
+            {name:'Defender City Force', side: 'White', location:'center',
+                plan: 'seek closest', backup_strategy: 'vigilant',
+                troops:{soldiers:620, cavalry:40, siege:100}},
+
+            {name:'Defender Bowmen', side: 'White', symbol:'A', location:'center',
+                plan: 'defend city', backup_strategy: 'vigilant',
+                troops:{soldiers:20, siege:20}},
+
+            {name:'Defender Catapults', side: 'White', symbol:'B', location:'center',
+                plan: 'defend city', backup_strategy: 'vigilant',
+                troops:{soldiers:20, siege:40}},
+
+
+            {name:'Sleeping Dragon', side: 'Red', symbol:'D', location:'impassible',
+                plan: 'vigilant', backup_strategy: 'wait', size:3,
+                troops:{adult_dragon:1}}
+
+        ],
+
+        //TODO: Use these in strength calculations
+        troop_types: [
+            {name: 'soldiers', side:'Yellow', range:1, speed: 40, strength:1, defense:2, weapon:'sword', armor:'armor', carrying:5},
+            {name: 'soldiers', side:'all', range:1, speed: 30, strength:1.2, defense:1.8, weapon:'rapiers', armor:'armor', carrying:5},
+            {name: 'cavalry', side:'all', range:1, speed: 70, strength:1.5, defense:1.5, weapon:'rapier', armor:'shields', carrying:2},
+            {name: 'siege', title: 'siege units', side:'all', range:2, speed: 10, strength:5, defense:.5, weapon:'catapults', carrying:1},
+            {name: 'adult_dragon', side:'all', range:3, speed: 120, strength:150, defense:300, weapon:'fire breath', armor:'impenetrable scales', carrying:2000}
         ],
 
         buildings:[
-            {name:'Large City', type:'city', population:3000, fortifications:20}
+            {name:'Large City', title:'Anchorage', type:'city', population:3000, fortifications:20, location:'center'},
+            {name:'Grain Storage', type:'storage', resources:{food:10000, gold:2, herbs:100}, location:'random'},
+            {name:'Metal Storage', type:'storage', resources:{metal:1000, gold:2, ore:1000}, location:'random'},
+            {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
         ],
 
         variables: [
@@ -1493,9 +1710,10 @@ Battlebox.initializeOptions = function (option_type, options) {
     key_map[ROT.VK_NUMPAD5] = -1;
 
 
-    _c.interpret_command_from_keycode = function (code, unit_options) {
+    _c.interpret_command_from_keycode = function (key_code, unit_options) {
         var command = {movement: null, func: null, ignore: false};
 
+        var code = key_code;
         if ((code == 13 || code == 32) && unit_options.execute_action) {
             //TODO: Have some array of commands per unit?
             command.func = unit_options.execute_action;
@@ -1515,13 +1733,13 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         //Flip left/right walking so not always going top left or bot right with up/down arrows
         movement_last_vertical_left = !movement_last_vertical_left;
-        if (code == 0 && movement_last_vertical_left) {
+        if (key_code == ROT.VK_UP && movement_last_vertical_left) {
             code = 1;
-        } else if (code == 1 && !movement_last_vertical_left) {
+        } else if (key_code == ROT.VK_UP && !movement_last_vertical_left) {
             code = 0;
-        } else if (code == 4 && movement_last_vertical_left) {
+        } else if (key_code == ROT.VK_DOWN && movement_last_vertical_left) {
             code = 3;
-        } else if (code == 3 && !movement_last_vertical_left) {
+        } else if (key_code == ROT.VK_DOWN && !movement_last_vertical_left) {
             code = 4;
         }
 
@@ -1606,8 +1824,8 @@ Battlebox.initializeOptions = function (option_type, options) {
             //Seems like a valid data structure
             game.data = loaded_game_data;
             game_was_loaded = true;
-            _c.initialize_display(game);
-            _c.redraw_data(game);
+            _c.initialize_ui_display(game);
+            _c.update_ui_display(game);
         } else {
             game.logMessage('No valid saved game data available, starting with defaults');
         }
@@ -1653,69 +1871,853 @@ Battlebox.initializeOptions = function (option_type, options) {
 
 })(Battlebox);
 (function (Battlebox) {
+    var _c = new Battlebox('get_private_functions');
+
+    //TODO: Have difficulty of travel tied to color
+
+    _c.tile = function (game, x, y) {
+        var cell;
+        if (y === undefined) {
+            //Assume that x is an array
+            cell = game.cells[x[0]];
+            if (cell) cell = cell[x[1]];
+        } else {
+            cell = game.cells[x];
+            if (cell) cell = cell[y];
+        }
+        return cell;
+    };
+    _c.tile_info = function (game, x, y) {
+        var info = {};
+
+        var cell = _c.tile(game, x, y);
+        if (cell) {
+            info = _.clone(cell);
+        }
+
+        _.each(_c.entities(game), function (entity, id) {
+            if (entity._x == x && entity._y == y && entity._draw) {
+                info.forces = info.forces || [];
+                info.forces.push({id: id, data: entity._data});
+            }
+        });
+        return info;
+    };
+
+    _c.surrounding_tiles = function (game, x, y) {
+        var cells = [];
+
+        var cell = _c.tile(game, x, y);
+        if (!cell) {
+            return cells;
+        }
+        _.each(ROT.DIRS[6], function (mods) {
+            var new_x = x + mods[0];
+            var new_y = y + mods[1];
+            var new_cell = _c.tile(game, new_x, new_y);
+            if (new_cell) {
+                if (new_cell) cells.push(new_cell);
+            }
+        });
+
+        return cells;
+    };
+
+    _c.tile_is_traversable = function (game, x, y, move_through_impassibles, only_impassible) {
+        var valid_num = (x >= 0) && (y >= 0) && (x < _c.cols(game)) && (y < _c.rows(game));
+        if (valid_num) {
+            var cell = _c.tile(game, x, y);
+            if (cell) {
+                if (!move_through_impassibles && cell.impassible) {
+                    valid_num = false;
+                }
+                if (only_impassible && cell.impassible) {
+                    valid_num = true;
+                }
+            } else {
+                valid_num = false;
+            }
+
+        }
+        return valid_num
+    };
+
+
+    _c.find_a_matching_tile = function (game, options) {
+
+        var x, y, i, tries = 50, index = 0, key;
+        if (options.location == 'center') {
+            for (i = 0; i < tries; i++) {
+                x = (_c.cols(game) / 2) + _c.randInt(_c.cols(game) / 6) - (_c.cols(game) / 12) - 1;
+                y = (_c.rows(game) / 2) + _c.randInt(_c.rows(game) / 6) - (_c.rows(game) / 12) - 1;
+
+                x = Math.floor(x);
+                y = Math.floor(y);
+                if (_c.tile_is_traversable(game, x, y, false)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'left') {
+            for (i = 0; i < tries; i++) {
+                x = _c.randOption([0, 1, 2]);
+                y = _c.randInt(_c.rows(game));
+
+                if (_c.tile_is_traversable(game, x, y, false)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'right') {
+            var right = _c.cols(game);
+            for (i = 0; i < tries; i++) {
+                x = _c.randOption([right - 1, right - 2, right - 3]);
+                y = _c.randInt(_c.rows(game));
+
+                if (_c.tile_is_traversable(game, x, y, false)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'top') {
+            for (i = 0; i < tries; i++) {
+                x = _c.randInt(_c.cols(game));
+                y = _c.randOption([0, 1]);
+
+                if (_c.tile_is_traversable(game, x, y, false)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'bottom') {
+            var bottom = _c.rows(game);
+            for (i = 0; i < tries; i++) {
+                x = _c.randInt(_c.cols(game));
+                y = _c.randOption([bottom - 1, bottom - 2, bottom - 3]);
+
+                if (_c.tile_is_traversable(game, x, y, false)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'impassible') {
+            for (i = 0; i < tries; i++) {
+                x = (_c.randInt(_c.cols(game)));
+                y = (_c.randInt(_c.rows(game)));
+
+                var loc = _c.tile_is_traversable(game, x, y, true, true);
+                if (loc) {
+                    break;
+                }
+            }
+
+        } else { //if (options.location == 'random') {
+            index = Math.floor(ROT.RNG.getUniform() * game.open_space.length);
+            key = game.open_space[index];
+            x = parseInt(key[0]);
+            y = parseInt(key[1]);
+        }
+
+        //Do a last final check for valid
+        if (!_c.tile_is_traversable(game, x, y, true)) {
+            index = Math.floor(ROT.RNG.getUniform() * game.open_space.length);
+            key = game.open_space[index];
+            x = parseInt(key[0]);
+            y = parseInt(key[1]);
+        }
+
+        if (!game.open_space.length || x === undefined || y === undefined) {
+            console.error("No open spaces, can't draw units");
+            x = 0;
+            y = game.randInt(_c.rows(gmae), game.game_options);
+        }
+
+        return {x: x, y: y};
+    };
+
+    _c.tile_has = function (cell, feature) {
+        var has = false;
+
+        if (cell.additions && _.indexOf(cell.additions, feature) > -1) {
+            has = true;
+        }
+        return has;
+
+    };
+
+    //-------------------------------------------------
+    _c.generate_buildings = function (game) {
+
+        _.each(game.data.buildings, function (building_layer) {
+            var location = _c.find_a_matching_tile(game, building_layer);
+
+            if (building_layer.type == 'city') {
+                _c.generators.city(game, location, building_layer);
+
+            } else if (building_layer.type == 'storage') {
+                _c.generators.storage(game, location, building_layer);
+
+            } else if (building_layer.type == 'dungeon') {
+//    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
+
+            }
+        });
+    };
+
+
+    _c.generate_battle_map = function (game) {
+        game.data.terrain_options = game.data.terrain_options || [];
+        if (game.data.terrain_options.length == 0) {
+            game.data.terrain_options = [
+                {name: 'plains', layer: 'ground'}
+            ];
+        }
+
+        var cells = [];
+        for (var y = 0; y < _c.rows(game); y++) {
+            for (var x = y % 2; x < _c.cols(game); x += 2) {
+                cells[x] = cells[x] || [];
+                cells[x][y] = {};
+            }
+        }
+
+        //Build each map layer
+        _.each(game.data.terrain_options, function (terrain_layer) {
+            var map_layer;
+            if (terrain_layer.draw_type == 'digger') {
+                map_layer = new ROT.Map.Digger(_c.cols(game), _c.rows(game));
+
+            } else if (terrain_layer.draw_type != 'flat') {
+                //Use Cellular generation style
+                var born = [5, 6, 7];
+                var survive = [3, 4, 5];
+
+                //TODO: Add some more levels and drawing types
+                if (terrain_layer.density == 'small') {
+                    born = [4];
+                    survive = [3];
+                } else if (terrain_layer.density == 'sparse') {
+                    born = [4, 5];
+                    survive = [3, 4];
+                } else if (terrain_layer.density == 'medium') {
+                    born = [5, 6, 7];
+                    survive = [3, 4, 5];
+                } else if (terrain_layer.density == 'high') {
+                    born = [4, 5, 6, 7];
+                    survive = [3, 4, 5, 6];
+                }
+
+                map_layer = new ROT.Map.Cellular(_c.cols(game), _c.rows(game), {
+                    //connected: true,
+                    topology: 6,
+                    born: born,
+                    survive: survive
+                });
+
+
+                // initialize with irregularly random values with less in middle
+                if (terrain_layer.not_center) {
+                    for (var i = 0; i < _c.cols(game); i++) {
+                        for (var j = 0; j < _c.rows(game); j++) {
+                            var dx = i / _c.cols(game) - 0.5;
+                            var dy = j / _c.rows(game) - 0.5;
+                            var dist = Math.pow(dx * dx + dy * dy, 0.3);
+                            if (ROT.RNG.getUniform() < dist) {
+                                map_layer.set(i, j, 1);
+                            }
+                        }
+                    }
+                } else {
+                    map_layer.randomize(terrain_layer.thickness || 0.5);
+                }
+
+                // generate a few smoothing iterations
+                var iterations = terrain_layer.smoothness || 3;
+                for (var i = iterations - 1; i >= 0; i--) {
+                    map_layer.create(i ? null : game.display.DEBUG);
+                }
+            }
+
+            //For all cells not matched, add to a list
+            if (map_layer && map_layer.create) {
+                var digCallback = function (x, y, value) {
+                    if (value) {
+                        cells[x] = cells[x] || [];
+                        cells[x][y] = _.clone(terrain_layer);
+                        cells[x][y].color = cells[x][y].color.random();
+
+                        //TODO: Have cell be a mix of multiple layers
+                    }
+                };
+                map_layer.create(digCallback.bind(game));
+            }
+        });
+
+
+        //Look for all free cells, and draw the map to be blank there
+        var freeCells = [];
+        var ground_layer = _.find(game.data.terrain_options, function (l) {
+            return l.ground
+        }) || game.data.terrain_options[0];
+
+        for (var y = 0; y < _c.rows(game); y++) {
+            for (var x = y % 2; x < _c.cols(game); x += 2) {
+
+                if (cells[x][y] && cells[x][y].impassible) {
+                    //Something in this cell that makes it not able to move upon
+                } else {
+                    freeCells.push([x, y]);
+                    if (!cells[x][y].name) {
+                        cells[x][y] = _.clone(ground_layer);
+                        cells[x][y].color = cells[x][y].color.random();
+                    }
+                }
+            }
+        }
+        game.open_space = freeCells;
+        game.cells = cells;
+
+    };
+
+    //¬-----------------------------------------------------
+    _c.generators = {};
+    _c.generators.storage = function (game, location, storage_info) {
+        var size = 2;
+        var loot_per = {};
+
+        storage_info.resources = storage_info.resources || {};
+        for (key in storage_info.resources) {
+            loot_per[key] = Math.round(storage_info.resources[key] / (size * size));
+        }
+
+
+        //TODO: How to make a hex rectange?
+        for (var x = location.x; x <= location.x + size; x++) {
+            for (var y = location.y; y < location.y + size; y++) {
+                var tile = _c.tile(game, x, y);
+                if (tile) {
+                    tile.loot = tile.loot || {};
+                    for (key in loot_per) {
+                        tile.loot[key] = tile.loot[key] || 0;
+                        tile.loot[key] += loot_per[key];
+                    }
+                    tile.additions = tile.additions || [];
+                    tile.additions.push('storage');
+                }
+            }
+        }
+
+    };
+    _c.generators.city = function (game, location, city_info) {
+
+        var building_tile_tries = Math.sqrt(city_info.population);
+        var building_tile_radius = Math.pow(city_info.population, 1 / 3.2);
+        var number_of_roads = Math.pow(city_info.population / 100, 1 / 4);
+
+        var city_cells = [];
+
+        //Generate roads
+        var tries = 10;
+        var last_side = '';
+        for (var i = 0; i < number_of_roads; i++) {
+            var side = _c.randOption(['left', 'right', 'top', 'bottom'], {}, last_side);
+            last_side = side;
+            for (var t = 0; t < tries; t++) {
+                var starting = _c.find_a_matching_tile(game, {location: side});
+                var path = _c.path_from_to(game, location.x, location.y, starting.x, starting.y);
+                if (path && path.length) {
+                    path.shift();
+                    for (var step = 0; step < path.length; step++) {
+                        var cell = _c.tile(game, path[step]);
+                        if (cell) {
+                            cell.additions = cell.additions || [];
+                            cell.additions.push('road');
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        //Generate city tiles & surrounding tiles
+        for (var i = 0; i < building_tile_tries; i++) {
+            var x, y;
+            x = location.x + _c.randInt(building_tile_radius) - (building_tile_radius / 2) - 1;
+            y = location.y + _c.randInt(building_tile_radius) - (building_tile_radius / 2) - 1;
+
+            x = Math.floor(x);
+            y = Math.floor(y);
+            if (_c.tile_is_traversable(game, x, y, false)) {
+                game.cells[x][y] = _.clone(city_info);
+                city_cells.push(game.cells[x][y]);
+
+                var neighbors = _c.surrounding_tiles(game, x, y);
+                _.each(neighbors, function (neighbor) {
+                    neighbor.additions = neighbor.additions || [];
+                    if (neighbor.type != 'city') {
+                        if (neighbor.name == 'mountains') {
+                            neighbor.additions.push('mine');
+                        } else if (neighbor.name == 'lake') {
+                            neighbor.additions.push('dock');
+                        } else {
+                            neighbor.additions.push('farm');
+                        }
+                        city_cells.push(neighbor);
+                    }
+                })
+            }
+        }
+
+        //TODO: Add city walls
+
+        return city_cells;
+    };
+
+
+})(Battlebox);
+(function (Battlebox) {
+    var _c = new Battlebox('get_private_functions');
+
+    //TODO: Have a queue of plans, then when one can't complete, move to next
+
+    _c.path_from_to = function (game, from_x, from_y, to_x, to_y) {
+
+        var passableCallback = function (x, y) {
+            var cell = game.cells[x];
+            cell = (cell !== undefined) ? cell[y] : null;
+
+            return (cell && !cell.impassible);
+        };
+        var astar = new ROT.Path.AStar(to_x, to_y, passableCallback, {topology: 6});
+        var path = [];
+        var pathCallback = function (x, y) {
+            path.push([x, y]);
+        };
+        astar.compute(from_x, from_y, pathCallback);
+
+        return path;
+    };
+
+    _c.find_unit_status = function (game, current_unit, options) {
+
+        var targets = _c.entities(game);
+
+        if (options.location) {
+            targets = _.filter(targets, function (t) {
+                return (t._x == options.location.x && t._y == options.location.y);
+            });
+        }
+        if (options.side) {
+            targets = _.filter(targets, function (t) {
+                return (options.side == 'enemy' ? (current_unit._data.side != t._data.side) : current_unit._data.side == t._data.side);
+            });
+        }
+        if (options.filter) {
+            if (options.filter == 'closest') {
+                //TODO: Performance: First filter they are within a certain range. If too slow with many units, consider using a Dijkstra cached search each turn
+
+                targets = targets.sort(function (a, b) {
+                    var path_a = _c.path_from_to(game, current_unit._x, current_unit._y, a._x, a._y);
+                    var path_b = _c.path_from_to(game, current_unit._x, current_unit._y, b._x, b._y);
+                    var a_len = path_a ? path_a.length : 100;
+                    var b_len = path_b ? path_b.length : 100;
+
+                    return a_len > b_len;
+                });
+            }
+        }
+
+        var target, range, closest_path, x, y;
+        if (options.return_multiple) {
+            if (targets.length) {
+                closest_path = _c.path_from_to(game, current_unit._x, current_unit._y, targets[0]._x, targets[0]._y);
+                range = closest_path.length || 0;
+
+                if (targets[0].getX) x = targets[0].getX();
+                if (targets[0].getY) y = targets[0].getY();
+                target = targets;
+            } else {
+                target = [];
+                x = 0;
+                y = 0;
+                range = 0;
+            }
+
+        } else {
+            target = targets[0] || _c.entities(game)[0];
+            closest_path = _c.path_from_to(game, current_unit._x, current_unit._y, target._x, target._y);
+            range = closest_path.length || 0;
+
+            if (target.getX) x = target.getX();
+            if (target.getY) y = target.getY();
+        }
+
+        return {target: target, x: x, y: y, range: range};
+    };
+
+    _c.movement_strategies = _c.movement_strategies || {};
+
+
+    _c.movement_strategies.vigilant = function (game, unit) {
+        _c.log_message_to_user(game, unit.describe() + ' ' + "stays vigilant and doesn't move", 1);
+    };
+
+    _c.movement_strategies.wander = function (game, unit) {
+        var code = Helpers.randOption([0, 1, 2, 3, 4, 5]);
+        var dir = ROT.DIRS[6][code];
+        var y = unit._y + dir[1];
+        var x = unit._x + dir[0];
+
+        var msg = unit.describe() + ' ';
+
+        var moves = _c.try_to_move_to_and_draw(game, unit, x, y);
+        if (moves) {
+            _c.log_message_to_user(game, msg + "wanders a space", 1);
+        } else {
+            _c.movement_strategies.wait(game, unit);
+        }
+    };
+
+    _c.movement_strategies.wait = function (game, unit) {
+        _c.log_message_to_user(game, unit.describe() + " stays vigilant and doesn't move", 0);
+    };
+
+    _c.movement_strategies.seek = function (game, unit, target_status, options) {
+        var x = target_status.target ? target_status.target.getX() : -1;
+        var y = target_status.target ? target_status.target.getY() : -1;
+
+        if (!_c.tile_is_traversable(game, x, y)) {
+            if (options.backup_strategy == 'vigilant') {
+                _c.movement_strategies.vigilant(game, unit);
+                return;
+            } else if (options.backup_strategy == 'wait') {
+                _c.movement_strategies.wait(game, unit);
+                return;
+            } else { //wander
+                _c.movement_strategies.wander(game, unit);
+                return;
+            }
+        }
+
+        //TODO: Only if in likely range
+        var path = _c.path_from_to(game, unit._x, unit._y, x, y);
+
+        //If too far, then just wander
+        if (options.range && (path && path.length > options.range) || !path || (path && path.length == 0)) {
+            if (options.backup_strategy == 'vigilant') {
+                _c.movement_strategies.vigilant(game, unit);
+                return;
+            } else if (options.backup_strategy == 'wait') {
+                _c.movement_strategies.wait(game, unit);
+                return;
+            } else { //if (options.backup_strategy == 'wander') {
+                _c.movement_strategies.wander(game, unit);
+                return;
+            }
+        }
+
+        path.shift();
+        if (path.length <= 1) {
+            _c.log_message_to_user(game, unit.describe() + " attacks nearby target: " + target_status.target.describe(), 1);
+            _c.entity_attacks_entity(game, unit, target_status.target, _c.log_message_to_user);
+
+        } else if (path.length > 1) {
+            //Walk towards the enemy
+            x = path[0][0];
+            y = path[0][1];
+            _c.try_to_move_to_and_draw(game, unit, x, y);
+            _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + target_status.target.describe(), 1);
+        }
+    };
+
+    _c.movement_strategies.avoid = function (game, unit, target_status, options) {
+        var x = target_status.target ? target_status.target.getX() : -1;
+        var y = target_status.target ? target_status.target.getY() : -1;
+        if (!_c.tile_is_traversable(game, x, y)) {
+            if (options.backup_strategy == 'vigilant') {
+                _c.movement_strategies.vigilant(game, unit);
+                return;
+            } else if (options.backup_strategy == 'wait') {
+                _c.movement_strategies.wait(game, unit);
+                return;
+            } else { //wander
+                _c.movement_strategies.wander(game, unit, options);
+                return;
+            }
+        }
+
+        var path = _c.path_from_to(game, unit._x, unit._y, x, y);
+
+        //If too far, then just wander
+        if (options.range && path && path.length <= options.range) {
+            path.shift();
+            if (path.length > 0) {
+
+                //Walk away from the enemy
+                x = path[0][0];
+                y = path[0][1];
+
+                x = unit._x - x;
+                y = unit._y - y;
+
+                x = unit._x + x;
+                y = unit._y + y;
+
+                //TODO: Pick alternate paths if can't move any more
+                var could_move = _c.try_to_move_to_and_draw(game, unit, x, y);
+                if (!could_move) {
+                    _c.movement_strategies.wander(game, unit);
+                }
+            }
+
+        } else {
+            if (options.backup_strategy == 'vigilant') {
+                _c.movement_strategies.vigilant(game, unit);
+            } else if (options.backup_strategy == 'wait') {
+                _c.movement_strategies.wait(game, unit);
+            } else { //if (options.backup_strategy == 'wander') {
+                _c.movement_strategies.wander(game, unit);
+            }
+        }
+    };
+
+
+})(Battlebox);
+(function (Battlebox) {
 
     var _c = new Battlebox('get_private_functions');
 
-    //TODO: Path finding in hex
-    //TODO: Multiple terrain types
-    //TODO: Move from string to array for positions
+    var controlled_entity_id = 0;
+
     //TODO: Have icons for different units
-    //TODO: Mouseover for unit info
-    //TODO: SetCenter to have large map and only show partial
+    //TODO: SetCenter to have large map and redraw every movement
 
     _c.build_units_from_list = function (game, list) {
         _.each(list || [], function (unit_info, id) {
             game.entities.push(_c.create_unit(game, unit_info, id))
         });
-        return game.entities;
+        return _c.entities(game);
+    };
+    _c.add_screen_scheduler = function (game) {
+        game.scheduler.add(new TimeKeeper(game), true);
     };
 
     _c.create_unit = function (game, unit_info, id) {
 
-        var index = 0;
-        if (unit_info.location == 'center') {
-            index = Math.floor(.5 * game.open_space.length);
-
-        } else if (unit_info.location == 'random') {
-            index = Math.floor(ROT.RNG.getUniform() * game.open_space.length);
-        }
-
-        var key = game.open_space.splice(index, 1)[0];
-        var parts = key.split(",");
-
-        var x = parseInt(parts[0]);
-        var y = parseInt(parts[1]);
+        var location = _c.find_a_matching_tile(game, unit_info);
 
         var EntityType;
-        if (unit_info.side == 'Red') {
+        if (unit_info.player) {
             EntityType = Player;
         } else {
             EntityType = OpForce;
         }
-        return new EntityType(game, x, y, id, unit_info.symbol);
+        return new EntityType(game, location.x, location.y, id, unit_info);
     };
 
+    _c.try_to_move_to_and_draw = function (game, unit, x, y, move_through_impassibles) {
+        var valid = _c.tile_is_traversable(game, x, y, move_through_impassibles);
+        if (valid) {
+            var is_unit_there = _c.find_unit_status(game, unit, {location: {x: x, y: y}});
+            if (is_unit_there) {
+                if (is_unit_there.side != unit.side) {
+                    valid = _c.entity_attacks_entity(game, unit, is_unit_there, _c.log_message_to_user);
+                } else {
+                    //TODO: What to do if on same sides?
+                }
+            }
 
-    ///------------------
-    var Player = function (game, x, y, id, symbol) {
+            if (valid) {
+                var previous_x = unit._x;
+                var previous_y = unit._y;
+                unit._x = x;
+                unit._y = y;
+                _c.draw_tile(game, previous_x, previous_y);
+                unit._draw();
+            }
+        }
+        return valid;
+    };
+
+    _c.remove_entity = function (game, unit) {
+        var entity_id = _.indexOf(game.entities, unit);
+        if (entity_id > -1) {
+            var x = unit._x;
+            var y = unit._y;
+            game.scheduler.remove(game.entities[entity_id]);
+            delete game.entities[entity_id];
+            //TODO: Collapse entities
+            _c.draw_tile(game, x, y);
+        }
+    };
+
+    //--------------------
+    var TimeKeeper = function (game) {
+        this._game = game;
+    };
+    TimeKeeper.prototype.describe = function () {
+        return "Screen";
+    };
+    TimeKeeper.prototype.getSpeed = function () {
+        return 100;
+    };
+    TimeKeeper.prototype.act = function () {
+        var time_keeper = this;
+        var game = time_keeper._game;
+
+        game.data.tick_count++;
+//        console.log('Game Tick: ' + game.data.tick_count);
+
+        var done = null;
+        var promise = {
+            then: function (cb) {
+                done = cb;
+            }
+        };
+
+        //Allow game to be paused
+        //TODO: Needs to be reengineered, as it resumes the clock twice - and doubles game speed
+        var next_tick = function (done) {
+            if (game.data.in_progress) {
+                done();
+            } else {
+                setTimeout(function () {
+                    next_tick(done)
+                }, game.game_options.delay_between_ticks || 500);
+            }
+        };
+
+        setTimeout(function () {
+            next_tick(done)
+        }, game.game_options.delay_between_ticks || 500);
+
+        return promise;
+    };
+    //--------------------
+    var Entity = function (game, x, y, id, unit) {
         this._x = x;
         this._y = y;
         this._game = game;
         this._id = id;
-        this._symbol = symbol || "@";
+        this._symbol = unit.symbol || "@";
+        this._data = unit;
         this._draw();
     };
 
-    Player.prototype._draw = function () {
-        _c.draw_tile(this._game, this._x, this._y, this._symbol, "#000", "#ff0");
+    Entity.prototype.describe = function () {
+        return this._data.name + " (<span style='color:" + this._data.side + "'>" + this._symbol + "</span>)";
     };
 
+    Entity.prototype.getSpeed = function () {
+        return this._data.speed || 40;
+    };
+
+    Entity.prototype.setPosition = function (x, y) {
+        this._x = x;
+        this._y = y;
+        return this;
+    };
+
+    Entity.prototype.getPosition = function () {
+        return {x: this._x, y: this._y};
+    };
+
+    Entity.prototype.act = function () {
+    };
+
+    /* Other unit bumps into */
+    Entity.prototype.bump = function (who, power) {
+    };
+
+    Entity.prototype._draw = function (x, y) {
+        var use_x, use_y;
+        if (x === undefined) {
+            use_x = this._x;
+        } else {
+            use_x = x;
+        }
+        if (y === undefined) {
+            use_y = this._y;
+        } else {
+            use_y = y;
+        }
+        _c.draw_tile(this._game, use_x, use_y, this._symbol || "@", "#000", this._data.color || this._data.side);
+    };
+    Entity.prototype.getX = function () {
+        return this._x;
+    };
+    Entity.prototype.getY = function () {
+        return this._y;
+    };
+    Entity.prototype.try_move = function (game, x, y) {
+        var result = false;
+
+        var cell = game.cells[x];
+        if (cell) {
+            cell = cell[y];
+            if (cell && !cell.impassible) {
+                result = true;
+            }
+        }
+        return result;
+    };
+    Entity.prototype.execute_plan = function () {
+        var unit = this;
+        var game = unit._game;
+
+
+        var plan = unit._data.plan || 'seek closest';
+        var options, target_status;
+
+        if (plan == 'seek closest') {
+            options = {side: 'enemy', filter: 'closest', range: 20, plan: plan, backup_strategy: unit._data.backup_strategy};
+            target_status = _c.find_unit_status(game, unit, options);
+            _c.movement_strategies.seek(game, unit, target_status, options)
+
+        } else if (plan == 'vigilant') {
+            options = {side: 'enemy', filter: 'closest', range: 3, plan: plan, backup_strategy: unit._data.backup_strategy};
+            target_status = _c.find_unit_status(game, unit, options);
+            _c.movement_strategies.seek(game, unit, target_status, options)
+
+        } else if (plan == 'seek weakest') {
+            options = {side: 'enemy', filter: 'weakest', range: 20, plan: plan, backup_strategy: unit._data.backup_strategy};
+            target_status = _c.find_unit_status(game, unit, options);
+            _c.movement_strategies.seek(game, unit, target_status, options)
+
+        } else if (plan == 'run away') {
+            options = {side: 'enemy', filter: 'closest', range: 12, plan: plan, backup_strategy: 'vigilant'};
+            target_status = _c.find_unit_status(game, unit, options);
+            _c.movement_strategies.avoid(game, unit, target_status, options)
+
+        } else if (plan == 'wait') {
+            _c.movement_strategies.wait(game, unit)
+
+
+        } else { //if (plan == 'wander') {
+            _c.movement_strategies.wander(game, unit);
+        }
+
+    };
+
+
+    //--------------------
+    var Player = function (game, x, y, id, unit) {
+        Entity.call(this, game, x, y, id, unit)
+    };
+    Player.extend(Entity);
+
     Player.prototype.act = function () {
+        var unit = this;
+
         /* wait for user input; do stuff when user hits a key */
-        if (this._id == 0) {
-            this._game.engine.lock();
+        if (unit._id == controlled_entity_id) {
+//            unit._game.engine.lock();
             window.addEventListener("keydown", this);
         }
+        if (!unit.is_dead && unit._data.plan) {
+            unit.execute_plan();
+        }
+
     };
 
     Player.prototype.handleEvent = function (e) {
@@ -1723,11 +2725,12 @@ Battlebox.initializeOptions = function (option_type, options) {
         var game = this._game;
         var command = _c.interpret_command_from_keycode(e.keyCode, unit);
 
-
         if (command.ignore) {
             window.removeEventListener("keydown", unit);
             return;
         }
+
+        //TODO: If tab, then switch controlled_entity_id
 
         if (command.func) {
             command.func(game, unit);
@@ -1737,91 +2740,38 @@ Battlebox.initializeOptions = function (option_type, options) {
             var x = unit._x + command.movement[0];
             var y = unit._y + command.movement[1];
 
-            var played = unit.try_move(game, x, y);
-            if (played) {
-                _c.draw_tile(game, unit._x, unit._y);
-                unit._x = x;
-                unit._y = y;
-                unit._draw();
+            var can_move = unit.try_move(game, x, y);
+            if (can_move) {
+                _c.try_to_move_to_and_draw(game, unit, x, y);
             }
-            window.removeEventListener("keydown", unit);
-            game.engine.unlock();
+
+            window.removeEventListener("keydown", this);
+//            game.engine.unlock();
         }
 
     };
 
     Player.prototype.execute_action = function (game, unit) {
-        var key = unit._x + "," + unit._y;
-
-        var map_val = game.map[key];
+        var cell = game.cells[unit._x][unit._y];
         console.log("Player at x: " + unit._x + ", y: " + unit._y);
-        console.log("Map value here is: [" + map_val + "]");
-
-    };
-    Player.prototype.getX = function () {
-        return this._x;
-    };
-    Player.prototype.getY = function () {
-        return this._y;
+        console.log("Cell value here is: [" + JSON.stringify(cell) + "]");
     };
 
-    Player.prototype.try_move = function (game, x, y) {
-        var key = x + "," + y;
-        var result = false;
-
-        if (game.map[key] !== undefined) {
-            result = true;
-        }
-
-        return result;
-    };
 
     //----------------------------------
-    var OpForce = function (game, x, y) {
-        this._x = x;
-        this._y = y;
-        this._game = game;
-        this._draw();
+    var OpForce = function (game, x, y, id, unit) {
+        Entity.call(this, game, x, y, id, unit);
     };
+    OpForce.extend(Entity);
 
-    OpForce.prototype._draw = function () {
-        _c.draw_tile(this._game, this._x, this._y, "P", "#000", "red");
-    };
 
     OpForce.prototype.act = function () {
         var unit = this;
-        var game = this._game;
 
-        //TODO: Make a get nearest enemy function
-        var x = game.entities[0].getX();
-        var y = game.entities[0].getY();
-
-        var passableCallback = function (x, y) {
-            return (x + "," + y in game.map);
-        };
-        var astar = new ROT.Path.AStar(x, y, passableCallback, {topology: 6});
-        var path = [];
-        var pathCallback = function (x, y) {
-            path.push([x, y]);
-        };
-        astar.compute(this._x, this._y, pathCallback);
-
-        path.shift();
-
-        if (path.length == 1) {
-            this._game.engine.lock();
-            alert("Game over - you were captured by OpForce!");
-
-        } else if (path.length > 1) {
-            //Walk towards the enemy
-            x = path[0][0];
-            y = path[0][1];
-
-            _c.draw_tile(game, unit._x, unit._y);
-            this._x = x;
-            this._y = y;
-            this._draw();
+        if (!unit.is_dead && unit._data.plan) {
+            unit.execute_plan()
         }
+
     };
 
 

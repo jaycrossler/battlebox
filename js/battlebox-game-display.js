@@ -4,7 +4,7 @@
 
     _c.draw_initial_display = function (game, options) {
         $pointers.canvas_holder = $('#container')
-            .css({width:'1567px'})
+            .css({width: '1567px'})
         $pointers.message_display = $('#message_display');
 
         game.display = new ROT.Display({
@@ -39,7 +39,7 @@
         _c.add_screen_scheduler(game);
 
         $pointers.logs = $("<div>")
-            .css({color:'gray'})
+            .css({color: 'gray'})
             .appendTo($pointers.message_display);
 
         game.logMessage(game.log());
@@ -61,10 +61,10 @@
     };
 
     _c.rows = function (game) {
-        return game.game_options.transpose ? game.game_options.cols: game.game_options.rows;
+        return game.game_options.transpose ? game.game_options.cols : game.game_options.rows;
     };
     _c.cols = function (game) {
-        return game.game_options.transpose ? game.game_options.rows: game.game_options.cols;
+        return game.game_options.transpose ? game.game_options.rows : game.game_options.cols;
     };
 
     _c.draw_whole_map = function (game) {
@@ -94,11 +94,11 @@
             if (cell.type == 'city') {
                 bg_color = '#9F572E';
             }
-            if (_c.hex_has(cell, 'mine')) {
+            if (_c.tile_has(cell, 'mine')) {
                 bg_color = '#4c362c';
-            } else if (_c.hex_has(cell, 'dock')) {
+            } else if (_c.tile_has(cell, 'dock')) {
                 bg_color = '#86fffc';
-            } else if (_c.hex_has(cell, 'farm')) {
+            } else if (_c.tile_has(cell, 'farm')) {
                 bg_color = '#7a7110';
             }
 
@@ -126,13 +126,13 @@
             }
         }
 
-        if (!color && _c.hex_has(cell, 'road')) {
+        if (!color && _c.tile_has(cell, 'road')) {
             text = ":";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'),.5).toString();
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .5).toString();
         }
-        if (!color && _c.hex_has(cell, 'storage')) {
+        if (!color && _c.tile_has(cell, 'storage')) {
             text = "o";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('red'),.1).toString();
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('red'), .1).toString();
         }
 
 
@@ -193,16 +193,16 @@
             .prependTo($pointers.message_display);
 
         if (importance == 4) {
-            $msg.css({backgroundColor:color || 'red', color:'black', border:'1px solid white'});
+            $msg.css({backgroundColor: color || 'red', color: 'black', border: '1px solid white'});
         }
         if (importance == 3) {
-            $msg.css({backgroundColor:color || 'orange', color:'black'});
+            $msg.css({backgroundColor: color || 'orange', color: 'black'});
         }
         if (importance == 2) {
-            $msg.css({color:'red'});
+            $msg.css({color: 'red'});
         }
         if (importance == 1) {
-            $msg.css({color:'orange'});
+            $msg.css({color: 'orange'});
         }
     };
 

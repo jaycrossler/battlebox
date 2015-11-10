@@ -50,10 +50,10 @@
         }
     };
 
-    _c.initialize_display = function (game) {
+    _c.initialize_ui_display = function (game) {
         var canvas = _c.draw_initial_display(game, {});
 
-        canvas.addEventListener("mousemove", function(ev){
+        canvas.addEventListener("mousemove", function (ev) {
             var loc = game.display.eventToPosition(ev);
             _c.highlight_position(game, loc);
 
@@ -61,7 +61,7 @@
         });
     };
 
-    _c.redraw_data = function (game) {
+    _c.update_ui_display = function (game) {
 
 
     };
@@ -77,18 +77,18 @@
         game.data.in_progress = false;
     };
 
-    _c.build_scheduler = function(game) {
+    _c.build_scheduler = function (game) {
         var scheduler = new ROT.Scheduler.Speed();
-        _.each(_c.entities(game), function(entity){
+        _.each(_c.entities(game), function (entity) {
             scheduler.add(entity, true);
         });
         game.scheduler = scheduler;
         game.engine = new ROT.Engine(scheduler);
     };
 
-    _c.entities = function(game) {
+    _c.entities = function (game) {
         var entities = [];
-        for (var i=0; i<game.entities.length; i++) {
+        for (var i = 0; i < game.entities.length; i++) {
             if (game.entities[i]) {
                 entities.push(game.entities[i]);
             }
@@ -97,8 +97,7 @@
     };
 
 
-
-    _c.game_over = function(game, side_wins) {
+    _c.game_over = function (game, side_wins) {
         game.engine.lock();
         _c.log_message_to_user(game, "Game Over!  " + side_wins + ' wins!', 4, side_wins);
     }

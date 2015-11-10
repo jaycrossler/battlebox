@@ -19,7 +19,7 @@
 
     _c.create_unit = function (game, unit_info, id) {
 
-        var location = _c.find_location(game, unit_info);
+        var location = _c.find_a_matching_tile(game, unit_info);
 
         var EntityType;
         if (unit_info.player) {
@@ -31,7 +31,7 @@
     };
 
     _c.try_to_move_to_and_draw = function (game, unit, x, y, move_through_impassibles) {
-        var valid = _c.is_valid_location(game, x, y, move_through_impassibles);
+        var valid = _c.tile_is_traversable(game, x, y, move_through_impassibles);
         if (valid) {
             var is_unit_there = _c.find_unit_status(game, unit, {location: {x: x, y: y}});
             if (is_unit_there) {
@@ -96,11 +96,15 @@
             if (game.data.in_progress) {
                 done();
             } else {
-                setTimeout(function(){next_tick(done)}, game.game_options.delay_between_ticks || 500);
+                setTimeout(function () {
+                    next_tick(done)
+                }, game.game_options.delay_between_ticks || 500);
             }
         };
 
-        setTimeout(function(){next_tick(done)}, game.game_options.delay_between_ticks || 500);
+        setTimeout(function () {
+            next_tick(done)
+        }, game.game_options.delay_between_ticks || 500);
 
         return promise;
     };
@@ -181,17 +185,17 @@
         var options, target_status;
 
         if (plan == 'seek closest') {
-            options = {side: 'enemy', filter: 'closest', range: 20, plan: plan, backup_strategy:unit._data.backup_strategy};
+            options = {side: 'enemy', filter: 'closest', range: 20, plan: plan, backup_strategy: unit._data.backup_strategy};
             target_status = _c.find_unit_status(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
 
         } else if (plan == 'vigilant') {
-            options = {side: 'enemy', filter: 'closest', range: 3, plan: plan, backup_strategy:unit._data.backup_strategy};
+            options = {side: 'enemy', filter: 'closest', range: 3, plan: plan, backup_strategy: unit._data.backup_strategy};
             target_status = _c.find_unit_status(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
 
         } else if (plan == 'seek weakest') {
-            options = {side: 'enemy', filter: 'weakest', range: 20, plan: plan, backup_strategy:unit._data.backup_strategy};
+            options = {side: 'enemy', filter: 'weakest', range: 20, plan: plan, backup_strategy: unit._data.backup_strategy};
             target_status = _c.find_unit_status(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options)
 

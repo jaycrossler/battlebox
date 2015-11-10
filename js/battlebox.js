@@ -84,11 +84,11 @@ var Battlebox = (function ($, _, Helpers, maths) {
         game.initialization_options.rand_seed = rand_seed;
         game.randomSetSeed(rand_seed);
 
-        if (!game.data.gui_drawn && game._private_functions.initialize_display && game._private_functions.load) {
+        if (!game.data.gui_drawn && game._private_functions.initialize_ui_display && game._private_functions.load) {
             var game_was_loaded = game._private_functions.load(game, 'localStorage');
             game._private_functions.initialize_data(game);
             if (!game_was_loaded) {
-                game._private_functions.initialize_display(game);
+                game._private_functions.initialize_ui_display(game);
             }
             game.data.gui_drawn = true;
         }
@@ -221,6 +221,7 @@ var Battlebox = (function ($, _, Helpers, maths) {
         }
         return (closest * multiplier) + min;
     }
+
     function randAverage(rolls, chance, stddev, game_options) {
         stddev = stddev || 5;
         var expected = chance * rolls;
@@ -228,7 +229,8 @@ var Battlebox = (function ($, _, Helpers, maths) {
 
         return expected * expected_modifier * 2;
     }
-    function randRange (minVal, maxVal, game_options, floatVal) {
+
+    function randRange(minVal, maxVal, game_options, floatVal) {
         //optional Floatval specifies number of decimal points
         var randVal = minVal + (random(game_options) * (maxVal - minVal + 1));
         return (floatVal !== undefined) ? Math.round(randVal - .5) : randVal.toFixed(floatVal);

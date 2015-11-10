@@ -69,8 +69,8 @@
             //Seems like a valid data structure
             game.data = loaded_game_data;
             game_was_loaded = true;
-            _c.initialize_display(game);
-            _c.redraw_data(game);
+            _c.initialize_ui_display(game);
+            _c.update_ui_display(game);
         } else {
             game.logMessage('No valid saved game data available, starting with defaults');
         }

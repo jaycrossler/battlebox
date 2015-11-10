@@ -32,16 +32,16 @@
         return info;
     };
 
-    _c.surrounding_cells = function(game, x, y) {
+    _c.surrounding_tiles = function (game, x, y) {
         var cells = [];
 
         var cell = _c.tile(game, x, y);
         if (!cell) {
             return cells;
         }
-        _.each(ROT.DIRS[6], function(mods){
-            var new_x = x+mods[0];
-            var new_y = y+mods[1];
+        _.each(ROT.DIRS[6], function (mods) {
+            var new_x = x + mods[0];
+            var new_y = y + mods[1];
             var new_cell = _c.tile(game, new_x, new_y);
             if (new_cell) {
                 if (new_cell) cells.push(new_cell);
@@ -51,7 +51,7 @@
         return cells;
     };
 
-    _c.is_valid_location = function (game, x, y, move_through_impassibles, only_impassible) {
+    _c.tile_is_traversable = function (game, x, y, move_through_impassibles, only_impassible) {
         var valid_num = (x >= 0) && (y >= 0) && (x < _c.cols(game)) && (y < _c.rows(game));
         if (valid_num) {
             var cell = _c.tile(game, x, y);
@@ -71,7 +71,7 @@
     };
 
 
-    _c.find_location = function (game, options) {
+    _c.find_a_matching_tile = function (game, options) {
 
         var x, y, i, tries = 50, index = 0, key;
         if (options.location == 'center') {
@@ -81,7 +81,7 @@
 
                 x = Math.floor(x);
                 y = Math.floor(y);
-                if (_c.is_valid_location(game, x, y, false)) {
+                if (_c.tile_is_traversable(game, x, y, false)) {
                     break;
                 }
             }
@@ -91,7 +91,7 @@
                 x = _c.randOption([0, 1, 2]);
                 y = _c.randInt(_c.rows(game));
 
-                if (_c.is_valid_location(game, x, y, false)) {
+                if (_c.tile_is_traversable(game, x, y, false)) {
                     break;
                 }
             }
@@ -102,7 +102,7 @@
                 x = _c.randOption([right - 1, right - 2, right - 3]);
                 y = _c.randInt(_c.rows(game));
 
-                if (_c.is_valid_location(game, x, y, false)) {
+                if (_c.tile_is_traversable(game, x, y, false)) {
                     break;
                 }
             }
@@ -112,7 +112,7 @@
                 x = _c.randInt(_c.cols(game));
                 y = _c.randOption([0, 1]);
 
-                if (_c.is_valid_location(game, x, y, false)) {
+                if (_c.tile_is_traversable(game, x, y, false)) {
                     break;
                 }
             }
@@ -123,7 +123,7 @@
                 x = _c.randInt(_c.cols(game));
                 y = _c.randOption([bottom - 1, bottom - 2, bottom - 3]);
 
-                if (_c.is_valid_location(game, x, y, false)) {
+                if (_c.tile_is_traversable(game, x, y, false)) {
                     break;
                 }
             }
@@ -133,7 +133,7 @@
                 x = (_c.randInt(_c.cols(game)));
                 y = (_c.randInt(_c.rows(game)));
 
-                var loc = _c.is_valid_location(game, x, y, true, true);
+                var loc = _c.tile_is_traversable(game, x, y, true, true);
                 if (loc) {
                     break;
                 }
@@ -147,7 +147,7 @@
         }
 
         //Do a last final check for valid
-        if (!_c.is_valid_location(game, x, y, true)) {
+        if (!_c.tile_is_traversable(game, x, y, true)) {
             index = Math.floor(ROT.RNG.getUniform() * game.open_space.length);
             key = game.open_space[index];
             x = parseInt(key[0]);
@@ -163,7 +163,7 @@
         return {x: x, y: y};
     };
 
-    _c.hex_has = function (cell, feature) {
+    _c.tile_has = function (cell, feature) {
         var has = false;
 
         if (cell.additions && _.indexOf(cell.additions, feature) > -1) {
@@ -173,103 +173,11 @@
 
     };
 
-    _c.generators = {};
-    _c.generators.storage = function(game, location, storage_info) {
-        var size = 2;
-        var loot_per = {};
-
-        storage_info.resources = storage_info.resources || {};
-        for (key in storage_info.resources) {
-            loot_per[key] = Math.round(storage_info.resources[key] / (size * size));
-        }
-
-
-        //TODO: How to make a hex rectange?
-        for (var x=location.x; x<= location.x+size; x++) {
-            for (var y=location.y; y< location.y+size; y++) {
-                var tile = _c.tile(game, x, y);
-                if (tile) {
-                    tile.loot = tile.loot || {};
-                    for (key in loot_per) {
-                        tile.loot[key] = tile.loot[key] || 0;
-                        tile.loot[key] += loot_per[key];
-                    }
-                    tile.additions = tile.additions || [];
-                    tile.additions.push('storage');
-                }
-            }
-        }
-
-    };
-    _c.generators.city = function(game, location, city_info) {
-
-        var building_tile_tries = Math.sqrt(city_info.population);
-        var building_tile_radius = Math.pow(city_info.population, 1/3.2);
-        var number_of_roads = Math.pow(city_info.population / 100, 1/4);
-
-        var city_cells = [];
-
-        //Generate roads
-        var tries = 10;
-        var last_side = '';
-        for (var i=0; i<number_of_roads; i++) {
-            var side = _c.randOption(['left','right','top','bottom'], {}, last_side);
-            last_side = side;
-            for (var t=0; t<tries; t++) {
-                var starting = _c.find_location(game, {location: side});
-                var path = _c.path_from_to(game, location.x, location.y, starting.x, starting.y);
-                if (path && path.length) {
-                    path.shift();
-                    for (var step=0; step<path.length; step++) {
-                        var cell = _c.tile(game, path[step]);
-                        if (cell) {
-                            cell.additions = cell.additions || [];
-                            cell.additions.push('road');
-                        }
-                    }
-                    break;
-                }
-            }
-        }
-
-        //Generate city tiles & surrounding tiles
-        for (var i=0; i<building_tile_tries; i++) {
-            var x, y;
-            x = location.x + _c.randInt(building_tile_radius) - (building_tile_radius /2) - 1;
-            y = location.y + _c.randInt(building_tile_radius) - (building_tile_radius /2) - 1;
-
-            x = Math.floor(x);
-            y = Math.floor(y);
-            if (_c.is_valid_location(game, x, y, false)) {
-                game.cells[x][y] = _.clone(city_info);
-                city_cells.push(game.cells[x][y]);
-
-                var neighbors = _c.surrounding_cells(game, x, y);
-                _.each(neighbors, function(neighbor) {
-                    neighbor.additions = neighbor.additions || [];
-                    if (neighbor.type != 'city') {
-                        if (neighbor.name == 'mountains') {
-                            neighbor.additions.push('mine');
-                        } else if (neighbor.name == 'lake') {
-                            neighbor.additions.push('dock');
-                        } else {
-                            neighbor.additions.push('farm');
-                        }
-                        city_cells.push(neighbor);
-                    }
-                })
-            }
-        }
-
-        //TODO: Add city walls
-
-        return city_cells;
-    };
-
+    //-------------------------------------------------
     _c.generate_buildings = function (game) {
 
         _.each(game.data.buildings, function (building_layer) {
-            var location = _c.find_location(game, building_layer);
+            var location = _c.find_a_matching_tile(game, building_layer);
 
             if (building_layer.type == 'city') {
                 _c.generators.city(game, location, building_layer);
@@ -283,7 +191,6 @@
             }
         });
     };
-
 
 
     _c.generate_battle_map = function (game) {
@@ -398,6 +305,100 @@
         game.open_space = freeCells;
         game.cells = cells;
 
+    };
+
+    //¬-----------------------------------------------------
+    _c.generators = {};
+    _c.generators.storage = function (game, location, storage_info) {
+        var size = 2;
+        var loot_per = {};
+
+        storage_info.resources = storage_info.resources || {};
+        for (key in storage_info.resources) {
+            loot_per[key] = Math.round(storage_info.resources[key] / (size * size));
+        }
+
+
+        //TODO: How to make a hex rectange?
+        for (var x = location.x; x <= location.x + size; x++) {
+            for (var y = location.y; y < location.y + size; y++) {
+                var tile = _c.tile(game, x, y);
+                if (tile) {
+                    tile.loot = tile.loot || {};
+                    for (key in loot_per) {
+                        tile.loot[key] = tile.loot[key] || 0;
+                        tile.loot[key] += loot_per[key];
+                    }
+                    tile.additions = tile.additions || [];
+                    tile.additions.push('storage');
+                }
+            }
+        }
+
+    };
+    _c.generators.city = function (game, location, city_info) {
+
+        var building_tile_tries = Math.sqrt(city_info.population);
+        var building_tile_radius = Math.pow(city_info.population, 1 / 3.2);
+        var number_of_roads = Math.pow(city_info.population / 100, 1 / 4);
+
+        var city_cells = [];
+
+        //Generate roads
+        var tries = 10;
+        var last_side = '';
+        for (var i = 0; i < number_of_roads; i++) {
+            var side = _c.randOption(['left', 'right', 'top', 'bottom'], {}, last_side);
+            last_side = side;
+            for (var t = 0; t < tries; t++) {
+                var starting = _c.find_a_matching_tile(game, {location: side});
+                var path = _c.path_from_to(game, location.x, location.y, starting.x, starting.y);
+                if (path && path.length) {
+                    path.shift();
+                    for (var step = 0; step < path.length; step++) {
+                        var cell = _c.tile(game, path[step]);
+                        if (cell) {
+                            cell.additions = cell.additions || [];
+                            cell.additions.push('road');
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        //Generate city tiles & surrounding tiles
+        for (var i = 0; i < building_tile_tries; i++) {
+            var x, y;
+            x = location.x + _c.randInt(building_tile_radius) - (building_tile_radius / 2) - 1;
+            y = location.y + _c.randInt(building_tile_radius) - (building_tile_radius / 2) - 1;
+
+            x = Math.floor(x);
+            y = Math.floor(y);
+            if (_c.tile_is_traversable(game, x, y, false)) {
+                game.cells[x][y] = _.clone(city_info);
+                city_cells.push(game.cells[x][y]);
+
+                var neighbors = _c.surrounding_tiles(game, x, y);
+                _.each(neighbors, function (neighbor) {
+                    neighbor.additions = neighbor.additions || [];
+                    if (neighbor.type != 'city') {
+                        if (neighbor.name == 'mountains') {
+                            neighbor.additions.push('mine');
+                        } else if (neighbor.name == 'lake') {
+                            neighbor.additions.push('dock');
+                        } else {
+                            neighbor.additions.push('farm');
+                        }
+                        city_cells.push(neighbor);
+                    }
+                })
+            }
+        }
+
+        //TODO: Add city walls
+
+        return city_cells;
     };
 
 

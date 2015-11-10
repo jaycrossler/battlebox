@@ -95,7 +95,7 @@
 
         var moves = _c.try_to_move_to_and_draw(game, unit, x, y);
         if (moves) {
-            _c.log_message_to_user(game, msg+ "wanders a space", 1);
+            _c.log_message_to_user(game, msg + "wanders a space", 1);
         } else {
             _c.movement_strategies.wait(game, unit);
         }
@@ -109,7 +109,7 @@
         var x = target_status.target ? target_status.target.getX() : -1;
         var y = target_status.target ? target_status.target.getY() : -1;
 
-        if (!_c.is_valid_location(game, x, y)) {
+        if (!_c.tile_is_traversable(game, x, y)) {
             if (options.backup_strategy == 'vigilant') {
                 _c.movement_strategies.vigilant(game, unit);
                 return;
@@ -156,7 +156,7 @@
     _c.movement_strategies.avoid = function (game, unit, target_status, options) {
         var x = target_status.target ? target_status.target.getX() : -1;
         var y = target_status.target ? target_status.target.getY() : -1;
-        if (!_c.is_valid_location(game, x, y)) {
+        if (!_c.tile_is_traversable(game, x, y)) {
             if (options.backup_strategy == 'vigilant') {
                 _c.movement_strategies.vigilant(game, unit);
                 return;

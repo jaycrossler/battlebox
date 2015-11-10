@@ -58,6 +58,8 @@ module.exports = function (grunt) {
                         "js-libs/rot.js",
                         "js-libs/jquery-1.11.3.min.js",
                         "js-libs/bootstrap.min.js",
+                        "js-libs/colors.min.js",
+                        "js-libs/color.js",
                         "js-libs/underscore-min.js",
                         "js-libs/underscore.string.min.js"
                     ]
