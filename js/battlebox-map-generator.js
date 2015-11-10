@@ -2,6 +2,10 @@
     var _c = new Battlebox('get_private_functions');
 
     //TODO: Have difficulty of travel tied to color
+    //TODO: Add city center tile
+    //TODO: Recolor based on other hex programs
+    //TODO: Use hex images for terrain
+    //TODO: Use colored large circle characters for forces, not full hex colors
 
     _c.tile = function (game, x, y) {
         var cell;
@@ -15,6 +19,14 @@
         }
         return cell;
     };
+
+    /**
+     * Returns an object that has tile basic info along with any entities or objects on tile
+     * @param {object} game class data
+     * @param {int} x
+     * @param {int} y
+     * @returns {object} cell and entity data
+     */
     _c.tile_info = function (game, x, y) {
         var info = {};
 
@@ -59,8 +71,8 @@
                 if (!move_through_impassibles && cell.impassible) {
                     valid_num = false;
                 }
-                if (only_impassible && cell.impassible) {
-                    valid_num = true;
+                if (only_impassible){
+                    valid_num = (cell.impassible);
                 }
             } else {
                 valid_num = false;
@@ -72,7 +84,6 @@
 
 
     _c.find_a_matching_tile = function (game, options) {
-
         var x, y, i, tries = 50, index = 0, key;
         if (options.location == 'center') {
             for (i = 0; i < tries; i++) {
@@ -110,7 +121,7 @@
         } else if (options.location == 'top') {
             for (i = 0; i < tries; i++) {
                 x = _c.randInt(_c.cols(game));
-                y = _c.randOption([0, 1]);
+                y = 0;//_c.randOption([0, 1]);
 
                 if (_c.tile_is_traversable(game, x, y, false)) {
                     break;
@@ -121,7 +132,7 @@
             var bottom = _c.rows(game);
             for (i = 0; i < tries; i++) {
                 x = _c.randInt(_c.cols(game));
-                y = _c.randOption([bottom - 1, bottom - 2, bottom - 3]);
+                y = bottom; //_c.randOption([bottom - 1, bottom - 2, bottom - 3]);
 
                 if (_c.tile_is_traversable(game, x, y, false)) {
                     break;
@@ -130,8 +141,8 @@
 
         } else if (options.location == 'impassible') {
             for (i = 0; i < tries; i++) {
-                x = (_c.randInt(_c.cols(game)));
                 y = (_c.randInt(_c.rows(game)));
+                x = (y%2) + (_c.randInt(_c.cols(game)/2)*2);
 
                 var loc = _c.tile_is_traversable(game, x, y, true, true);
                 if (loc) {
@@ -163,14 +174,57 @@
         return {x: x, y: y};
     };
 
+    /**
+     * Returns whether a tile has a specific addition (either a simple text feature like 'field', or a complex object feature like {name:'road', symbol:'-'}
+     * @param {cell} cell - tile to look at
+     * @param {string} feature - a feature class, like 'field', or 'road'
+     * @returns {variable} null if no object, or the feature info (string or object) if it was found
+     */
     _c.tile_has = function (cell, feature) {
-        var has = false;
+        var has = null;
 
-        if (cell.additions && _.indexOf(cell.additions, feature) > -1) {
-            has = true;
+        if (cell.additions) {
+            for (var i = 0; i < cell.additions.length; i++) {
+                var a = cell.additions[i];
+                if (a == feature || (a && a.name && a.name == feature)) {
+                    has = a;
+                    break;
+                }
+            }
         }
         return has;
 
+    };
+
+    //TODO: Work for distant tiles also
+    /**
+     * Returns a cardinal direction from one tile to an adjacent tile
+     * @param {cell} tile_from
+     * @param {cell} tile_to
+     * @returns {object} angle, hex_dir_change_array, road_symbol, description
+     */
+    _c.direction_from_tile_to_tile = function (tile_from, tile_to) {
+        var dir = {angle: null, rot_number: -1, hex_dir_change_array: [0, 0], road_symbol: '', description: ''};
+
+        var offset_x = tile_to.x - tile_from.x;
+        var offset_y = tile_to.y - tile_from.y;
+
+        if (offset_x == -1 && offset_y == -1) {
+            dir = {angle: 330, rot_number: 0, road_symbol: '\\', description: 'North West', abbr: 'NW'};
+        } else if (offset_x == 1 && offset_y == -1) {
+            dir = {angle: 30, rot_number: 1, road_symbol: '/', description: 'North East', abbr: 'NE'};
+        } else if (offset_x == 2 && offset_y == 0) {
+            dir = {angle: 90, rot_number: 2, road_symbol: '-', description: 'East', abbr: 'E'};
+        } else if (offset_x == 1 && offset_y == 1) {
+            dir = {angle: 150, rot_number: 3, road_symbol: '\\', description: 'South East', abbr: 'SE'};
+        } else if (offset_x == -1 && offset_y == 1) {
+            dir = {angle: 210, rot_number: 4, road_symbol: '/', description: 'South West', abbr: 'SW'};
+        } else if (offset_x == -2 && offset_y == 0) {
+            dir = {angle: 270, rot_number: 5, road_symbol: '-', description: 'West', abbr: 'W'};
+        }
+        dir.hex_dir_change_array = ROT.DIRS[6][dir.rot_number];
+
+        return dir;
     };
 
     //-------------------------------------------------
@@ -189,11 +243,13 @@
 //    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
 
             }
+            building_layer.location = location;
+
         });
     };
 
 
-    _c.generate_battle_map = function (game) {
+    _c.generate_base_map = function (game) {
         game.data.terrain_options = game.data.terrain_options || [];
         if (game.data.terrain_options.length == 0) {
             game.data.terrain_options = [
@@ -273,6 +329,8 @@
                         cells[x] = cells[x] || [];
                         cells[x][y] = _.clone(terrain_layer);
                         cells[x][y].color = cells[x][y].color.random();
+                        cells[x][y].x = x;
+                        cells[x][y].y = y;
 
                         //TODO: Have cell be a mix of multiple layers
                     }
@@ -298,6 +356,8 @@
                     if (!cells[x][y].name) {
                         cells[x][y] = _.clone(ground_layer);
                         cells[x][y].color = cells[x][y].color.random();
+                        cells[x][y].x = x;
+                        cells[x][y].y = y;
                     }
                 }
             }
@@ -336,6 +396,31 @@
         }
 
     };
+    _c.generators.roads_from = function (game, number_of_roads, starting_tile) {
+        var tries = 20;
+        var last_side = '';
+        for (var i = 0; i < number_of_roads; i++) {
+            var side = _c.randOption(['left', 'right', 'top', 'bottom'], {}, last_side);
+            last_side = side;
+            for (var t = 0; t < tries; t++) {
+                var ending_tile = _c.find_a_matching_tile(game, {location: side});
+                var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y);
+                if (path && path.length) {
+                    for (var step = 1; step < path.length; step++) {
+                        var cell = _c.tile(game, path[step]);
+                        var last_cell = _c.tile(game, path[step - 1]);
+                        var dir = _c.direction_from_tile_to_tile(last_cell, cell);
+
+                        if (cell) {
+                            cell.additions = cell.additions || [];
+                            cell.additions.push({name: 'road', symbol: dir.road_symbol});
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    };
     _c.generators.city = function (game, location, city_info) {
 
         var building_tile_tries = Math.sqrt(city_info.population);
@@ -344,28 +429,7 @@
 
         var city_cells = [];
 
-        //Generate roads
-        var tries = 10;
-        var last_side = '';
-        for (var i = 0; i < number_of_roads; i++) {
-            var side = _c.randOption(['left', 'right', 'top', 'bottom'], {}, last_side);
-            last_side = side;
-            for (var t = 0; t < tries; t++) {
-                var starting = _c.find_a_matching_tile(game, {location: side});
-                var path = _c.path_from_to(game, location.x, location.y, starting.x, starting.y);
-                if (path && path.length) {
-                    path.shift();
-                    for (var step = 0; step < path.length; step++) {
-                        var cell = _c.tile(game, path[step]);
-                        if (cell) {
-                            cell.additions = cell.additions || [];
-                            cell.additions.push('road');
-                        }
-                    }
-                    break;
-                }
-            }
-        }
+        _c.generators.roads_from(game, number_of_roads, location);
 
         //Generate city tiles & surrounding tiles
         for (var i = 0; i < building_tile_tries; i++) {

@@ -6,6 +6,10 @@
 
     //TODO: Have icons for different units
     //TODO: SetCenter to have large map and redraw every movement
+    //TODO: Have movement be based on values
+    //TODO: Move faster over roads, and slower over water
+    //TODO: Have A*Star use the terrain movement variables
+    //TODO: Have enemy searching only look if within a likely radius
 
     _c.build_units_from_list = function (game, list) {
         _.each(list || [], function (unit_info, id) {

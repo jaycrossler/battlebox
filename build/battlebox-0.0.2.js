@@ -1,8 +1,11 @@
 /*
 ------------------------------------------------------------------------------------
--- battlebox.js - v0.0.1 - Built on 2015-11-10 by Jay Crossler using Grunt.js
+-- battlebox.js - v0.0.2 - Built on 2015-11-10 by Jay Crossler using Grunt.js
 ------------------------------------------------------------------------------------
--- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara
+-- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara 
+-- Packaged with color.js - Copyright (c) 2008-2013, Andrew Brehaut, Tim Baumann,  
+--                          Matt Wilson, Simon Heimler, Michel Vielmetter 
+-- colors.js - Copyright 2012-2013 Matt Jordan - https://github.com/mbjordan/Colors 
 ------------------------------------------------------------------------------------
 */
 //Jay's math helpers
@@ -936,7 +939,7 @@ var Battlebox = (function ($, _, Helpers, maths) {
 
     //-----------------------------
     //Private Global variables
-    var version = '0.0.1',
+    var version = '0.0.2',
         summary = 'HTML game engine to simulate a battlefield for multiple troops to combat upon.',
         author = 'Jay Crossler - http://github.com/jaycrossler',
         file_name = 'battlebox.js';
@@ -1225,7 +1228,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             defender.is_dead = true;
             _c.remove_entity(game, defender);
 
-            message = "<b>" +a_name + " ("+a_side+", size "+a_count+")</b> wins attacking "+ d_name + " ("+b_side+", size "+d_count+")";
+            message = "<b>" +a_name + " ("+a_side+", size "+a_count+")</b> wins attacking "+ d_name + " ("+b_side+", power "+d_count+")";
 
             enemies_alive = _c.find_unit_status(game, attacker, {side: 'enemy', return_multiple:true});
             if (enemies_alive.target.length == 0) {
@@ -1237,7 +1240,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             attacker.is_dead = true;
             _c.remove_entity(game, attacker);
 
-            message = a_name + " ("+a_side+", size "+a_count+") loses attacking <b>"+ d_name + " ("+b_side+", size "+d_count+")</b>";
+            message = a_name + " ("+a_side+", size "+a_count+") loses attacking <b>"+ d_name + " ("+b_side+", power "+d_count+")</b>";
 
             enemies_alive = _c.find_unit_status(game, defender, {side: 'enemy', return_multiple:true});
             if (enemies_alive.target.length == 0) {
@@ -1261,8 +1264,8 @@ Battlebox.initializeOptions = function (option_type, options) {
     var $pointers = {};
 
     _c.draw_initial_display = function (game, options) {
-        $pointers.canvas_holder = $('#container')
-            .css({width: '1567px'})
+        $pointers.canvas_holder = $('#container');
+
         $pointers.message_display = $('#message_display');
 
         game.display = new ROT.Display({
@@ -1384,9 +1387,11 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
         }
 
-        if (!color && _c.tile_has(cell, 'road')) {
-            text = ":";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .5).toString();
+        var road_info = _c.tile_has(cell, 'road');
+        if (!color && road_info) {
+            text = road_info.symbol || ":";
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .65).toString();
+            color = "#fff";
         }
         if (!color && _c.tile_has(cell, 'storage')) {
             text = "o";
@@ -1595,9 +1600,9 @@ Battlebox.initializeOptions = function (option_type, options) {
         delay_between_ticks: 400,
         log_level_to_show: 2,
 
-        cols: 200,
-        rows: 50,
-        cell_size: 13,
+        cols: 260,
+        rows: 90,
+        cell_size: 9,
         cell_spacing: 1.1,
         cell_border: 0.01,
         transpose: false, //TODO: If using transpose, a number of other functions for placement should be tweaked
@@ -1660,7 +1665,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         ],
 
         buildings:[
-            {name:'Large City', title:'Anchorage', type:'city', population:3000, fortifications:20, location:'center'},
+            {name:'Large City', title:'Anchorage', type:'city', population:20000, fortifications:20, location:'center'},
             {name:'Grain Storage', type:'storage', resources:{food:10000, gold:2, herbs:100}, location:'random'},
             {name:'Metal Storage', type:'storage', resources:{metal:1000, gold:2, ore:1000}, location:'random'},
             {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
@@ -1874,6 +1879,10 @@ Battlebox.initializeOptions = function (option_type, options) {
     var _c = new Battlebox('get_private_functions');
 
     //TODO: Have difficulty of travel tied to color
+    //TODO: Add city center tile
+    //TODO: Recolor based on other hex programs
+    //TODO: Use hex images for terrain
+    //TODO: Use colored large circle characters for forces, not full hex colors
 
     _c.tile = function (game, x, y) {
         var cell;
@@ -1887,6 +1896,14 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
         return cell;
     };
+
+    /**
+     * Returns an object that has tile basic info along with any entities or objects on tile
+     * @param {object} game class data
+     * @param {int} x
+     * @param {int} y
+     * @returns {object} cell and entity data
+     */
     _c.tile_info = function (game, x, y) {
         var info = {};
 
@@ -1931,8 +1948,8 @@ Battlebox.initializeOptions = function (option_type, options) {
                 if (!move_through_impassibles && cell.impassible) {
                     valid_num = false;
                 }
-                if (only_impassible && cell.impassible) {
-                    valid_num = true;
+                if (only_impassible){
+                    valid_num = (cell.impassible);
                 }
             } else {
                 valid_num = false;
@@ -1944,7 +1961,6 @@ Battlebox.initializeOptions = function (option_type, options) {
 
 
     _c.find_a_matching_tile = function (game, options) {
-
         var x, y, i, tries = 50, index = 0, key;
         if (options.location == 'center') {
             for (i = 0; i < tries; i++) {
@@ -1982,7 +1998,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         } else if (options.location == 'top') {
             for (i = 0; i < tries; i++) {
                 x = _c.randInt(_c.cols(game));
-                y = _c.randOption([0, 1]);
+                y = 0;//_c.randOption([0, 1]);
 
                 if (_c.tile_is_traversable(game, x, y, false)) {
                     break;
@@ -1993,7 +2009,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             var bottom = _c.rows(game);
             for (i = 0; i < tries; i++) {
                 x = _c.randInt(_c.cols(game));
-                y = _c.randOption([bottom - 1, bottom - 2, bottom - 3]);
+                y = bottom; //_c.randOption([bottom - 1, bottom - 2, bottom - 3]);
 
                 if (_c.tile_is_traversable(game, x, y, false)) {
                     break;
@@ -2002,8 +2018,8 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         } else if (options.location == 'impassible') {
             for (i = 0; i < tries; i++) {
-                x = (_c.randInt(_c.cols(game)));
                 y = (_c.randInt(_c.rows(game)));
+                x = (y%2) + (_c.randInt(_c.cols(game)/2)*2);
 
                 var loc = _c.tile_is_traversable(game, x, y, true, true);
                 if (loc) {
@@ -2035,14 +2051,57 @@ Battlebox.initializeOptions = function (option_type, options) {
         return {x: x, y: y};
     };
 
+    /**
+     * Returns whether a tile has a specific addition (either a simple text feature like 'field', or a complex object feature like {name:'road', symbol:'-'}
+     * @param {cell} cell - tile to look at
+     * @param {string} feature - a feature class, like 'field', or 'road'
+     * @returns {variable} null if no object, or the feature info (string or object) if it was found
+     */
     _c.tile_has = function (cell, feature) {
-        var has = false;
+        var has = null;
 
-        if (cell.additions && _.indexOf(cell.additions, feature) > -1) {
-            has = true;
+        if (cell.additions) {
+            for (var i = 0; i < cell.additions.length; i++) {
+                var a = cell.additions[i];
+                if (a == feature || (a && a.name && a.name == feature)) {
+                    has = a;
+                    break;
+                }
+            }
         }
         return has;
 
+    };
+
+    //TODO: Work for distant tiles also
+    /**
+     * Returns a cardinal direction from one tile to an adjacent tile
+     * @param {cell} tile_from
+     * @param {cell} tile_to
+     * @returns {object} angle, hex_dir_change_array, road_symbol, description
+     */
+    _c.direction_from_tile_to_tile = function (tile_from, tile_to) {
+        var dir = {angle: null, rot_number: -1, hex_dir_change_array: [0, 0], road_symbol: '', description: ''};
+
+        var offset_x = tile_to.x - tile_from.x;
+        var offset_y = tile_to.y - tile_from.y;
+
+        if (offset_x == -1 && offset_y == -1) {
+            dir = {angle: 330, rot_number: 0, road_symbol: '\\', description: 'North West', abbr: 'NW'};
+        } else if (offset_x == 1 && offset_y == -1) {
+            dir = {angle: 30, rot_number: 1, road_symbol: '/', description: 'North East', abbr: 'NE'};
+        } else if (offset_x == 2 && offset_y == 0) {
+            dir = {angle: 90, rot_number: 2, road_symbol: '-', description: 'East', abbr: 'E'};
+        } else if (offset_x == 1 && offset_y == 1) {
+            dir = {angle: 150, rot_number: 3, road_symbol: '\\', description: 'South East', abbr: 'SE'};
+        } else if (offset_x == -1 && offset_y == 1) {
+            dir = {angle: 210, rot_number: 4, road_symbol: '/', description: 'South West', abbr: 'SW'};
+        } else if (offset_x == -2 && offset_y == 0) {
+            dir = {angle: 270, rot_number: 5, road_symbol: '-', description: 'West', abbr: 'W'};
+        }
+        dir.hex_dir_change_array = ROT.DIRS[6][dir.rot_number];
+
+        return dir;
     };
 
     //-------------------------------------------------
@@ -2061,6 +2120,8 @@ Battlebox.initializeOptions = function (option_type, options) {
 //    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
 
             }
+            building_layer.location = location;
+
         });
     };
 
@@ -2145,6 +2206,8 @@ Battlebox.initializeOptions = function (option_type, options) {
                         cells[x] = cells[x] || [];
                         cells[x][y] = _.clone(terrain_layer);
                         cells[x][y].color = cells[x][y].color.random();
+                        cells[x][y].x = x;
+                        cells[x][y].y = y;
 
                         //TODO: Have cell be a mix of multiple layers
                     }
@@ -2170,6 +2233,8 @@ Battlebox.initializeOptions = function (option_type, options) {
                     if (!cells[x][y].name) {
                         cells[x][y] = _.clone(ground_layer);
                         cells[x][y].color = cells[x][y].color.random();
+                        cells[x][y].x = x;
+                        cells[x][y].y = y;
                     }
                 }
             }
@@ -2208,6 +2273,31 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
 
     };
+    _c.generators.roads_from = function (game, number_of_roads, starting_tile) {
+        var tries = 20;
+        var last_side = '';
+        for (var i = 0; i < number_of_roads; i++) {
+            var side = _c.randOption(['left', 'right', 'top', 'bottom'], {}, last_side);
+            last_side = side;
+            for (var t = 0; t < tries; t++) {
+                var ending_tile = _c.find_a_matching_tile(game, {location: side});
+                var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y);
+                if (path && path.length) {
+                    for (var step = 1; step < path.length; step++) {
+                        var cell = _c.tile(game, path[step]);
+                        var last_cell = _c.tile(game, path[step - 1]);
+                        var dir = _c.direction_from_tile_to_tile(last_cell, cell);
+
+                        if (cell) {
+                            cell.additions = cell.additions || [];
+                            cell.additions.push({name: 'road', symbol: dir.road_symbol});
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    };
     _c.generators.city = function (game, location, city_info) {
 
         var building_tile_tries = Math.sqrt(city_info.population);
@@ -2216,28 +2306,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         var city_cells = [];
 
-        //Generate roads
-        var tries = 10;
-        var last_side = '';
-        for (var i = 0; i < number_of_roads; i++) {
-            var side = _c.randOption(['left', 'right', 'top', 'bottom'], {}, last_side);
-            last_side = side;
-            for (var t = 0; t < tries; t++) {
-                var starting = _c.find_a_matching_tile(game, {location: side});
-                var path = _c.path_from_to(game, location.x, location.y, starting.x, starting.y);
-                if (path && path.length) {
-                    path.shift();
-                    for (var step = 0; step < path.length; step++) {
-                        var cell = _c.tile(game, path[step]);
-                        if (cell) {
-                            cell.additions = cell.additions || [];
-                            cell.additions.push('road');
-                        }
-                    }
-                    break;
-                }
-            }
-        }
+        _c.generators.roads_from(game, number_of_roads, location);
 
         //Generate city tiles & surrounding tiles
         for (var i = 0; i < building_tile_tries; i++) {
@@ -2491,6 +2560,10 @@ Battlebox.initializeOptions = function (option_type, options) {
 
     //TODO: Have icons for different units
     //TODO: SetCenter to have large map and redraw every movement
+    //TODO: Have movement be based on values
+    //TODO: Move faster over roads, and slower over water
+    //TODO: Have A*Star use the terrain movement variables
+    //TODO: Have enemy searching only look if within a likely radius
 
     _c.build_units_from_list = function (game, list) {
         _.each(list || [], function (unit_info, id) {

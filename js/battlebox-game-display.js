@@ -3,8 +3,8 @@
     var $pointers = {};
 
     _c.draw_initial_display = function (game, options) {
-        $pointers.canvas_holder = $('#container')
-            .css({width: '1567px'})
+        $pointers.canvas_holder = $('#container');
+
         $pointers.message_display = $('#message_display');
 
         game.display = new ROT.Display({
@@ -25,7 +25,7 @@
         $pointers.info_box = $('<div>')
             .appendTo($pointers.canvas_holder);
 
-        _c.generate_battle_map(game);
+        _c.generate_base_map(game);
 
         _c.generate_buildings(game);
 
@@ -126,9 +126,11 @@
             }
         }
 
-        if (!color && _c.tile_has(cell, 'road')) {
-            text = ":";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .5).toString();
+        var road_info = _c.tile_has(cell, 'road');
+        if (!color && road_info) {
+            text = road_info.symbol || ":";
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .65).toString();
+            color = "#fff";
         }
         if (!color && _c.tile_has(cell, 'storage')) {
             text = "o";

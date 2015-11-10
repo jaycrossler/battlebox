@@ -25,7 +25,7 @@
             defender.is_dead = true;
             _c.remove_entity(game, defender);
 
-            message = "<b>" +a_name + " ("+a_side+", size "+a_count+")</b> wins attacking "+ d_name + " ("+b_side+", size "+d_count+")";
+            message = "<b>" +a_name + " ("+a_side+", size "+a_count+")</b> wins attacking "+ d_name + " ("+b_side+", power "+d_count+")";
 
             enemies_alive = _c.find_unit_status(game, attacker, {side: 'enemy', return_multiple:true});
             if (enemies_alive.target.length == 0) {
@@ -37,7 +37,7 @@
             attacker.is_dead = true;
             _c.remove_entity(game, attacker);
 
-            message = a_name + " ("+a_side+", size "+a_count+") loses attacking <b>"+ d_name + " ("+b_side+", size "+d_count+")</b>";
+            message = a_name + " ("+a_side+", size "+a_count+") loses attacking <b>"+ d_name + " ("+b_side+", power "+d_count+")</b>";
 
             enemies_alive = _c.find_unit_status(game, defender, {side: 'enemy', return_multiple:true});
             if (enemies_alive.target.length == 0) {

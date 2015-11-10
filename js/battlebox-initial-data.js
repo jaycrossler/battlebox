@@ -10,9 +10,9 @@
         delay_between_ticks: 400,
         log_level_to_show: 2,
 
-        cols: 200,
-        rows: 50,
-        cell_size: 13,
+        cols: 260,
+        rows: 90,
+        cell_size: 9,
         cell_spacing: 1.1,
         cell_border: 0.01,
         transpose: false, //TODO: If using transpose, a number of other functions for placement should be tweaked
@@ -75,7 +75,7 @@
         ],
 
         buildings:[
-            {name:'Large City', title:'Anchorage', type:'city', population:3000, fortifications:20, location:'center'},
+            {name:'Large City', title:'Anchorage', type:'city', population:20000, fortifications:20, location:'center'},
             {name:'Grain Storage', type:'storage', resources:{food:10000, gold:2, herbs:100}, location:'random'},
             {name:'Metal Storage', type:'storage', resources:{metal:1000, gold:2, ore:1000}, location:'random'},
             {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}

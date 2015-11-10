@@ -4,5 +4,6 @@ $(function () {
     var fight_seed = Helpers.getQueryVariable('fight');
 
     battlebox = new Battlebox({rand_seed:42, fight_seed: fight_seed});
-    $('canvas').focus()
+    $('canvas').focus();
+    console.log(battlebox.log());
 });

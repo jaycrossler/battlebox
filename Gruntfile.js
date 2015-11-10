@@ -1,7 +1,7 @@
 // Generated on <%= (new Date).toISOString().split('T')[0] %> using
 // <%= pkg.name %> <%= pkg.version %>
 'use strict';
-
+//TODO: Not initializing engine during Jasmine test
 
 var libraryFiles = ['js/maths.js', 'js/helpers.js'];
 var projectFiles = [ 'js/battlebox.js', 'js/battlebox-*.js'];
@@ -17,6 +17,9 @@ module.exports = function (grunt) {
         '-- <%= pkg.name %>.js - v<%= pkg.version %> - Built on <%= grunt.template.today("yyyy-mm-dd") %> by <%= pkg.author %> using Grunt.js\n' +
         '------------------------------------------------------------------------------------\n' +
         '-- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara \n' +
+        '-- Packaged with color.js - Copyright (c) 2008-2013, Andrew Brehaut, Tim Baumann,  \n' +
+        '--                          Matt Wilson, Simon Heimler, Michel Vielmetter \n' +
+        '-- colors.js - Copyright 2012-2013 Matt Jordan - https://github.com/mbjordan/Colors \n' +
         '------------------------------------------------------------------------------------\n' +
         '*/\n';
 
