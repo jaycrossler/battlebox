@@ -265,77 +265,20 @@
             }
         }
 
-        //Build each map layer
+        //Build each terrain layer using cellular algorithms
         _.each(game.data.terrain_options, function (terrain_layer) {
-            var map_layer;
-            if (terrain_layer.draw_type == 'digger') {
-                map_layer = new ROT.Map.Digger(_c.cols(game), _c.rows(game));
-
-            } else if (terrain_layer.draw_type != 'flat') {
-                //Use Cellular generation style
-                var born = [5, 6, 7];
-                var survive = [3, 4, 5];
-
-                //TODO: Add some more levels and drawing types
-                if (terrain_layer.density == 'small') {
-                    born = [4];
-                    survive = [3];
-                } else if (terrain_layer.density == 'sparse') {
-                    born = [4, 5];
-                    survive = [3, 4];
-                } else if (terrain_layer.density == 'medium') {
-                    born = [5, 6, 7];
-                    survive = [3, 4, 5];
-                } else if (terrain_layer.density == 'high') {
-                    born = [4, 5, 6, 7];
-                    survive = [3, 4, 5, 6];
-                }
-
-                map_layer = new ROT.Map.Cellular(_c.cols(game), _c.rows(game), {
-                    //connected: true,
-                    topology: 6,
-                    born: born,
-                    survive: survive
-                });
+            cells = _c.generators.terrain_layer(game, terrain_layer, cells)
+        });
 
 
-                // initialize with irregularly random values with less in middle
-                if (terrain_layer.not_center) {
-                    for (var i = 0; i < _c.cols(game); i++) {
-                        for (var j = 0; j < _c.rows(game); j++) {
-                            var dx = i / _c.cols(game) - 0.5;
-                            var dy = j / _c.rows(game) - 0.5;
-                            var dist = Math.pow(dx * dx + dy * dy, 0.3);
-                            if (ROT.RNG.getUniform() < dist) {
-                                map_layer.set(i, j, 1);
-                            }
-                        }
-                    }
-                } else {
-                    map_layer.randomize(terrain_layer.thickness || 0.5);
-                }
-
-                // generate a few smoothing iterations
-                var iterations = terrain_layer.smoothness || 3;
-                for (var i = iterations - 1; i >= 0; i--) {
-                    map_layer.create(i ? null : game.display.DEBUG);
-                }
-            }
-
-            //For all cells not matched, add to a list
-            if (map_layer && map_layer.create) {
-                var digCallback = function (x, y, value) {
-                    if (value) {
-                        cells[x] = cells[x] || [];
-                        cells[x][y] = _.clone(terrain_layer);
-                        cells[x][y].color = cells[x][y].color.random();
-                        cells[x][y].x = x;
-                        cells[x][y].y = y;
-
-                        //TODO: Have cell be a mix of multiple layers
-                    }
-                };
-                map_layer.create(digCallback.bind(game));
+        //Build each water layer
+        _.each(game.data.water_options, function (water_layer) {
+            if (water_layer.name == 'river') {
+                cells = _c.generators.river(game, water_layer, cells);
+            } else if (water_layer.name == 'lake') {
+                cells = _c.generators.lake(game, water_layer, cells);
+            } else if (water_layer.name == 'sea') {
+                cells = _c.generators.sea(game, water_layer, cells);
             }
         });
 
@@ -364,11 +307,86 @@
         }
         game.open_space = freeCells;
         game.cells = cells;
-
     };
 
     //¬-----------------------------------------------------
     _c.generators = {};
+    _c.generators.terrain_layer = function (game, terrain_layer, cells) {
+        var map_layer;
+        if (terrain_layer.draw_type == 'digger') {
+            map_layer = new ROT.Map.Digger(_c.cols(game), _c.rows(game));
+
+        } else if (terrain_layer.draw_type != 'flat') {
+            //Use Cellular generation style
+            var born = [5, 6, 7];
+            var survive = [3, 4, 5];
+
+            //TODO: Add some more levels and drawing types
+            if (terrain_layer.density == 'small') {
+                born = [4];
+                survive = [3];
+            } else if (terrain_layer.density == 'sparse') {
+                born = [4, 5];
+                survive = [3, 4];
+            } else if (terrain_layer.density == 'medium') {
+                born = [5, 6, 7];
+                survive = [3, 4, 5];
+            } else if (terrain_layer.density == 'high') {
+                born = [4, 5, 6, 7];
+                survive = [3, 4, 5, 6];
+            }
+
+            map_layer = new ROT.Map.Cellular(_c.cols(game), _c.rows(game), {
+                //connected: true,
+                topology: 6,
+                born: born,
+                survive: survive
+            });
+
+
+            // initialize with irregularly random values with less in middle
+            if (terrain_layer.not_center) {
+                for (var i = 0; i < _c.cols(game); i++) {
+                    for (var j = 0; j < _c.rows(game); j++) {
+                        var dx = i / _c.cols(game) - 0.5;
+                        var dy = j / _c.rows(game) - 0.5;
+                        var dist = Math.pow(dx * dx + dy * dy, 0.3);
+                        if (ROT.RNG.getUniform() < dist) {
+                            map_layer.set(i, j, 1);
+                        }
+                    }
+                }
+            } else {
+                map_layer.randomize(terrain_layer.thickness || 0.5);
+            }
+
+            // generate a few smoothing iterations
+            var iterations = terrain_layer.smoothness || 3;
+            for (var i = iterations - 1; i >= 0; i--) {
+                map_layer.create(i ? null : game.display.DEBUG);
+            }
+        }
+
+        //For all cells not matched, add to a list
+        if (map_layer && map_layer.create) {
+            var digCallback = function (x, y, value) {
+                if (value) {
+                    cells[x] = cells[x] || [];
+                    cells[x][y] = _.clone(terrain_layer);
+                    if (cells[x][y].color && _.isArray(cells[x][y].color )) {
+                        cells[x][y].color = cells[x][y].color.random();
+                    }
+                    cells[x][y].x = x;
+                    cells[x][y].y = y;
+
+                    //TODO: Have cell be a mix of multiple layers
+                }
+            };
+            map_layer.create(digCallback.bind(game));
+        }
+        return cells;
+    };
+
     _c.generators.storage = function (game, location, storage_info) {
         var size = 2;
         var loot_per = {};
@@ -379,7 +397,7 @@
         }
 
 
-        //TODO: How to make a hex rectange?
+        //TODO: How to make a hex rectangle?
         for (var x = location.x; x <= location.x + size; x++) {
             for (var y = location.y; y < location.y + size; y++) {
                 var tile = _c.tile(game, x, y);
@@ -421,15 +439,73 @@
             }
         }
     };
+
+    _c.generators.roads_from = function (game, number_of_roads, starting_tile) {
+        var tries = 20;
+        var last_side = '';
+        for (var i = 0; i < number_of_roads; i++) {
+            var side = _c.randOption(['left', 'right', 'top', 'bottom'], {}, last_side);
+            last_side = side;
+            for (var t = 0; t < tries; t++) {
+                var ending_tile = _c.find_a_matching_tile(game, {location: side});
+                var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y);
+                if (path && path.length) {
+                    for (var step = 1; step < path.length; step++) {
+                        var cell = _c.tile(game, path[step]);
+                        var last_cell = _c.tile(game, path[step - 1]);
+                        var dir = _c.direction_from_tile_to_tile(last_cell, cell);
+
+                        if (cell) {
+                            cell.additions = cell.additions || [];
+                            cell.additions.push({name: 'road', symbol: dir.road_symbol});
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    };
+
+    _c.generators.lake = function (game, water_layer, cells) {
+
+
+        return cells;
+    };
+
+    _c.generators.river = function (game, water_layer, cells) {
+
+
+        return cells;
+    };
+
+    _c.generators.sea = function (game, water_layer, cells) {
+
+
+        return cells;
+    };
+
+//    {name:'lake', density:'medium', placement:'left', color:['#03f','#04b','#00d'], data:{lake:true}},
+//    {name:'lake', density:'small', placement:'right', island:true, symbol:'~'},
+//    {name:'river', density:'small', thickness:1, placement:'lake'},
+//    {name:'river', title: 'Snake River', density:'medium', thickness:2, placement:'center'}
+//
     _c.generators.city = function (game, location, city_info) {
+        //TODO: Cities build along roads
+        //TODO: Cities build along side of river
 
         var building_tile_tries = Math.sqrt(city_info.population);
         var building_tile_radius = Math.pow(city_info.population, 1 / 3.2);
-        var number_of_roads = Math.pow(city_info.population / 100, 1 / 4);
+        var number_of_roads = city_info.road_count || Math.pow(city_info.population / 100, 1 / 4);
 
         var city_cells = [];
 
+        //Build roads based on city size
         _c.generators.roads_from(game, number_of_roads, location);
+
+
+        //Reset the city so it'll look the same independent of number of roads
+        ROT.RNG.setSeed(game.data.fight_seed || game.data.rand_seed);
+
 
         //Generate city tiles & surrounding tiles
         for (var i = 0; i < building_tile_tries; i++) {
@@ -454,7 +530,11 @@
                         } else {
                             neighbor.additions.push('farm');
                         }
-                        city_cells.push(neighbor);
+                        if (city_cells[neighbor.x] && city_cells[neighbor.x][neighbor.y]) {
+                            //Already in array
+                        } else {
+                            city_cells.push(neighbor);
+                        }
                     }
                 })
             }

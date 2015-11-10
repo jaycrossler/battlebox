@@ -99,12 +99,19 @@
 
     _c.game_over = function (game, side_wins) {
         game.engine.lock();
+        if (!side_wins) {
+            //TODO: Find the winning side based on amount of city destroyed and number of troops
+            side_wins = "No one";
+        }
+
         var msg = "Game Over!  " + side_wins + ' wins!';
 
-        //Find ending loot retrieved in living armies
+        msg+= " ("+ game.data.tick_count + " rounds)";
+
+        //Find ending loot retrieved via living armies
         var loot = {};
         _.each(game.entities, function(unit){
-            if (unit && unit._data && unit._data.side == side_wins) {
+            if (unit && unit._data && unit._data.player) {
                 if (unit.loot) {
                     for (var key in unit.loot) {
                         loot[key] = loot[key] || 0;
@@ -116,9 +123,6 @@
         var loot_msg = [];
         for (var key in loot) {
             loot_msg.push(loot[key] + " " + Helpers.pluralize(key))
-        }
-        if (loot_msg.length) {
-            msg += "<hr/><b>Loot:</b> " + loot_msg.join("<br/>");
         }
 
 
@@ -141,11 +145,17 @@
         });
 
         if (city_msg.length) {
-            msg += "<hr/><b>Cities:</b> " + city_msg.join("<br/>");
+            msg += "<hr/><b>Cities:</b><br/> " + city_msg.join("<br/>");
+        }
+        if (loot_msg.length) {
+            msg += "<hr/><b>Loot:</b><br/>" + loot_msg.join("<br/>");
         }
 
+        _c.log_message_to_user(game, msg, 4, (side_wins == "No one" ? 'gray' : side_wins));
 
-        _c.log_message_to_user(game, msg, 4, side_wins);
+        if (game.game_options.game_over_function) {
+            game.game_options.game_over_function(game);
+        }
     }
 
 

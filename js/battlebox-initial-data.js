@@ -1,11 +1,17 @@
 (function (Battlebox) {
 
+    function game_over_function(game) {
+        console.log("GAME OVER:");
+        //TODO: Make some handy reference functions to easily work with results
+    }
+
     var _game_options = {
         rand_seed: 0,
         tick_time: 1000,
+        game_over_time: 1000,
 
         arrays_to_map_to_objects: ''.split(','),
-        arrays_to_map_to_arrays: 'terrain_options,forces,buildings'.split(','),
+        arrays_to_map_to_arrays: 'terrain_options,water_options,forces,buildings'.split(','),
 
         delay_between_ticks: 50,
         log_level_to_show: 2,
@@ -21,11 +27,16 @@
         height: 'mountainous', //TODO
 
         terrain_options: [
-            {name:'plains', ground:true, draw_type: 'flat', color:["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"], symbol:' '},
-            {name:'mountains', density:'sparse', smoothness: 3, not_center:true, color:['gray', 'darkgray'], impassible:true, symbol:' '},
-            {name:'forest', density:'sparse', not_center:true, color:['darkgreen','green'], data:{movement:'slow'}, symbol:' '},
-            {name:'lake', density:'sparse', smoothness:5, placement:'left', color:['#03f','#04b','#00d'], data:{water:true}, symbol:'-'},
-            {name:'river', density:'small', thickness:.1, placement:'left', color:['#00f','#00e','#00d'], data:{water:true}, symbol:'/'}
+            {name:'plains', ground:true, draw_type: 'flat', color:["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"], symbol:''},
+            {name:'mountains', density:'sparse', smoothness: 3, not_center:true, color:['gray', 'darkgray'], impassible:true, symbol:'M'},
+            {name:'forest', density:'sparse', not_center:true, color:['darkgreen','green'], data:{movement:'slow'}, symbol:' '}
+        ],
+
+        water_options: [
+            {name:'lake', density:'medium', placement:'left', color:['#03f','#04b','#00d'], data:{lake:true}},
+            {name:'lake', density:'small', placement:'right', island:true, symbol:'~'},
+            {name:'river', density:'small', thickness:1, placement:'lake'},
+            {name:'river', title: 'Snake River', density:'medium', thickness:2, placement:'center'}
         ],
 
         forces: [
@@ -51,11 +62,11 @@
                 troops:{soldiers:620, cavalry:40, siege:100}},
 
             {name:'Defender Bowmen', side: 'White', symbol:'A', location:'center',
-                plan: 'defend city', backup_strategy: 'vigilant',
+                plan: 'seek closest', backup_strategy: 'vigilant',
                 troops:{soldiers:20, siege:20}},
 
             {name:'Defender Catapults', side: 'White', symbol:'B', location:'center',
-                plan: 'defend city', backup_strategy: 'vigilant',
+                plan: 'run away', backup_strategy: 'vigilant',
                 troops:{soldiers:20, siege:40}},
 
 
@@ -86,7 +97,8 @@
         ],
 
         functions_on_setup:[],
-        functions_each_tick:[]
+        functions_each_tick:[],
+        game_over_function: game_over_function
     };
 
 

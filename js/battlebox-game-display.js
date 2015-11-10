@@ -2,6 +2,8 @@
     var _c = new Battlebox('get_private_functions');
     var $pointers = {};
 
+    //TODO: Pass in a length of rounds before game is over
+
     _c.draw_initial_display = function (game, options) {
         $pointers.canvas_holder = $('#container');
 
@@ -79,6 +81,11 @@
     _c.draw_tile = function (game, x, y, text, color, bg_color) {
         //Cell is used to get color and symbol
 
+        var draw_basic_cell = false;
+        if (!color) {
+            draw_basic_cell = true;
+        }
+
         var cell = game.cells[x];
         if (cell) {
             cell = cell[y];
@@ -88,7 +95,7 @@
             return;
         }
 
-        if (!color) {
+        if (draw_basic_cell) {
             //No information was passed in, assume it's the default cell draw without player in it
             //TODO: Have options or some way to tell it to redraw a cell that isn't a player's move
             if (cell.type == 'city') {
@@ -126,30 +133,54 @@
             }
         }
 
-        var road_info = _c.tile_has(cell, 'road');
         if (!color && _c.tile_has(cell, 'unit corpse')) {
             text = "x";
         }
 
-        if (!color && road_info) {
+        var river_info = _c.tile_has(cell, 'river');
+        if (draw_basic_cell && river_info) {
+            text = river_info.symbol || text;
+            var depth = river_info.depth || 1;
+
+            //Depth from 1-3 gets more blue
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('blue'), (depth * .3)).toString();
+        }
+
+
+        var bridge = false;
+        var path_info = _c.tile_has(cell, 'path');
+        if (draw_basic_cell && path_info) {
+            text = path_info.symbol || "";
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), .4).toString();
+            if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
+        }
+        var road_info = _c.tile_has(cell, 'road');
+        if (draw_basic_cell && road_info) {
             text = road_info.symbol || ":";
             bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .65).toString();
             color = "#fff";
+            if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
         }
-        if (!color && _c.tile_has(cell, 'storage')) {
+
+        if (draw_basic_cell && _c.tile_has(cell, 'storage')) {
             text = "o";
             bg = net.brehaut.Color(bg).blend(net.brehaut.Color('yellow'), .1).toString();
         }
-        if (!color && _c.tile_has(cell, 'looted')) {
+        if (draw_basic_cell && _c.tile_has(cell, 'looted')) {
             text = ".";
             bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .8).toString();
         }
-        if (!color && _c.tile_has(cell, 'pillaged')) {
+        if (draw_basic_cell && _c.tile_has(cell, 'pillaged')) {
             text = "'";
             bg = net.brehaut.Color(bg).blend(net.brehaut.Color('red'), .8).toString();
         }
         if (_c.tile_has(cell, 'looted') && _c.tile_has(cell, 'pillaged')) {
             text = ";";
+        }
+        if (bridge) {
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), .8).toString();
+            text = "=";
+            color = "#fff";
         }
 
 
@@ -210,7 +241,7 @@
             .prependTo($pointers.message_display);
 
         if (importance == 4) {
-            $msg.css({backgroundColor: color || 'red', color: 'black', border: '4px solid gold', fontSize:'1.5em'});
+            $msg.css({backgroundColor: color || 'red', color: 'black', border: '4px solid gold', fontSize:'1.3em'});
         }
         if (importance == 3) {
             $msg.css({backgroundColor: color || 'orange', color: 'black'});

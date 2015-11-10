@@ -1264,6 +1264,8 @@ Battlebox.initializeOptions = function (option_type, options) {
     var _c = new Battlebox('get_private_functions');
     var $pointers = {};
 
+    //TODO: Pass in a length of rounds before game is over
+
     _c.draw_initial_display = function (game, options) {
         $pointers.canvas_holder = $('#container');
 
@@ -1341,6 +1343,11 @@ Battlebox.initializeOptions = function (option_type, options) {
     _c.draw_tile = function (game, x, y, text, color, bg_color) {
         //Cell is used to get color and symbol
 
+        var draw_basic_cell = false;
+        if (!color) {
+            draw_basic_cell = true;
+        }
+
         var cell = game.cells[x];
         if (cell) {
             cell = cell[y];
@@ -1350,7 +1357,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             return;
         }
 
-        if (!color) {
+        if (draw_basic_cell) {
             //No information was passed in, assume it's the default cell draw without player in it
             //TODO: Have options or some way to tell it to redraw a cell that isn't a player's move
             if (cell.type == 'city') {
@@ -1388,15 +1395,54 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
         }
 
+        if (!color && _c.tile_has(cell, 'unit corpse')) {
+            text = "x";
+        }
+
+        var river_info = _c.tile_has(cell, 'river');
+        if (draw_basic_cell && river_info) {
+            text = river_info.symbol || text;
+            var depth = river_info.depth || 1;
+
+            //Depth from 1-3 gets more blue
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('blue'), (depth * .3)).toString();
+        }
+
+
+        var bridge = false;
+        var path_info = _c.tile_has(cell, 'path');
+        if (draw_basic_cell && path_info) {
+            text = path_info.symbol || "";
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), .4).toString();
+            if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
+        }
         var road_info = _c.tile_has(cell, 'road');
-        if (!color && road_info) {
+        if (draw_basic_cell && road_info) {
             text = road_info.symbol || ":";
             bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .65).toString();
             color = "#fff";
+            if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
         }
-        if (!color && _c.tile_has(cell, 'storage')) {
+
+        if (draw_basic_cell && _c.tile_has(cell, 'storage')) {
             text = "o";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('red'), .1).toString();
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('yellow'), .1).toString();
+        }
+        if (draw_basic_cell && _c.tile_has(cell, 'looted')) {
+            text = ".";
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .8).toString();
+        }
+        if (draw_basic_cell && _c.tile_has(cell, 'pillaged')) {
+            text = "'";
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('red'), .8).toString();
+        }
+        if (_c.tile_has(cell, 'looted') && _c.tile_has(cell, 'pillaged')) {
+            text = ";";
+        }
+        if (bridge) {
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), .8).toString();
+            text = "=";
+            color = "#fff";
         }
 
 
@@ -1457,7 +1503,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             .prependTo($pointers.message_display);
 
         if (importance == 4) {
-            $msg.css({backgroundColor: color || 'red', color: 'black', border: '1px solid white'});
+            $msg.css({backgroundColor: color || 'red', color: 'black', border: '4px solid gold', fontSize:'1.3em'});
         }
         if (importance == 3) {
             $msg.css({backgroundColor: color || 'orange', color: 'black'});
@@ -1584,19 +1630,81 @@ Battlebox.initializeOptions = function (option_type, options) {
 
     _c.game_over = function (game, side_wins) {
         game.engine.lock();
-        _c.log_message_to_user(game, "Game Over!  " + side_wins + ' wins!', 4, side_wins);
+        if (!side_wins) {
+            //TODO: Find the winning side based on amount of city destroyed and number of troops
+            side_wins = "No one";
+        }
+
+        var msg = "Game Over!  " + side_wins + ' wins!';
+
+        msg+= " ("+ game.data.tick_count + " rounds)";
+
+        //Find ending loot retrieved via living armies
+        var loot = {};
+        _.each(game.entities, function(unit){
+            if (unit && unit._data && unit._data.player) {
+                if (unit.loot) {
+                    for (var key in unit.loot) {
+                        loot[key] = loot[key] || 0;
+                        loot[key] += unit.loot[key];
+                    }
+                }
+            }
+        });
+        var loot_msg = [];
+        for (var key in loot) {
+            loot_msg.push(loot[key] + " " + Helpers.pluralize(key))
+        }
+
+
+        //Calculate % of cities left
+        var city_msg = [];
+        var tiles_total = 0;
+        var tiles_ruined = 0;
+        _.each(game.data.buildings, function(city){
+            if (city.type == 'city') {
+                _.each(city.tiles || [], function (tile) {
+                    tiles_total++;
+                    if (_c.tile_has(tile, 'pillaged') || _c.tile_has(tile, 'looted')) {
+                        tiles_ruined++;
+                    }
+                });
+                var pct = Math.round((tiles_ruined/tiles_total) * 100);
+                var msg_c = pct+"% of "+(city.title || city.name) +" destroyed";
+                city_msg.push(msg_c);
+            }
+        });
+
+        if (city_msg.length) {
+            msg += "<hr/><b>Cities:</b><br/> " + city_msg.join("<br/>");
+        }
+        if (loot_msg.length) {
+            msg += "<hr/><b>Loot:</b><br/>" + loot_msg.join("<br/>");
+        }
+
+        _c.log_message_to_user(game, msg, 4, (side_wins == "No one" ? 'gray' : side_wins));
+
+        if (game.game_options.game_over_function) {
+            game.game_options.game_over_function(game);
+        }
     }
 
 
 })(Battlebox);
 (function (Battlebox) {
 
+    function game_over_function(game) {
+        console.log("GAME OVER:");
+        //TODO: Make some handy reference of results
+    }
+
     var _game_options = {
         rand_seed: 0,
         tick_time: 1000,
+        game_over_time: 1000,
 
         arrays_to_map_to_objects: ''.split(','),
-        arrays_to_map_to_arrays: 'terrain_options,forces,buildings'.split(','),
+        arrays_to_map_to_arrays: 'terrain_options,water_options,forces,buildings'.split(','),
 
         delay_between_ticks: 50,
         log_level_to_show: 2,
@@ -1612,20 +1720,25 @@ Battlebox.initializeOptions = function (option_type, options) {
         height: 'mountainous', //TODO
 
         terrain_options: [
-            {name:'plains', ground:true, draw_type: 'flat', color:["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"], symbol:' '},
-            {name:'mountains', density:'sparse', smoothness: 3, not_center:true, color:['gray', 'darkgray'], impassible:true, symbol:' '},
-            {name:'forest', density:'sparse', not_center:true, color:['darkgreen','green'], data:{movement:'slow'}, symbol:' '},
-            {name:'lake', density:'sparse', smoothness:5, placement:'left', color:['#03f','#04b','#00d'], data:{water:true}, symbol:'-'},
-            {name:'river', density:'small', thickness:.1, placement:'left', color:['#00f','#00e','#00d'], data:{water:true}, symbol:'/'}
+            {name:'plains', ground:true, draw_type: 'flat', color:["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"], symbol:''},
+            {name:'mountains', density:'sparse', smoothness: 3, not_center:true, color:['gray', 'darkgray'], impassible:true, symbol:'M'},
+            {name:'forest', density:'sparse', not_center:true, color:['darkgreen','green'], data:{movement:'slow'}, symbol:' '}
+        ],
+
+        water_options: [
+            {name:'lake', density:'medium', placement:'left', color:['#03f','#04b','#00d'], data:{lake:true}},
+            {name:'lake', density:'small', placement:'right', island:true, symbol:'~'},
+            {name:'river', density:'small', thickness:1, placement:'lake'},
+            {name:'river', title: 'Snake River', density:'medium', thickness:2, placement:'center'}
         ],
 
         forces: [
             {name:'Attacker Main Army Force', side: 'Yellow', location:'left', player:true,
-                plan: 'invade city', backup_strategy: 'run away',
+                plan: 'invade city', backup_strategy: 'run away', try_to_loot:true, try_to_pillage:true,
                 troops:{soldiers:520, cavalry:230, siege:50}},
 
             {name:'Task Force Alpha', side: 'Yellow', symbol:'#A', location:'left', player: true,
-                plan: 'invade city', backup_strategy: 'run away',
+                plan: 'invade city', backup_strategy: 'run away', try_to_loot:true,
                 troops:{soldiers:80, cavalry:20, siege:10}},
 
             {name:'Task Force Bravo', side: 'Yellow', symbol:'#B', location:'left', player:true,
@@ -1633,7 +1746,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 troops:{cavalry:20}},
 
             {name:'Task Force Charlie', side: 'Yellow', symbol:'#C', location:'left', player:true,
-                plan: 'invade city', backup_strategy: 'invade_city',
+                plan: 'invade city', backup_strategy: 'invade_city', try_to_loot:true, try_to_pillage:true,
                 troops:{cavalry:20}},
 
 
@@ -1642,16 +1755,16 @@ Battlebox.initializeOptions = function (option_type, options) {
                 troops:{soldiers:620, cavalry:40, siege:100}},
 
             {name:'Defender Bowmen', side: 'White', symbol:'A', location:'center',
-                plan: 'defend city', backup_strategy: 'vigilant',
+                plan: 'seek closest', backup_strategy: 'vigilant',
                 troops:{soldiers:20, siege:20}},
 
             {name:'Defender Catapults', side: 'White', symbol:'B', location:'center',
-                plan: 'defend city', backup_strategy: 'vigilant',
+                plan: 'run away', backup_strategy: 'vigilant',
                 troops:{soldiers:20, siege:40}},
 
 
             {name:'Sleeping Dragon', side: 'Red', symbol:'D', location:'impassible', not_part_of_victory:true,
-                plan: 'vigilant', backup_strategy: 'wait', size:3,
+                plan: 'vigilant', backup_strategy: 'wait', size:3, move_through_impassibles:true,
                 troops:{adult_dragon:1}}
 
         ],
@@ -1677,7 +1790,8 @@ Battlebox.initializeOptions = function (option_type, options) {
         ],
 
         functions_on_setup:[],
-        functions_each_tick:[]
+        functions_each_tick:[],
+        game_over_function: game_over_function
     };
 
 
@@ -2112,7 +2226,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             var location = _c.find_a_matching_tile(game, building_layer);
 
             if (building_layer.type == 'city') {
-                _c.generators.city(game, location, building_layer);
+                building_layer.tiles = _c.generators.city(game, location, building_layer);
 
             } else if (building_layer.type == 'storage') {
                 _c.generators.storage(game, location, building_layer);
@@ -2143,77 +2257,20 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
         }
 
-        //Build each map layer
+        //Build each terrain layer using cellular algorithms
         _.each(game.data.terrain_options, function (terrain_layer) {
-            var map_layer;
-            if (terrain_layer.draw_type == 'digger') {
-                map_layer = new ROT.Map.Digger(_c.cols(game), _c.rows(game));
-
-            } else if (terrain_layer.draw_type != 'flat') {
-                //Use Cellular generation style
-                var born = [5, 6, 7];
-                var survive = [3, 4, 5];
-
-                //TODO: Add some more levels and drawing types
-                if (terrain_layer.density == 'small') {
-                    born = [4];
-                    survive = [3];
-                } else if (terrain_layer.density == 'sparse') {
-                    born = [4, 5];
-                    survive = [3, 4];
-                } else if (terrain_layer.density == 'medium') {
-                    born = [5, 6, 7];
-                    survive = [3, 4, 5];
-                } else if (terrain_layer.density == 'high') {
-                    born = [4, 5, 6, 7];
-                    survive = [3, 4, 5, 6];
-                }
-
-                map_layer = new ROT.Map.Cellular(_c.cols(game), _c.rows(game), {
-                    //connected: true,
-                    topology: 6,
-                    born: born,
-                    survive: survive
-                });
+            cells = _c.generators.terrain_layer(game, terrain_layer, cells)
+        });
 
 
-                // initialize with irregularly random values with less in middle
-                if (terrain_layer.not_center) {
-                    for (var i = 0; i < _c.cols(game); i++) {
-                        for (var j = 0; j < _c.rows(game); j++) {
-                            var dx = i / _c.cols(game) - 0.5;
-                            var dy = j / _c.rows(game) - 0.5;
-                            var dist = Math.pow(dx * dx + dy * dy, 0.3);
-                            if (ROT.RNG.getUniform() < dist) {
-                                map_layer.set(i, j, 1);
-                            }
-                        }
-                    }
-                } else {
-                    map_layer.randomize(terrain_layer.thickness || 0.5);
-                }
-
-                // generate a few smoothing iterations
-                var iterations = terrain_layer.smoothness || 3;
-                for (var i = iterations - 1; i >= 0; i--) {
-                    map_layer.create(i ? null : game.display.DEBUG);
-                }
-            }
-
-            //For all cells not matched, add to a list
-            if (map_layer && map_layer.create) {
-                var digCallback = function (x, y, value) {
-                    if (value) {
-                        cells[x] = cells[x] || [];
-                        cells[x][y] = _.clone(terrain_layer);
-                        cells[x][y].color = cells[x][y].color.random();
-                        cells[x][y].x = x;
-                        cells[x][y].y = y;
-
-                        //TODO: Have cell be a mix of multiple layers
-                    }
-                };
-                map_layer.create(digCallback.bind(game));
+        //Build each water layer
+        _.each(game.data.water_options, function (water_layer) {
+            if (water_layer.name == 'river') {
+                cells = _c.generators.river(game, water_layer, cells);
+            } else if (water_layer.name == 'lake') {
+                cells = _c.generators.lake(game, water_layer, cells);
+            } else if (water_layer.name == 'sea') {
+                cells = _c.generators.sea(game, water_layer, cells);
             }
         });
 
@@ -2242,11 +2299,86 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
         game.open_space = freeCells;
         game.cells = cells;
-
     };
 
     //¬-----------------------------------------------------
     _c.generators = {};
+    _c.generators.terrain_layer = function (game, terrain_layer, cells) {
+        var map_layer;
+        if (terrain_layer.draw_type == 'digger') {
+            map_layer = new ROT.Map.Digger(_c.cols(game), _c.rows(game));
+
+        } else if (terrain_layer.draw_type != 'flat') {
+            //Use Cellular generation style
+            var born = [5, 6, 7];
+            var survive = [3, 4, 5];
+
+            //TODO: Add some more levels and drawing types
+            if (terrain_layer.density == 'small') {
+                born = [4];
+                survive = [3];
+            } else if (terrain_layer.density == 'sparse') {
+                born = [4, 5];
+                survive = [3, 4];
+            } else if (terrain_layer.density == 'medium') {
+                born = [5, 6, 7];
+                survive = [3, 4, 5];
+            } else if (terrain_layer.density == 'high') {
+                born = [4, 5, 6, 7];
+                survive = [3, 4, 5, 6];
+            }
+
+            map_layer = new ROT.Map.Cellular(_c.cols(game), _c.rows(game), {
+                //connected: true,
+                topology: 6,
+                born: born,
+                survive: survive
+            });
+
+
+            // initialize with irregularly random values with less in middle
+            if (terrain_layer.not_center) {
+                for (var i = 0; i < _c.cols(game); i++) {
+                    for (var j = 0; j < _c.rows(game); j++) {
+                        var dx = i / _c.cols(game) - 0.5;
+                        var dy = j / _c.rows(game) - 0.5;
+                        var dist = Math.pow(dx * dx + dy * dy, 0.3);
+                        if (ROT.RNG.getUniform() < dist) {
+                            map_layer.set(i, j, 1);
+                        }
+                    }
+                }
+            } else {
+                map_layer.randomize(terrain_layer.thickness || 0.5);
+            }
+
+            // generate a few smoothing iterations
+            var iterations = terrain_layer.smoothness || 3;
+            for (var i = iterations - 1; i >= 0; i--) {
+                map_layer.create(i ? null : game.display.DEBUG);
+            }
+        }
+
+        //For all cells not matched, add to a list
+        if (map_layer && map_layer.create) {
+            var digCallback = function (x, y, value) {
+                if (value) {
+                    cells[x] = cells[x] || [];
+                    cells[x][y] = _.clone(terrain_layer);
+                    if (cells[x][y].color && _.isArray(cells[x][y].color )) {
+                        cells[x][y].color = cells[x][y].color.random();
+                    }
+                    cells[x][y].x = x;
+                    cells[x][y].y = y;
+
+                    //TODO: Have cell be a mix of multiple layers
+                }
+            };
+            map_layer.create(digCallback.bind(game));
+        }
+        return cells;
+    };
+
     _c.generators.storage = function (game, location, storage_info) {
         var size = 2;
         var loot_per = {};
@@ -2257,7 +2389,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
 
 
-        //TODO: How to make a hex rectange?
+        //TODO: How to make a hex rectangle?
         for (var x = location.x; x <= location.x + size; x++) {
             for (var y = location.y; y < location.y + size; y++) {
                 var tile = _c.tile(game, x, y);
@@ -2299,15 +2431,73 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
         }
     };
+
+    _c.generators.roads_from = function (game, number_of_roads, starting_tile) {
+        var tries = 20;
+        var last_side = '';
+        for (var i = 0; i < number_of_roads; i++) {
+            var side = _c.randOption(['left', 'right', 'top', 'bottom'], {}, last_side);
+            last_side = side;
+            for (var t = 0; t < tries; t++) {
+                var ending_tile = _c.find_a_matching_tile(game, {location: side});
+                var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y);
+                if (path && path.length) {
+                    for (var step = 1; step < path.length; step++) {
+                        var cell = _c.tile(game, path[step]);
+                        var last_cell = _c.tile(game, path[step - 1]);
+                        var dir = _c.direction_from_tile_to_tile(last_cell, cell);
+
+                        if (cell) {
+                            cell.additions = cell.additions || [];
+                            cell.additions.push({name: 'road', symbol: dir.road_symbol});
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    };
+
+    _c.generators.lake = function (game, water_layer, cells) {
+
+
+        return cells;
+    };
+
+    _c.generators.river = function (game, water_layer, cells) {
+
+
+        return cells;
+    };
+
+    _c.generators.sea = function (game, water_layer, cells) {
+
+
+        return cells;
+    };
+
+//    {name:'lake', density:'medium', placement:'left', color:['#03f','#04b','#00d'], data:{lake:true}},
+//    {name:'lake', density:'small', placement:'right', island:true, symbol:'~'},
+//    {name:'river', density:'small', thickness:1, placement:'lake'},
+//    {name:'river', title: 'Snake River', density:'medium', thickness:2, placement:'center'}
+//
     _c.generators.city = function (game, location, city_info) {
+        //TODO: Cities build along roads
+        //TODO: Cities build along side of river
 
         var building_tile_tries = Math.sqrt(city_info.population);
         var building_tile_radius = Math.pow(city_info.population, 1 / 3.2);
-        var number_of_roads = Math.pow(city_info.population / 100, 1 / 4);
+        var number_of_roads = city_info.road_count || Math.pow(city_info.population / 100, 1 / 4);
 
         var city_cells = [];
 
+        //Build roads based on city size
         _c.generators.roads_from(game, number_of_roads, location);
+
+
+        //Reset the city so it'll look the same independent of number of roads
+        ROT.RNG.setSeed(game.data.fight_seed || game.data.rand_seed);
+
 
         //Generate city tiles & surrounding tiles
         for (var i = 0; i < building_tile_tries; i++) {
@@ -2332,7 +2522,11 @@ Battlebox.initializeOptions = function (option_type, options) {
                         } else {
                             neighbor.additions.push('farm');
                         }
-                        city_cells.push(neighbor);
+                        if (city_cells[neighbor.x] && city_cells[neighbor.x][neighbor.y]) {
+                            //Already in array
+                        } else {
+                            city_cells.push(neighbor);
+                        }
                     }
                 })
             }
@@ -2349,6 +2543,10 @@ Battlebox.initializeOptions = function (option_type, options) {
     var _c = new Battlebox('get_private_functions');
 
     //TODO: Have a queue of plans, then when one can't complete, move to next
+    //TODO: At end of game, spend x turns to look for nearby loot and pillage town
+    //TODO: Have strategy to find nearby loot
+    //TODO: Have units on nearby fortifications and defenders to go to fortifications if possible
+    //TODO: Have a timeout so that if % of city remains after countdown, battle ends
 
     _c.path_from_to = function (game, from_x, from_y, to_x, to_y) {
 
@@ -2437,9 +2635,8 @@ Battlebox.initializeOptions = function (option_type, options) {
         return {target: target, x: x, y: y, range: range};
     };
 
+    //--------------------------------------------
     _c.movement_strategies = _c.movement_strategies || {};
-
-
     _c.movement_strategies.vigilant = function (game, unit) {
         _c.log_message_to_user(game, unit.describe() + ' ' + "stays vigilant and doesn't move", 1);
     };
@@ -2451,7 +2648,6 @@ Battlebox.initializeOptions = function (option_type, options) {
         var x = unit.x + dir[0];
 
         var msg = unit.describe() + ' ';
-
         var moves = _c.try_to_move_to_and_draw(game, unit, x, y);
         if (moves) {
             _c.log_message_to_user(game, msg + "wanders a space", 1);
@@ -2481,7 +2677,6 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
         }
 
-        //TODO: Only if in likely range
         var path = _c.path_from_to(game, unit.x, unit.y, x, y);
 
         //If too far, then just wander
@@ -2507,31 +2702,43 @@ Battlebox.initializeOptions = function (option_type, options) {
             //Walk towards the enemy
             x = path[0][0];
             y = path[0][1];
-            _c.try_to_move_to_and_draw(game, unit, x, y);
-            _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + target_status.target.describe(), 1);
+            var moves = _c.try_to_move_to_and_draw(game, unit, x, y);
+            if (moves) {
+                _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + target_status.target.describe(), 1);
+            } else {
+                if (options.backup_strategy == 'vigilant') {
+                    _c.movement_strategies.vigilant(game, unit);
+                } else if (options.backup_strategy == 'wait') {
+                    _c.movement_strategies.wait(game, unit);
+                } else { //if (options.backup_strategy == 'wander') {
+                    _c.movement_strategies.wander(game, unit);
+                }
+            }
         }
     };
 
     _c.movement_strategies.head_towards = function (game, unit, location, options) {
 
-        //TODO: Only if in likely range
         var path = _c.path_from_to(game, unit.x, unit.y, location.location.x, location.location.y);
 
         path.shift();
 
+        var moves = false;
         if (path.length <= 10) {
             options = {side: 'enemy', filter: 'closest', range: 6, plan: 'invade city', backup_strategy: unit._data.backup_strategy};
             var target_status = _c.find_unit_by_filters(game, unit, options);
-            _c.movement_strategies.seek(game, unit, target_status, options)
+            _c.movement_strategies.seek(game, unit, target_status, options);
+            moves = true;
 
         } else if (path.length > 10) {
             //Walk towards the enemy
             var x = path[0][0];
             var y = path[0][1];
-            _c.try_to_move_to_and_draw(game, unit, x, y);
+            moves = _c.try_to_move_to_and_draw(game, unit, x, y);
+        }
+        if (moves) {
             _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + (location.title || location.name), 1);
         } else {
-
             if (options.backup_strategy == 'vigilant') {
                 _c.movement_strategies.vigilant(game, unit);
             } else if (options.backup_strategy == 'wait') {
@@ -2540,8 +2747,6 @@ Battlebox.initializeOptions = function (option_type, options) {
                 _c.movement_strategies.wander(game, unit, options);
             }
         }
-
-
     };
 
     _c.movement_strategies.avoid = function (game, unit, target_status, options) {
@@ -2563,6 +2768,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         var path = _c.path_from_to(game, unit.x, unit.y, x, y);
 
         //If too far, then just wander
+        var moves = false;
         if (options.range && path && path.length <= options.range) {
             path.shift();
             if (path.length > 0) {
@@ -2578,13 +2784,10 @@ Battlebox.initializeOptions = function (option_type, options) {
                 y = unit.y + y;
 
                 //TODO: Pick alternate paths if can't move any more
-                var could_move = _c.try_to_move_to_and_draw(game, unit, x, y);
-                if (!could_move) {
-                    _c.movement_strategies.wander(game, unit);
-                }
+                moves = _c.try_to_move_to_and_draw(game, unit, x, y);
             }
-
-        } else {
+        }
+        if (!moves) {
             if (options.backup_strategy == 'vigilant') {
                 _c.movement_strategies.vigilant(game, unit);
             } else if (options.backup_strategy == 'wait') {
@@ -2633,28 +2836,75 @@ Battlebox.initializeOptions = function (option_type, options) {
         return new EntityType(game, location.x, location.y, id, unit_info);
     };
 
-    _c.try_to_move_to_and_draw = function (game, unit, x, y, move_through_impassibles) {
-        var valid = _c.tile_is_traversable(game, x, y, move_through_impassibles);
-        if (valid) {
+    _c.raze_or_loot = function(game, unit, cell){
+
+        cell.additions = cell.additions || [];
+        unit.loot = unit.loot || {};
+
+        if (unit._data.try_to_pillage) {
+            //TODO: Unit gains health?
+            //TODO: Takes time?
+
+            if (_c.tile_has(cell, 'farm') && !_c.tile_has(cell, 'pillaged')) {
+                unit.loot.food = unit.loot.food || 0;
+                unit.loot.food += 100;  //TODO: Random benefits based on technology and population
+            }
+
+            cell.additions.push('pillaged');
+        }
+        if (unit._data.try_to_loot && (_c.tile_has(cell, 'storage') || cell.loot)) {
+
+            unit.loot = unit.loot || {};
+            for (var key in cell.loot) {
+                unit.loot[key] = unit.loot[key] || 0;
+                unit.loot[key] += cell.loot[key];
+                cell.loot[key] = 0;
+                //TODO: Unit takes other unit's loot
+                //TODO: Only take as much loot as can carry
+            }
+
+            if (_c.tile_has(cell, 'farm') && !_c.tile_has(cell, 'pillaged') && !_c.tile_has(cell, 'looted')) {
+                unit.loot.food = unit.loot.food || 0;
+                unit.loot.herbs = unit.loot.herbs || 0;
+
+                unit.loot.food += 30;
+                unit.loot.herbs += 10;
+            }
+            cell.additions.push('looted');
+        }
+
+    };
+
+    _c.try_to_move_to_and_draw = function (game, unit, x, y) {
+        var can_move_to = _c.tile_is_traversable(game, x, y, unit._data.move_through_impassibles);
+        if (can_move_to) {
             var is_unit_there = _c.find_unit_by_filters(game, unit, {location: {x: x, y: y}});
             if (is_unit_there) {
                 if (is_unit_there.side != unit.side) {
-                    valid = _c.entity_attacks_entity(game, unit, is_unit_there, _c.log_message_to_user);
+                    can_move_to = _c.entity_attacks_entity(game, unit, is_unit_there, _c.log_message_to_user);
                 } else {
-                    //TODO: What to do if on same sides?
+                    //TODO: What to do if on same sides? Merge forces?
                 }
             }
 
-            if (valid) {
+            if (can_move_to) {
                 var previous_x = unit.x;
                 var previous_y = unit.y;
                 unit.x = x;
                 unit.y = y;
+
+                var cell = _c.tile(game, x, y);
+                if (unit._data.try_to_loot || unit._data.try_to_pillage) {
+                    if (cell.type == 'city' || _c.tile_has(cell, 'dock') || _c.tile_has(cell, 'farm') || _c.tile_has(cell, 'storage') || cell.loot) {
+                        _c.raze_or_loot(game, unit, cell);
+                    }
+                }
+
                 _c.draw_tile(game, previous_x, previous_y);
                 unit._draw();
             }
         }
-        return valid;
+        return can_move_to;
     };
 
     _c.remove_entity = function (game, unit) {
@@ -2662,9 +2912,24 @@ Battlebox.initializeOptions = function (option_type, options) {
         if (entity_id > -1) {
             var x = unit.x;
             var y = unit.y;
+
+            var cell = _c.tile(game, x, y);
+            if (cell) {
+                cell.additions = cell.additions || [];
+                cell.additions.push({name:'unit corpse', unit:unit._data});
+            }
+            if (unit.loot) {
+                cell.loot = cell.loot || {};
+                for (var key in unit.loot) {
+                    cell.loot[key] = cell.loot[key] || 0;
+                    cell.loot[key] += unit.loot[key];
+                }
+            }
+
             game.scheduler.remove(game.entities[entity_id]);
             delete game.entities[entity_id];
             //TODO: Collapse entities
+
             _c.draw_tile(game, x, y);
         }
     };
@@ -2685,6 +2950,10 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         game.data.tick_count++;
 //        console.log('Game Tick: ' + game.data.tick_count);
+
+        if (game.data.tick_count > game.game_options.game_over_time) {
+            _c.game_over(game);
+        }
 
         var done = null;
         var promise = {
@@ -2808,6 +3077,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             _c.movement_strategies.avoid(game, unit, target_status, options)
 
         } else if (plan == 'invade city') {
+            //TODO: If no enemies and close to city, then try to loot and pillage
             var location = _.find(game.data.buildings, function(b){return b.type=='city'});
             options = {side: 'enemy', filter: 'closest', range: 12, plan: plan, backup_strategy: unit._data.backup_strategy};
             _c.movement_strategies.head_towards(game, unit, location, options);
