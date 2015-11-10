@@ -28,15 +28,16 @@
 
         terrain_options: [
             {name:'plains', ground:true, draw_type: 'flat', color:["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"], symbol:''},
-            {name:'mountains', density:'sparse', smoothness: 3, not_center:true, color:['gray', 'darkgray'], impassible:true, symbol:'M'},
+            {name:'mountains', density:'medium', smoothness: 3, not_center:true, color:['gray', 'darkgray'], impassible:true, symbol:'M'},
             {name:'forest', density:'sparse', not_center:true, color:['darkgreen','green'], data:{movement:'slow'}, symbol:' '}
         ],
 
         water_options: [
-            {name:'lake', density:'medium', placement:'left', color:['#03f','#04b','#00d'], data:{lake:true}},
-            {name:'lake', density:'small', placement:'right', island:true, symbol:'~'},
-            {name:'river', density:'small', thickness:1, placement:'lake'},
-            {name:'river', title: 'Snake River', density:'medium', thickness:2, placement:'center'}
+            {name:'lake', density:'medium', location:'left', data:{lake:true}},
+            {name:'lake', density:'large', location:'mid left', data:{lake:true}},
+            {name:'lake', density:'small', location:'mid right', island:true, symbol:'~'},
+            {name:'river', density:'small', thickness:1, location:'lake'},
+            {name:'river', title: 'Snake River', density:'medium', thickness:2, location:'center'}
         ],
 
         forces: [
@@ -57,15 +58,15 @@
                 troops:{cavalry:20}},
 
 
-            {name:'Defender City Force', side: 'White', location:'center',
+            {name:'Defender City Force', side: 'White', location:'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops:{soldiers:620, cavalry:40, siege:100}},
 
-            {name:'Defender Bowmen', side: 'White', symbol:'A', location:'center',
+            {name:'Defender Bowmen', side: 'White', symbol:'A', location:'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops:{soldiers:20, siege:20}},
 
-            {name:'Defender Catapults', side: 'White', symbol:'B', location:'center',
+            {name:'Defender Catapults', side: 'White', symbol:'B', location:'city',
                 plan: 'run away', backup_strategy: 'vigilant',
                 troops:{soldiers:20, siege:40}},
 

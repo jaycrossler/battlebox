@@ -1,3 +1,5 @@
+//var test = [];
+
 (function (Battlebox) {
     var _c = new Battlebox('get_private_functions');
 
@@ -9,6 +11,9 @@
 
     _c.tile = function (game, x, y) {
         var cell;
+        if (!game.cells) {
+            throw "Game Cells don't seem to exist, something went wrong with generating the map."
+        }
         if (y === undefined) {
             //Assume that x is an array
             cell = game.cells[x[0]];
@@ -71,7 +76,7 @@
                 if (!move_through_impassibles && cell.impassible) {
                     valid_num = false;
                 }
-                if (only_impassible){
+                if (only_impassible) {
                     valid_num = (cell.impassible);
                 }
             } else {
@@ -92,17 +97,27 @@
 
                 x = Math.floor(x);
                 y = Math.floor(y);
-                if (_c.tile_is_traversable(game, x, y, false)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
                 }
             }
+
+        } else if (options.location == 'city') {
+            var cities = _.filter(game.data.buildings, function (b) {
+                return b.type == 'city'
+            });
+            var city = _c.randOption(cities);
+
+            var tile = _c.randOption(city.tiles);
+            x = tile.x;
+            y = tile.y;
 
         } else if (options.location == 'left') {
             for (i = 0; i < tries; i++) {
                 x = _c.randOption([0, 1, 2]);
                 y = _c.randInt(_c.rows(game));
 
-                if (_c.tile_is_traversable(game, x, y, false)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
                 }
             }
@@ -113,7 +128,29 @@
                 x = _c.randOption([right - 1, right - 2, right - 3]);
                 y = _c.randInt(_c.rows(game));
 
-                if (_c.tile_is_traversable(game, x, y, false)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'mid left') {
+            var mid_left = Math.round(_c.cols(game) * .25);
+            for (i = 0; i < tries; i++) {
+                x = _c.randOption([mid_left - 2, mid_left - 1, mid_left, mid_left + 1, mid_left + 2]);
+                y = _c.randInt(_c.rows(game));
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'mid right') {
+            var mid_right = Math.round(_c.cols(game) * .75);
+            for (i = 0; i < tries; i++) {
+                x = _c.randOption([mid_right - 2, mid_right - 1, mid_right, mid_right + 1, mid_right + 2]);
+                y = _c.randInt(_c.rows(game));
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
                 }
             }
@@ -123,7 +160,7 @@
                 x = _c.randInt(_c.cols(game));
                 y = 0;//_c.randOption([0, 1]);
 
-                if (_c.tile_is_traversable(game, x, y, false)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
                 }
             }
@@ -134,7 +171,7 @@
                 x = _c.randInt(_c.cols(game));
                 y = bottom; //_c.randOption([bottom - 1, bottom - 2, bottom - 3]);
 
-                if (_c.tile_is_traversable(game, x, y, false)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
                 }
             }
@@ -142,7 +179,7 @@
         } else if (options.location == 'impassible') {
             for (i = 0; i < tries; i++) {
                 y = (_c.randInt(_c.rows(game)));
-                x = (y%2) + (_c.randInt(_c.cols(game)/2)*2);
+                x = (y % 2) + (_c.randInt(_c.cols(game) / 2) * 2);
 
                 var loc = _c.tile_is_traversable(game, x, y, true, true);
                 if (loc) {
@@ -151,6 +188,7 @@
             }
 
         } else { //if (options.location == 'random') {
+            //TODO: Open Spaces don't seem to be working any more
             index = Math.floor(ROT.RNG.getUniform() * game.open_space.length);
             key = game.open_space[index];
             x = parseInt(key[0]);
@@ -240,7 +278,7 @@
                 _c.generators.storage(game, location, building_layer);
 
             } else if (building_layer.type == 'dungeon') {
-//    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
+//TODO: Add    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
 
             }
             building_layer.location = location;
@@ -271,18 +309,6 @@
         });
 
 
-        //Build each water layer
-        _.each(game.data.water_options, function (water_layer) {
-            if (water_layer.name == 'river') {
-                cells = _c.generators.river(game, water_layer, cells);
-            } else if (water_layer.name == 'lake') {
-                cells = _c.generators.lake(game, water_layer, cells);
-            } else if (water_layer.name == 'sea') {
-                cells = _c.generators.sea(game, water_layer, cells);
-            }
-        });
-
-
         //Look for all free cells, and draw the map to be blank there
         var freeCells = [];
         var ground_layer = _.find(game.data.terrain_options, function (l) {
@@ -298,7 +324,7 @@
                     freeCells.push([x, y]);
                     if (!cells[x][y].name) {
                         cells[x][y] = _.clone(ground_layer);
-                        cells[x][y].color = cells[x][y].color.random();
+                        set_obj_color(cells[x][y]);
                         cells[x][y].x = x;
                         cells[x][y].y = y;
                     }
@@ -307,6 +333,21 @@
         }
         game.open_space = freeCells;
         game.cells = cells;
+
+
+        //Build each water layer
+        _.each(game.data.water_options, function (water_layer) {
+            var location = _c.find_a_matching_tile(game, water_layer);
+            if (water_layer.name == 'river') {
+                _c.generators.river(game, water_layer, location);
+            } else if (water_layer.name == 'lake') {
+                _c.generators.lake(game, water_layer, location);
+            } else if (water_layer.name == 'sea') {
+                _c.generators.sea(game, water_layer, location);
+            }
+            water_layer.location = location;
+        });
+
     };
 
     //¬-----------------------------------------------------
@@ -329,8 +370,8 @@
                 born = [4, 5];
                 survive = [3, 4];
             } else if (terrain_layer.density == 'medium') {
-                born = [5, 6, 7];
-                survive = [3, 4, 5];
+                born = [4, 5];
+                survive = [4, 5, 6];
             } else if (terrain_layer.density == 'high') {
                 born = [4, 5, 6, 7];
                 survive = [3, 4, 5, 6];
@@ -373,9 +414,7 @@
                 if (value) {
                     cells[x] = cells[x] || [];
                     cells[x][y] = _.clone(terrain_layer);
-                    if (cells[x][y].color && _.isArray(cells[x][y].color )) {
-                        cells[x][y].color = cells[x][y].color.random();
-                    }
+                    set_obj_color(cells[x][y]);
                     cells[x][y].x = x;
                     cells[x][y].y = y;
 
@@ -386,6 +425,11 @@
         }
         return cells;
     };
+    function set_obj_color(obj) {
+        if (obj.color && _.isArray(obj.color)) {
+            obj.color = obj.color.random();
+        }
+    }
 
     _c.generators.storage = function (game, location, storage_info) {
         var size = 2;
@@ -414,9 +458,12 @@
         }
 
     };
+
     _c.generators.roads_from = function (game, number_of_roads, starting_tile) {
         var tries = 20;
         var last_side = '';
+        var road_tiles = [];
+
         for (var i = 0; i < number_of_roads; i++) {
             var side = _c.randOption(['left', 'right', 'top', 'bottom'], {}, last_side);
             last_side = side;
@@ -432,60 +479,140 @@
                         if (cell) {
                             cell.additions = cell.additions || [];
                             cell.additions.push({name: 'road', symbol: dir.road_symbol});
+                            road_tiles.push(cell);
                         }
                     }
                     break;
                 }
             }
         }
+
+        return road_tiles;
     };
 
-    _c.generators.roads_from = function (game, number_of_roads, starting_tile) {
+
+    _c.generators.lake = function (game, water_layer, location) {
+        var water_cells = [];
+        var size = 30;
+        if (water_layer.density == 'small') {
+            size = 7;
+        } else if (water_layer.density == 'medium') {
+            size = 30;
+        } else if (water_layer.density == 'large') {
+            size = 60;
+        } else if (_.isNumber(water_layer.density)) {
+            size = parseInt(water_layer.density);
+        }
+
+        var building_tile_radius_y = Math.pow(size, 1 / 1.45);
+        var building_tile_radius_x = building_tile_radius_y * 1.5;
+
+        function make_water(x, y, recursion) {
+
+            if (!_c.tile_is_traversable(game, x, y, false)) {
+                return;
+            }
+            var is_cell_in_water_cells = (game.cells[x][y].data && game.cells[x][y].data.water);
+
+            if (is_cell_in_water_cells) {
+            } else {
+                var layer = _.clone(water_layer);
+                layer.data = layer.data || {};
+                layer.data.water = true;
+                layer.data.depth = recursion;
+                layer.x = x;
+                layer.y = y;
+                set_obj_color(layer);
+
+                //TODO: Not sure why, but depth is first setting properly, then being overwritten to 1 for large lakes
+//                test.push (x +','+y+' setting to ' + recursion);
+
+
+                game.cells[x][y] = layer;
+
+                water_cells.push(layer);
+
+                if (recursion > 1) {
+                    var neighbors = _c.surrounding_tiles(game, x, y);
+                    _.each(neighbors, function (neighbor) {
+                        make_water(neighbor.x, neighbor.y, recursion - 1);
+                    });
+                }
+            }
+        }
+
+        for (var i = 0; i < size; i++) {
+            var x, y;
+            x = location.x + _c.randInt(building_tile_radius_x) - (building_tile_radius_x / 2) - 1;
+            y = location.y + _c.randInt(building_tile_radius_y) - (building_tile_radius_y / 2) - 1;
+
+            x = Math.floor(x);
+            y = Math.floor(y);
+
+            make_water(x, y, 3);
+
+        }
+
+        return water_cells;
+    };
+
+    _c.generators.river = function (game, water_layer, location) {
+        var water_cells = [];
+
         var tries = 20;
-        var last_side = '';
-        for (var i = 0; i < number_of_roads; i++) {
-            var side = _c.randOption(['left', 'right', 'top', 'bottom'], {}, last_side);
-            last_side = side;
-            for (var t = 0; t < tries; t++) {
-                var ending_tile = _c.find_a_matching_tile(game, {location: side});
-                var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y);
-                if (path && path.length) {
-                    for (var step = 1; step < path.length; step++) {
-                        var cell = _c.tile(game, path[step]);
-                        var last_cell = _c.tile(game, path[step - 1]);
-                        var dir = _c.direction_from_tile_to_tile(last_cell, cell);
 
-                        if (cell) {
+        for (var t = 0; t < tries; t++) {
+            var ending_side = _c.randOption(['left', 'right', 'top', 'bottom']);
+            var ending_tile = _c.find_a_matching_tile(game, {location: ending_side});
+
+            var starting_tile = _c.find_a_matching_tile(game, {location: water_layer.location});
+
+
+            var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y);
+            if (path && path.length) {
+                for (var step = 1; step < path.length; step++) {
+                    for (var thick = 0; thick < (water_layer.thickness || 1); thick++) {
+
+                        //TODO: Handle thickness by having 2 in a row - not working for y? have two starting points?
+
+                        var y = path[step][1] + (thick);
+                        var x = path[step][0];
+
+                        var cell = _c.tile(game, x, y);
+                        if (_c.tile_is_traversable(game, x, y)) {
+                            var last_cell = _c.tile(game, path[step - 1]);
+                            var dir = _c.direction_from_tile_to_tile(last_cell, cell) || {road_symbol: ""};
+
+                            //TODO: Don't use pathfinding, instead make it snaking
+
+                            var layer = _.clone(water_layer.data || {});
+                            layer.name = 'river';
+                            layer.water = true;
+                            layer.depth = water_layer.thickness || 1;
+                            layer.symbol = dir.road_symbol;
+                            layer.name == water_layer.title || water_layer.name;
+
                             cell.additions = cell.additions || [];
-                            cell.additions.push({name: 'road', symbol: dir.road_symbol});
+                            cell.additions.push(layer);
+
+                            set_obj_color(cell);
                         }
                     }
-                    break;
                 }
+                break;
             }
         }
+
+
+        return water_cells;
     };
 
-    _c.generators.lake = function (game, water_layer, cells) {
+    _c.generators.sea = function (game, water_layer, location) {
+        var water_cells = [];
 
-
-        return cells;
+        return water_cells;
     };
 
-    _c.generators.river = function (game, water_layer, cells) {
-
-
-        return cells;
-    };
-
-    _c.generators.sea = function (game, water_layer, cells) {
-
-
-        return cells;
-    };
-
-//    {name:'lake', density:'medium', placement:'left', color:['#03f','#04b','#00d'], data:{lake:true}},
-//    {name:'lake', density:'small', placement:'right', island:true, symbol:'~'},
 //    {name:'river', density:'small', thickness:1, placement:'lake'},
 //    {name:'river', title: 'Snake River', density:'medium', thickness:2, placement:'center'}
 //
@@ -494,13 +621,14 @@
         //TODO: Cities build along side of river
 
         var building_tile_tries = Math.sqrt(city_info.population);
-        var building_tile_radius = Math.pow(city_info.population, 1 / 3.2);
+        var building_tile_radius_y = Math.pow(city_info.population, 1 / 3.2);
+        var building_tile_radius_x = building_tile_radius_y * 1.5;
         var number_of_roads = city_info.road_count || Math.pow(city_info.population / 100, 1 / 4);
 
         var city_cells = [];
 
         //Build roads based on city size
-        _c.generators.roads_from(game, number_of_roads, location);
+        var road_tiles = _c.generators.roads_from(game, number_of_roads, location);
 
 
         //Reset the city so it'll look the same independent of number of roads
@@ -510,8 +638,8 @@
         //Generate city tiles & surrounding tiles
         for (var i = 0; i < building_tile_tries; i++) {
             var x, y;
-            x = location.x + _c.randInt(building_tile_radius) - (building_tile_radius / 2) - 1;
-            y = location.y + _c.randInt(building_tile_radius) - (building_tile_radius / 2) - 1;
+            x = location.x + _c.randInt(building_tile_radius_x) - (building_tile_radius_x / 2) - 1;
+            y = location.y + _c.randInt(building_tile_radius_y) - (building_tile_radius_y / 2) - 1;
 
             x = Math.floor(x);
             y = Math.floor(y);

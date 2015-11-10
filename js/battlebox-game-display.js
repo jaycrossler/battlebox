@@ -119,6 +119,27 @@
             if (was_drawn) return;
         }
 
+        var river_info = _c.tile_has(cell, 'river');
+        if (draw_basic_cell && cell.name == 'lake') {
+            text = cell.symbol || text;
+            if (!bg_color) {
+                var depth = cell.data.depth || 1;
+                bg_color = net.brehaut.Color(cell.color || '#04e').darkenByRatio(depth * .2);
+                //, color:['#06f','#08b','#05e']
+            }
+        } else if (draw_basic_cell && river_info) {
+            text = river_info.symbol || text;
+
+            //Depth from 1-3 gets more blue
+            if (!bg_color) {
+                var depth = river_info.depth || 1;
+                bg_color = net.brehaut.Color('#03f').darkenByRatio(depth * .2);
+                //, color:['#06f','#08b','#05e']
+            }
+
+        }
+
+
         if (text === undefined) {
             text = cell ? cell.symbol || " " : " "
         }
@@ -135,15 +156,6 @@
 
         if (!color && _c.tile_has(cell, 'unit corpse')) {
             text = "x";
-        }
-
-        var river_info = _c.tile_has(cell, 'river');
-        if (draw_basic_cell && river_info) {
-            text = river_info.symbol || text;
-            var depth = river_info.depth || 1;
-
-            //Depth from 1-3 gets more blue
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('blue'), (depth * .3)).toString();
         }
 
 
@@ -241,7 +253,7 @@
             .prependTo($pointers.message_display);
 
         if (importance == 4) {
-            $msg.css({backgroundColor: color || 'red', color: 'black', border: '4px solid gold', fontSize:'1.3em'});
+            $msg.css({backgroundColor: color || 'red', color: 'black', border: '4px solid gold', fontSize: '1.3em'});
         }
         if (importance == 3) {
             $msg.css({backgroundColor: color || 'orange', color: 'black'});
