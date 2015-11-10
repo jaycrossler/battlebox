@@ -127,6 +127,10 @@
         }
 
         var road_info = _c.tile_has(cell, 'road');
+        if (!color && _c.tile_has(cell, 'unit corpse')) {
+            text = "x";
+        }
+
         if (!color && road_info) {
             text = road_info.symbol || ":";
             bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .65).toString();
@@ -134,7 +138,18 @@
         }
         if (!color && _c.tile_has(cell, 'storage')) {
             text = "o";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('red'), .1).toString();
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('yellow'), .1).toString();
+        }
+        if (!color && _c.tile_has(cell, 'looted')) {
+            text = ".";
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .8).toString();
+        }
+        if (!color && _c.tile_has(cell, 'pillaged')) {
+            text = "'";
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('red'), .8).toString();
+        }
+        if (_c.tile_has(cell, 'looted') && _c.tile_has(cell, 'pillaged')) {
+            text = ";";
         }
 
 
@@ -195,7 +210,7 @@
             .prependTo($pointers.message_display);
 
         if (importance == 4) {
-            $msg.css({backgroundColor: color || 'red', color: 'black', border: '1px solid white'});
+            $msg.css({backgroundColor: color || 'red', color: 'black', border: '4px solid gold', fontSize:'1.5em'});
         }
         if (importance == 3) {
             $msg.css({backgroundColor: color || 'orange', color: 'black'});

@@ -30,11 +30,11 @@
 
         forces: [
             {name:'Attacker Main Army Force', side: 'Yellow', location:'left', player:true,
-                plan: 'invade city', backup_strategy: 'run away',
+                plan: 'invade city', backup_strategy: 'run away', try_to_loot:true, try_to_pillage:true,
                 troops:{soldiers:520, cavalry:230, siege:50}},
 
             {name:'Task Force Alpha', side: 'Yellow', symbol:'#A', location:'left', player: true,
-                plan: 'invade city', backup_strategy: 'run away',
+                plan: 'invade city', backup_strategy: 'run away', try_to_loot:true,
                 troops:{soldiers:80, cavalry:20, siege:10}},
 
             {name:'Task Force Bravo', side: 'Yellow', symbol:'#B', location:'left', player:true,
@@ -42,7 +42,7 @@
                 troops:{cavalry:20}},
 
             {name:'Task Force Charlie', side: 'Yellow', symbol:'#C', location:'left', player:true,
-                plan: 'invade city', backup_strategy: 'invade_city',
+                plan: 'invade city', backup_strategy: 'invade_city', try_to_loot:true, try_to_pillage:true,
                 troops:{cavalry:20}},
 
 
@@ -60,7 +60,7 @@
 
 
             {name:'Sleeping Dragon', side: 'Red', symbol:'D', location:'impassible', not_part_of_victory:true,
-                plan: 'vigilant', backup_strategy: 'wait', size:3,
+                plan: 'vigilant', backup_strategy: 'wait', size:3, move_through_impassibles:true,
                 troops:{adult_dragon:1}}
 
         ],

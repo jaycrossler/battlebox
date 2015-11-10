@@ -34,28 +34,75 @@
         return new EntityType(game, location.x, location.y, id, unit_info);
     };
 
-    _c.try_to_move_to_and_draw = function (game, unit, x, y, move_through_impassibles) {
-        var valid = _c.tile_is_traversable(game, x, y, move_through_impassibles);
-        if (valid) {
+    _c.raze_or_loot = function(game, unit, cell){
+
+        cell.additions = cell.additions || [];
+        unit.loot = unit.loot || {};
+
+        if (unit._data.try_to_pillage) {
+            //TODO: Unit gains health?
+            //TODO: Takes time?
+
+            if (_c.tile_has(cell, 'farm') && !_c.tile_has(cell, 'pillaged')) {
+                unit.loot.food = unit.loot.food || 0;
+                unit.loot.food += 100;  //TODO: Random benefits based on technology and population
+            }
+
+            cell.additions.push('pillaged');
+        }
+        if (unit._data.try_to_loot && (_c.tile_has(cell, 'storage') || cell.loot)) {
+
+            unit.loot = unit.loot || {};
+            for (var key in cell.loot) {
+                unit.loot[key] = unit.loot[key] || 0;
+                unit.loot[key] += cell.loot[key];
+                cell.loot[key] = 0;
+                //TODO: Unit takes other unit's loot
+                //TODO: Only take as much loot as can carry
+            }
+
+            if (_c.tile_has(cell, 'farm') && !_c.tile_has(cell, 'pillaged') && !_c.tile_has(cell, 'looted')) {
+                unit.loot.food = unit.loot.food || 0;
+                unit.loot.herbs = unit.loot.herbs || 0;
+
+                unit.loot.food += 30;
+                unit.loot.herbs += 10;
+            }
+            cell.additions.push('looted');
+        }
+
+    };
+
+    _c.try_to_move_to_and_draw = function (game, unit, x, y) {
+        var can_move_to = _c.tile_is_traversable(game, x, y, unit._data.move_through_impassibles);
+        if (can_move_to) {
             var is_unit_there = _c.find_unit_by_filters(game, unit, {location: {x: x, y: y}});
             if (is_unit_there) {
                 if (is_unit_there.side != unit.side) {
-                    valid = _c.entity_attacks_entity(game, unit, is_unit_there, _c.log_message_to_user);
+                    can_move_to = _c.entity_attacks_entity(game, unit, is_unit_there, _c.log_message_to_user);
                 } else {
-                    //TODO: What to do if on same sides?
+                    //TODO: What to do if on same sides? Merge forces?
                 }
             }
 
-            if (valid) {
+            if (can_move_to) {
                 var previous_x = unit.x;
                 var previous_y = unit.y;
                 unit.x = x;
                 unit.y = y;
+
+                var cell = _c.tile(game, x, y);
+                if (unit._data.try_to_loot || unit._data.try_to_pillage) {
+                    if (cell.type == 'city' || _c.tile_has(cell, 'dock') || _c.tile_has(cell, 'farm') || _c.tile_has(cell, 'storage') || cell.loot) {
+                        _c.raze_or_loot(game, unit, cell);
+                    }
+                }
+
                 _c.draw_tile(game, previous_x, previous_y);
                 unit._draw();
             }
         }
-        return valid;
+        return can_move_to;
     };
 
     _c.remove_entity = function (game, unit) {
@@ -63,9 +110,24 @@
         if (entity_id > -1) {
             var x = unit.x;
             var y = unit.y;
+
+            var cell = _c.tile(game, x, y);
+            if (cell) {
+                cell.additions = cell.additions || [];
+                cell.additions.push({name:'unit corpse', unit:unit._data});
+            }
+            if (unit.loot) {
+                cell.loot = cell.loot || {};
+                for (var key in unit.loot) {
+                    cell.loot[key] = cell.loot[key] || 0;
+                    cell.loot[key] += unit.loot[key];
+                }
+            }
+
             game.scheduler.remove(game.entities[entity_id]);
             delete game.entities[entity_id];
             //TODO: Collapse entities
+
             _c.draw_tile(game, x, y);
         }
     };
@@ -209,6 +271,7 @@
             _c.movement_strategies.avoid(game, unit, target_status, options)
 
         } else if (plan == 'invade city') {
+            //TODO: If no enemies and close to city, then try to loot and pillage
             var location = _.find(game.data.buildings, function(b){return b.type=='city'});
             options = {side: 'enemy', filter: 'closest', range: 12, plan: plan, backup_strategy: unit._data.backup_strategy};
             _c.movement_strategies.head_towards(game, unit, location, options);

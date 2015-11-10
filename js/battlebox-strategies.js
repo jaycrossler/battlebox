@@ -2,6 +2,10 @@
     var _c = new Battlebox('get_private_functions');
 
     //TODO: Have a queue of plans, then when one can't complete, move to next
+    //TODO: At end of game, spend x turns to look for nearby loot and pillage town
+    //TODO: Have strategy to find nearby loot
+    //TODO: Have units on nearby fortifications and defenders to go to fortifications if possible
+    //TODO: Have a timeout so that if % of city remains after countdown, battle ends
 
     _c.path_from_to = function (game, from_x, from_y, to_x, to_y) {
 
@@ -90,9 +94,8 @@
         return {target: target, x: x, y: y, range: range};
     };
 
+    //--------------------------------------------
     _c.movement_strategies = _c.movement_strategies || {};
-
-
     _c.movement_strategies.vigilant = function (game, unit) {
         _c.log_message_to_user(game, unit.describe() + ' ' + "stays vigilant and doesn't move", 1);
     };
@@ -104,7 +107,6 @@
         var x = unit.x + dir[0];
 
         var msg = unit.describe() + ' ';
-
         var moves = _c.try_to_move_to_and_draw(game, unit, x, y);
         if (moves) {
             _c.log_message_to_user(game, msg + "wanders a space", 1);
@@ -134,7 +136,6 @@
             }
         }
 
-        //TODO: Only if in likely range
         var path = _c.path_from_to(game, unit.x, unit.y, x, y);
 
         //If too far, then just wander
@@ -160,31 +161,43 @@
             //Walk towards the enemy
             x = path[0][0];
             y = path[0][1];
-            _c.try_to_move_to_and_draw(game, unit, x, y);
-            _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + target_status.target.describe(), 1);
+            var moves = _c.try_to_move_to_and_draw(game, unit, x, y);
+            if (moves) {
+                _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + target_status.target.describe(), 1);
+            } else {
+                if (options.backup_strategy == 'vigilant') {
+                    _c.movement_strategies.vigilant(game, unit);
+                } else if (options.backup_strategy == 'wait') {
+                    _c.movement_strategies.wait(game, unit);
+                } else { //if (options.backup_strategy == 'wander') {
+                    _c.movement_strategies.wander(game, unit);
+                }
+            }
         }
     };
 
     _c.movement_strategies.head_towards = function (game, unit, location, options) {
 
-        //TODO: Only if in likely range
         var path = _c.path_from_to(game, unit.x, unit.y, location.location.x, location.location.y);
 
         path.shift();
 
+        var moves = false;
         if (path.length <= 10) {
             options = {side: 'enemy', filter: 'closest', range: 6, plan: 'invade city', backup_strategy: unit._data.backup_strategy};
             var target_status = _c.find_unit_by_filters(game, unit, options);
-            _c.movement_strategies.seek(game, unit, target_status, options)
+            _c.movement_strategies.seek(game, unit, target_status, options);
+            moves = true;
 
         } else if (path.length > 10) {
             //Walk towards the enemy
             var x = path[0][0];
             var y = path[0][1];
-            _c.try_to_move_to_and_draw(game, unit, x, y);
+            moves = _c.try_to_move_to_and_draw(game, unit, x, y);
+        }
+        if (moves) {
             _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + (location.title || location.name), 1);
         } else {
-
             if (options.backup_strategy == 'vigilant') {
                 _c.movement_strategies.vigilant(game, unit);
             } else if (options.backup_strategy == 'wait') {
@@ -193,8 +206,6 @@
                 _c.movement_strategies.wander(game, unit, options);
             }
         }
-
-
     };
 
     _c.movement_strategies.avoid = function (game, unit, target_status, options) {
@@ -216,6 +227,7 @@
         var path = _c.path_from_to(game, unit.x, unit.y, x, y);
 
         //If too far, then just wander
+        var moves = false;
         if (options.range && path && path.length <= options.range) {
             path.shift();
             if (path.length > 0) {
@@ -231,13 +243,10 @@
                 y = unit.y + y;
 
                 //TODO: Pick alternate paths if can't move any more
-                var could_move = _c.try_to_move_to_and_draw(game, unit, x, y);
-                if (!could_move) {
-                    _c.movement_strategies.wander(game, unit);
-                }
+                moves = _c.try_to_move_to_and_draw(game, unit, x, y);
             }
-
-        } else {
+        }
+        if (!moves) {
             if (options.backup_strategy == 'vigilant') {
                 _c.movement_strategies.vigilant(game, unit);
             } else if (options.backup_strategy == 'wait') {

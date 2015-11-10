@@ -99,7 +99,53 @@
 
     _c.game_over = function (game, side_wins) {
         game.engine.lock();
-        _c.log_message_to_user(game, "Game Over!  " + side_wins + ' wins!', 4, side_wins);
+        var msg = "Game Over!  " + side_wins + ' wins!';
+
+        //Find ending loot retrieved in living armies
+        var loot = {};
+        _.each(game.entities, function(unit){
+            if (unit && unit._data && unit._data.side == side_wins) {
+                if (unit.loot) {
+                    for (var key in unit.loot) {
+                        loot[key] = loot[key] || 0;
+                        loot[key] += unit.loot[key];
+                    }
+                }
+            }
+        });
+        var loot_msg = [];
+        for (var key in loot) {
+            loot_msg.push(loot[key] + " " + Helpers.pluralize(key))
+        }
+        if (loot_msg.length) {
+            msg += "<hr/><b>Loot:</b> " + loot_msg.join("<br/>");
+        }
+
+
+        //Calculate % of cities left
+        var city_msg = [];
+        var tiles_total = 0;
+        var tiles_ruined = 0;
+        _.each(game.data.buildings, function(city){
+            if (city.type == 'city') {
+                _.each(city.tiles || [], function (tile) {
+                    tiles_total++;
+                    if (_c.tile_has(tile, 'pillaged') || _c.tile_has(tile, 'looted')) {
+                        tiles_ruined++;
+                    }
+                });
+                var pct = Math.round((tiles_ruined/tiles_total) * 100);
+                var msg_c = pct+"% of "+(city.title || city.name) +" destroyed";
+                city_msg.push(msg_c);
+            }
+        });
+
+        if (city_msg.length) {
+            msg += "<hr/><b>Cities:</b> " + city_msg.join("<br/>");
+        }
+
+
+        _c.log_message_to_user(game, msg, 4, side_wins);
     }
 
 

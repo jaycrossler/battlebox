@@ -234,7 +234,7 @@
             var location = _c.find_a_matching_tile(game, building_layer);
 
             if (building_layer.type == 'city') {
-                _c.generators.city(game, location, building_layer);
+                building_layer.tiles = _c.generators.city(game, location, building_layer);
 
             } else if (building_layer.type == 'storage') {
                 _c.generators.storage(game, location, building_layer);
