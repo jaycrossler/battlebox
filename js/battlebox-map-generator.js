@@ -92,8 +92,8 @@
         var x, y, i, tries = 50, index = 0, key;
         if (options.location == 'center') {
             for (i = 0; i < tries; i++) {
-                x = (_c.cols(game) / 2) + _c.randInt(_c.cols(game) / 6) - (_c.cols(game) / 12) - 1;
-                y = (_c.rows(game) / 2) + _c.randInt(_c.rows(game) / 6) - (_c.rows(game) / 12) - 1;
+                x = options.x || (_c.cols(game) / 2) + _c.randInt(_c.cols(game) / 6) - (_c.cols(game) / 12) - 1;
+                y = options.y || (_c.rows(game) / 2) + _c.randInt(_c.rows(game) / 6) - (_c.rows(game) / 12) - 1;
 
                 x = Math.floor(x);
                 y = Math.floor(y);
@@ -114,8 +114,12 @@
 
         } else if (options.location == 'left') {
             for (i = 0; i < tries; i++) {
-                x = _c.randOption([0, 1, 2]);
-                y = _c.randInt(_c.rows(game));
+                x = options.x || _c.randOption([0, 1, 2]);
+                if (options.y) {
+                    y = _c.randOption([options.y - 1, options.x - 2, options.x - 3]);
+                } else {
+                    y = _c.randInt(_c.rows(game));
+                }
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
@@ -125,8 +129,12 @@
         } else if (options.location == 'right') {
             var right = _c.cols(game);
             for (i = 0; i < tries; i++) {
-                x = _c.randOption([right - 1, right - 2, right - 3]);
-                y = _c.randInt(_c.rows(game));
+                x = options.x || _c.randOption([right - 1, right - 2, right - 3]);
+                if (options.y) {
+                    y = _c.randOption([options.y - 1, options.x - 2, options.x - 3]);
+                } else {
+                    y = _c.randInt(_c.rows(game));
+                }
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
@@ -136,8 +144,8 @@
         } else if (options.location == 'mid left') {
             var mid_left = Math.round(_c.cols(game) * .25);
             for (i = 0; i < tries; i++) {
-                x = _c.randOption([mid_left - 2, mid_left - 1, mid_left, mid_left + 1, mid_left + 2]);
-                y = _c.randInt(_c.rows(game));
+                x = options.x || _c.randOption([mid_left - 2, mid_left - 1, mid_left, mid_left + 1, mid_left + 2]);
+                y = options.y || _c.randInt(_c.rows(game));
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
@@ -147,8 +155,8 @@
         } else if (options.location == 'mid right') {
             var mid_right = Math.round(_c.cols(game) * .75);
             for (i = 0; i < tries; i++) {
-                x = _c.randOption([mid_right - 2, mid_right - 1, mid_right, mid_right + 1, mid_right + 2]);
-                y = _c.randInt(_c.rows(game));
+                x = options.x || _c.randOption([mid_right - 2, mid_right - 1, mid_right, mid_right + 1, mid_right + 2]);
+                y = options.y || _c.randInt(_c.rows(game));
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
@@ -157,8 +165,13 @@
 
         } else if (options.location == 'top') {
             for (i = 0; i < tries; i++) {
-                x = _c.randInt(_c.cols(game));
-                y = 0;//_c.randOption([0, 1]);
+                if (options.x) {
+                    x = _c.randOption([options.x - 2, options.x - 1, options.x, options.x +1, options.x+2]);
+                } else {
+                    x = _c.randInt(_c.cols(game));
+                }
+                y = _c.randOption([0, 1]);
+
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
@@ -168,8 +181,12 @@
         } else if (options.location == 'bottom') {
             var bottom = _c.rows(game);
             for (i = 0; i < tries; i++) {
-                x = _c.randInt(_c.cols(game));
-                y = bottom; //_c.randOption([bottom - 1, bottom - 2, bottom - 3]);
+                if (options.x) {
+                    x = _c.randOption([options.x - 2, options.x - 1, options.x, options.x +1, options.x+2]);
+                } else {
+                    x = _c.randInt(_c.cols(game));
+                }
+                y = _c.randOption([bottom - 1, bottom - 2]);
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
@@ -178,8 +195,8 @@
 
         } else if (options.location == 'impassible') {
             for (i = 0; i < tries; i++) {
-                y = (_c.randInt(_c.rows(game)));
-                x = (y % 2) + (_c.randInt(_c.cols(game) / 2) * 2);
+                y = options.x || (_c.randInt(_c.rows(game)));
+                x = options.y || (y % 2) + (_c.randInt(_c.cols(game) / 2) * 2);
 
                 var loc = _c.tile_is_traversable(game, x, y, true, true);
                 if (loc) {
@@ -507,6 +524,8 @@
         var building_tile_radius_y = Math.pow(size, 1 / 1.45);
         var building_tile_radius_x = building_tile_radius_y * 1.5;
 
+        //TODO: Don't use recursion, instead just a for x-n to x+n loop
+
         function make_water(x, y, recursion) {
 
             if (!_c.tile_is_traversable(game, x, y, false)) {
@@ -562,26 +581,39 @@
         var tries = 20;
 
         for (var t = 0; t < tries; t++) {
-            var ending_side = _c.randOption(['left', 'right', 'top', 'bottom']);
-            var ending_tile = _c.find_a_matching_tile(game, {location: ending_side});
-
-            var starting_tile = _c.find_a_matching_tile(game, {location: water_layer.location});
-
+            var side = _c.randOption(['left', 'top']);
+            var ending_tile, starting_tile;
+            if (side == 'left') {
+                starting_tile = _c.find_a_matching_tile(game, {location: 'left', y:location.y});
+                ending_tile = _c.find_a_matching_tile(game, {location: 'right', y:location.y});
+            } else {
+                starting_tile = _c.find_a_matching_tile(game, {location: 'top', x:location.x});
+                ending_tile = _c.find_a_matching_tile(game, {location: 'bottom', x:location.x});
+            }
 
             var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y);
             if (path && path.length) {
                 for (var step = 1; step < path.length; step++) {
                     for (var thick = 0; thick < (water_layer.thickness || 1); thick++) {
 
-                        //TODO: Handle thickness by having 2 in a row - not working for y? have two starting points?
-
-                        var y = path[step][1] + (thick);
+                        var y = path[step][1];
                         var x = path[step][0];
+
+                        if (side == 'left' && thick) {
+                            y += thick;
+                        } else if (side == 'top' && thick){
+                            x += (2 * thick);
+                        }
 
                         var cell = _c.tile(game, x, y);
                         if (_c.tile_is_traversable(game, x, y)) {
                             var last_cell = _c.tile(game, path[step - 1]);
-                            var dir = _c.direction_from_tile_to_tile(last_cell, cell) || {road_symbol: ""};
+                            var dir;
+                            if (thick == 0) {
+                                dir = _c.direction_from_tile_to_tile(last_cell, cell) || {road_symbol: ""};
+                            } else {
+                                dir = _c.direction_from_tile_to_tile(last_cell, _c.tile(game, path[step])) || {road_symbol: ""};
+                            }
 
                             //TODO: Don't use pathfinding, instead make it snaking
 
@@ -590,7 +622,7 @@
                             layer.water = true;
                             layer.depth = water_layer.thickness || 1;
                             layer.symbol = dir.road_symbol;
-                            layer.name == water_layer.title || water_layer.name;
+                            layer.title = water_layer.title || water_layer.name;
 
                             cell.additions = cell.additions || [];
                             cell.additions.push(layer);
