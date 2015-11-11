@@ -3,7 +3,6 @@
 (function (Battlebox) {
     var _c = new Battlebox('get_private_functions');
 
-    //TODO: Add city center tile
     //TODO: Pass in a color set to try out different images/rendering techniques
     //TODO: Use hex images for terrain
     //TODO: Use colored large circle characters for forces, not full hex colors
@@ -231,17 +230,22 @@
      * Returns whether a tile has a specific addition (either a simple text feature like 'field', or a complex object feature like {name:'road', symbol:'-'}
      * @param {cell} cell - tile to look at
      * @param {string} feature - a feature class, like 'field', or 'road'
-     * @returns {variable} null if no object, or the feature info (string or object) if it was found
+     * @param {boolean} return_count - return just a count of features instead of feature details
+     * @returns {object} null if no object, or the first feature info (string or object) if it was found, or count of objects if return_count specified
      */
-    _c.tile_has = function (cell, feature) {
-        var has = null;
+    _c.tile_has = function (cell, feature, return_count) {
+        var has = 0;
 
         if (cell.additions) {
             for (var i = 0; i < cell.additions.length; i++) {
                 var a = cell.additions[i];
                 if (a == feature || (a && a.name && a.name == feature)) {
-                    has = a;
-                    break;
+                    if (return_count) {
+                        has++;
+                    } else {
+                        has = a;
+                        break;
+                    }
                 }
             }
         }
@@ -358,12 +362,18 @@
             building_layer.location = location;
         });
     };
+    _c.population_counter = function(game) {
+        var count = 0;
+        _.each(game.cells, function (x){
+            _.each(x, function(cell){
+                if (cell) count += cell.population || 0;
+            })
+        });
+        return count;
+    };
     //¬-----------------------------------------------------
     _c.generators = {};
     _c.generators.city2 = function (game, location, city_info) {
-
-        //TODO: Cities build along roads only, not on roads
-        //TODO: Cities build along side of river
 
         var building_tile_tries = Math.sqrt(city_info.population);
         var building_tile_radius_y = Math.pow(city_info.population, 1 / 3.1);
@@ -389,18 +399,21 @@
         center.population += building_tile_tries * 2;
         city_cells.push(center);
 
-        //TODO: Not on water cells
-
         //Add population along roads
         for (var i = 0; i < building_tile_tries; i++) {
             var road_index = Math.round(_c.randHistogram(.05, 5) * road_tiles.length);
             var road_segment = road_tiles[road_index];
+
+            //Assign population to all non-road/river/lake cells
             var road_neighbors = _c.surrounding_tiles(game, road_segment.x, road_segment.y);
+            road_neighbors = _.filter(road_neighbors, function(r) {
+                return (!_c.tile_has(r, 'road') && !_c.tile_has(r, 'river') && (r.name != 'lake'));
+            });
             _.each(road_neighbors, function (neighbor) {
                 neighbor.population = neighbor.population || 0;
-                neighbor.population += building_tile_tries / 12; //NOTE: Half of 6 (for each neighbor)
+                neighbor.population += building_tile_tries / (road_neighbors.length * 1.6423);
 
-                if (!city_cells[neighbor.x] || !city_cells[neighbor.x][neighbor.y]) city_cells.push(neighbor);
+                if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
             });
         }
 
@@ -411,21 +424,26 @@
             x = Math.floor(x);
             y = Math.floor(y);
 
-            if (_c.tile_is_traversable(game, x, y, false)) {
-                game.cells[x][y].population = game.cells[x][y].population || 0;
-                game.cells[x][y].population += building_tile_tries / 4;
-                if (!city_cells[x] || !city_cells[x][y]) city_cells.push(game.cells[x][y]);
+            var cell = game.cells[x][y];
+            if (_c.tile_is_traversable(game, x, y, false) && !_c.tile_has(cell, 'road') && !_c.tile_has(cell, 'river') && (cell.name != 'lake')) {
+                cell.population = cell.population || 0;
+                cell.population += building_tile_tries / 4 + (ROT.RNG.getNormal()*building_tile_radius_x);
+                if (!city_cells[x] || !city_cells[x][y]) city_cells.push(cell);
 
                 var neighbors = _c.surrounding_tiles(game, x, y);
+                neighbors = _.filter(road_neighbors, function(r) {
+                    return (!_c.tile_has(r, 'road') && !_c.tile_has(r, 'river') && (r.name != 'lake'));
+                });
                 _.each(neighbors, function (neighbor) {
                     neighbor.population = neighbor.population || 0;
-                    neighbor.population += building_tile_tries / 12; //NOTE: Half of 6 (for each neighbor)
+                    neighbor.population += building_tile_tries / (road_neighbors.length * 1.7);
 
-                    if (!city_cells[neighbor.x] || !city_cells[neighbor.x][neighbor.y]) city_cells.push(neighbor);
+                    if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
                 })
             }
         }
 
+        //Turn cells with enough population into city cells
         var city_cells_final = [city_cells[0]]; //Start with the city center
         for (var i=0; i< city_cells.length; i++) {
             var cell = city_cells[i];
@@ -436,7 +454,11 @@
             if (cell_population>=70) {
 
                 game.cells[x][y] = _.clone(city_info);
-                cell.population = cell_population;
+                game.cells[x][y].population = cell_population;
+                game.cells[x][y].type = 'city';
+                game.cells[x][y].x = x;
+                game.cells[x][y].y = y;
+
 
                 var neighbors = _c.surrounding_tiles(game, x, y);
                 _.each(neighbors, function (neighbor) {
@@ -444,25 +466,63 @@
                     if (neighbor.type != 'city') {
                         if (neighbor.name == 'mountains') {
                             neighbor.additions.push('mine');
-                        } else if (neighbor.name == 'lake') {
+                        } else if (neighbor.name == 'lake' || _c.tile_has(neighbor, 'river')) {
                             neighbor.additions.push('dock');
                         } else {
                             neighbor.additions.push('farm');
-
-                            city_cells_final.push(neighbor);
                         }
                     }
                 });
+
+                if (_.indexOf(city_cells_final, cell) == -1) city_cells_final.push(cell);
+
             } else {
                 game.cells[x][y].population = cell_population;
             }
-
         }
+
+        //Loop through cells with multiple farms and redistribute the farms further out
+        //TODO: Use a spiral loop to move outward from city center
+        var loops = 6;
+        for (var l=0; l<loops; l++) {
+            var cc_length = city_cells.length;
+            for (var i=0; i< cc_length; i++) {
+                var cell = city_cells[i];
+                var num_farms = _c.tile_has(cell, 'farm', true);
+                if (num_farms > 5) {
+                    x = cell.x;
+                    y = cell.y;
+                    var neighbors = _c.surrounding_tiles(game, x, y);
+                    _.each(neighbors, function (neighbor) {
+                        neighbor.additions = neighbor.additions || [];
+                        for (var f=0;f<(num_farms%5);f++) {
+                            neighbor.additions.push('farm');
+                        }
+                        if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
+                    });
+                    cell.additions = removeArrayItemNTimes(cell.additions, 'farm', 5 * (num_farms%5));
+                }
+            }
+        }
+
 
         //TODO: Add city walls
 
         return city_cells_final;
     };
+
+    function removeArrayItemNTimes(arr,toRemove,times){
+        times = times || 10;
+        for(var i = 0; i < arr.length; i++){
+            if(arr[i]==toRemove) {
+                arr.splice(i,1);
+                i--; // Prevent skipping an item
+                times--;
+                if (times<=0) break;
+            }
+        }
+        return arr;
+    }
 
     _c.generators.terrain_layer = function (game, terrain_layer, cells) {
         var map_layer;
@@ -713,6 +773,8 @@
 
                             var layer = _.clone(water_layer.data || {});
                             layer.name = 'river';
+                            layer.x = x;
+                            layer.y = y;
                             layer.water = true;
                             layer.depth = water_layer.thickness || 1;
                             layer.symbol = dir.road_symbol;
@@ -767,6 +829,8 @@
             y = Math.floor(y);
             if (_c.tile_is_traversable(game, x, y, false)) {
                 game.cells[x][y] = _.clone(city_info);
+                game.cells[x][y].x = x;
+                game.cells[x][y].y = y;
                 city_cells.push(game.cells[x][y]);
 
                 var neighbors = _c.surrounding_tiles(game, x, y);

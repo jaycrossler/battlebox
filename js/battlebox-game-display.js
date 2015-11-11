@@ -97,16 +97,18 @@
 
         if (draw_basic_cell) {
             //No information was passed in, assume it's the default cell draw without player in it
-            //TODO: Have options or some way to tell it to redraw a cell that isn't a player's move
             if (cell.type == 'city') {
                 bg_color = '#DE8275';
             }
+            var num_farms = _c.tile_has(cell, 'farm', true);
             if (_c.tile_has(cell, 'mine')) {
                 bg_color = '#4c362c';
             } else if (_c.tile_has(cell, 'dock')) {
                 bg_color = '#86fffc';
-            } else if (_c.tile_has(cell, 'farm')) {
-                bg_color = '#BDB3A2';
+                text = '=';
+            } else if (num_farms) {
+                var farm_darkness = Math.min(.4, num_farms * .03);
+                bg_color = net.brehaut.Color('#CCC4B7').darkenByRatio(farm_darkness).toString();
             }
 
             var was_drawn = false;
@@ -128,7 +130,7 @@
                 //, color:['#06f','#08b','#05e']
             }
         } else if (draw_basic_cell && river_info) {
-            text = river_info.symbol || text;
+            text = text ||river_info.symbol;
 
             //Depth from 1-3 gets more blue
             if (!bg_color) {
@@ -138,10 +140,30 @@
             }
         }
 
+        var population_darken_amount = 0;
         if (cell.population) {
             color = Helpers.blendColors('black', 'red', cell.population/300);
-            if (cell.population > 300) color = 'orange';
-            text = '█';
+            if (cell.population > 1000) {
+                color = 'orange';
+                text = '█';
+                population_darken_amount = .6;
+            } else if (cell.population > 500) {
+                color = 'orange';
+                text = '▓';
+                population_darken_amount = .5;
+            } else if (cell.population > 300) {
+                text = '▓';
+                population_darken_amount = .4;
+            } else if (cell.population > 150) {
+                text = '▄';
+                population_darken_amount = .3;
+            } else if (cell.population > 50) {
+                text = '▒';
+                population_darken_amount = .2;
+            } else if (cell.population > 10) {
+                text = '░';
+                population_darken_amount = .1;
+            }
         }
 
         if (text === undefined) {
@@ -198,6 +220,9 @@
             bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), .8).toString();
             text = "=";
             color = "#fff";
+        }
+        if (population_darken_amount) {
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), population_darken_amount).toString();
         }
 
 

@@ -1359,16 +1359,18 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         if (draw_basic_cell) {
             //No information was passed in, assume it's the default cell draw without player in it
-            //TODO: Have options or some way to tell it to redraw a cell that isn't a player's move
             if (cell.type == 'city') {
                 bg_color = '#DE8275';
             }
+            var num_farms = _c.tile_has(cell, 'farm', true);
             if (_c.tile_has(cell, 'mine')) {
                 bg_color = '#4c362c';
             } else if (_c.tile_has(cell, 'dock')) {
                 bg_color = '#86fffc';
-            } else if (_c.tile_has(cell, 'farm')) {
-                bg_color = '#BDB3A2';
+                text = '=';
+            } else if (num_farms) {
+                var farm_darkness = Math.min(.4, num_farms * .03);
+                bg_color = net.brehaut.Color('#CCC4B7').darkenByRatio(farm_darkness).toString();
             }
 
             var was_drawn = false;
@@ -1390,7 +1392,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 //, color:['#06f','#08b','#05e']
             }
         } else if (draw_basic_cell && river_info) {
-            text = river_info.symbol || text;
+            text = text ||river_info.symbol;
 
             //Depth from 1-3 gets more blue
             if (!bg_color) {
@@ -1400,10 +1402,30 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
         }
 
+        var population_darken_amount = 0;
         if (cell.population) {
             color = Helpers.blendColors('black', 'red', cell.population/300);
-            if (cell.population > 300) color = 'orange';
-            text = '█';
+            if (cell.population > 1000) {
+                color = 'orange';
+                text = '█';
+                population_darken_amount = .6;
+            } else if (cell.population > 500) {
+                color = 'orange';
+                text = '▓';
+                population_darken_amount = .5;
+            } else if (cell.population > 300) {
+                text = '▓';
+                population_darken_amount = .4;
+            } else if (cell.population > 150) {
+                text = '▄';
+                population_darken_amount = .3;
+            } else if (cell.population > 50) {
+                text = '▒';
+                population_darken_amount = .2;
+            } else if (cell.population > 10) {
+                text = '░';
+                population_darken_amount = .1;
+            }
         }
 
         if (text === undefined) {
@@ -1460,6 +1482,9 @@ Battlebox.initializeOptions = function (option_type, options) {
             bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), .8).toString();
             text = "=";
             color = "#fff";
+        }
+        if (population_darken_amount) {
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), population_darken_amount).toString();
         }
 
 
@@ -1809,7 +1834,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         ],
 
         buildings: [
-            {name: 'Large City', title: 'Anchorage', type: 'city2', population: 30000, fortifications: 20, location: 'center'},
+            {name: 'Large City', title: 'Anchorage', type: 'city2', population: 50000, fortifications: 20, location: 'center'},
             {name: 'Grain Storage', type: 'storage', resources: {food: 10000, gold: 2, herbs: 100}, location: 'random'},
             {name: 'Metal Storage', type: 'storage', resources: {metal: 1000, gold: 2, ore: 1000}, location: 'random'},
             {name: 'Cave Entrance', type: 'dungeon', requires: {mountains: true}, location: 'impassible'}
@@ -2252,17 +2277,22 @@ Battlebox.initializeOptions = function (option_type, options) {
      * Returns whether a tile has a specific addition (either a simple text feature like 'field', or a complex object feature like {name:'road', symbol:'-'}
      * @param {cell} cell - tile to look at
      * @param {string} feature - a feature class, like 'field', or 'road'
-     * @returns {variable} null if no object, or the feature info (string or object) if it was found
+     * @param {boolean} return_count - return just a count of features instead of feature details
+     * @returns {object} null if no object, or the first feature info (string or object) if it was found, or count of objects if return_count specified
      */
-    _c.tile_has = function (cell, feature) {
-        var has = null;
+    _c.tile_has = function (cell, feature, return_count) {
+        var has = 0;
 
         if (cell.additions) {
             for (var i = 0; i < cell.additions.length; i++) {
                 var a = cell.additions[i];
                 if (a == feature || (a && a.name && a.name == feature)) {
-                    has = a;
-                    break;
+                    if (return_count) {
+                        has++;
+                    } else {
+                        has = a;
+                        break;
+                    }
                 }
             }
         }
@@ -2379,6 +2409,15 @@ Battlebox.initializeOptions = function (option_type, options) {
             building_layer.location = location;
         });
     };
+    _c.population_counter = function(game) {
+        var count = 0;
+        _.each(game.cells, function (x){
+            _.each(x, function(cell){
+                if (cell) count += cell.population || 0;
+            })
+        });
+        return count;
+    };
     //¬-----------------------------------------------------
     _c.generators = {};
     _c.generators.city2 = function (game, location, city_info) {
@@ -2416,12 +2455,17 @@ Battlebox.initializeOptions = function (option_type, options) {
         for (var i = 0; i < building_tile_tries; i++) {
             var road_index = Math.round(_c.randHistogram(.05, 5) * road_tiles.length);
             var road_segment = road_tiles[road_index];
+
+            //Assign population to all non-road/river/lake cells
             var road_neighbors = _c.surrounding_tiles(game, road_segment.x, road_segment.y);
+            road_neighbors = _.filter(road_neighbors, function(r) {
+                return (!_c.tile_has(r, 'road') && !_c.tile_has(r, 'river') && (r.name != 'lake'));
+            });
             _.each(road_neighbors, function (neighbor) {
                 neighbor.population = neighbor.population || 0;
-                neighbor.population += building_tile_tries / 12; //NOTE: Half of 6 (for each neighbor)
+                neighbor.population += building_tile_tries / (road_neighbors.length * 1.6423);
 
-                if (!city_cells[neighbor.x] || !city_cells[neighbor.x][neighbor.y]) city_cells.push(neighbor);
+                if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
             });
         }
 
@@ -2432,21 +2476,26 @@ Battlebox.initializeOptions = function (option_type, options) {
             x = Math.floor(x);
             y = Math.floor(y);
 
-            if (_c.tile_is_traversable(game, x, y, false)) {
-                game.cells[x][y].population = game.cells[x][y].population || 0;
-                game.cells[x][y].population += building_tile_tries / 4;
-                if (!city_cells[x] || !city_cells[x][y]) city_cells.push(game.cells[x][y]);
+            var cell = game.cells[x][y];
+            if (_c.tile_is_traversable(game, x, y, false) && !_c.tile_has(cell, 'road') && !_c.tile_has(cell, 'river') && (cell.name != 'lake')) {
+                cell.population = cell.population || 0;
+                cell.population += building_tile_tries / 4 + (ROT.RNG.getNormal()*building_tile_radius_x);
+                if (!city_cells[x] || !city_cells[x][y]) city_cells.push(cell);
 
                 var neighbors = _c.surrounding_tiles(game, x, y);
+                neighbors = _.filter(road_neighbors, function(r) {
+                    return (!_c.tile_has(r, 'road') && !_c.tile_has(r, 'river') && (r.name != 'lake'));
+                });
                 _.each(neighbors, function (neighbor) {
                     neighbor.population = neighbor.population || 0;
-                    neighbor.population += building_tile_tries / 12; //NOTE: Half of 6 (for each neighbor)
+                    neighbor.population += building_tile_tries / (road_neighbors.length * 1.7);
 
-                    if (!city_cells[neighbor.x] || !city_cells[neighbor.x][neighbor.y]) city_cells.push(neighbor);
+                    if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
                 })
             }
         }
 
+        //Turn cells with enough population into city cells
         var city_cells_final = [city_cells[0]]; //Start with the city center
         for (var i=0; i< city_cells.length; i++) {
             var cell = city_cells[i];
@@ -2457,7 +2506,11 @@ Battlebox.initializeOptions = function (option_type, options) {
             if (cell_population>=70) {
 
                 game.cells[x][y] = _.clone(city_info);
-                cell.population = cell_population;
+                game.cells[x][y].population = cell_population;
+                game.cells[x][y].type = 'city';
+                game.cells[x][y].x = x;
+                game.cells[x][y].y = y;
+
 
                 var neighbors = _c.surrounding_tiles(game, x, y);
                 _.each(neighbors, function (neighbor) {
@@ -2465,25 +2518,63 @@ Battlebox.initializeOptions = function (option_type, options) {
                     if (neighbor.type != 'city') {
                         if (neighbor.name == 'mountains') {
                             neighbor.additions.push('mine');
-                        } else if (neighbor.name == 'lake') {
+                        } else if (neighbor.name == 'lake' || _c.tile_has(neighbor, 'river')) {
                             neighbor.additions.push('dock');
                         } else {
                             neighbor.additions.push('farm');
-
-                            city_cells_final.push(neighbor);
                         }
                     }
                 });
+
+                if (_.indexOf(city_cells_final, cell) == -1) city_cells_final.push(cell);
+
             } else {
                 game.cells[x][y].population = cell_population;
             }
-
         }
+
+        //Loop through cells with multiple farms and redistribute the farms further out
+        //TODO: Use a spiral loop to move outward from city center
+        var loops = 6;
+        for (var l=0; l<loops; l++) {
+            var cc_length = city_cells.length;
+            for (var i=0; i< cc_length; i++) {
+                var cell = city_cells[i];
+                var num_farms = _c.tile_has(cell, 'farm', true);
+                if (num_farms > 5) {
+                    x = cell.x;
+                    y = cell.y;
+                    var neighbors = _c.surrounding_tiles(game, x, y);
+                    _.each(neighbors, function (neighbor) {
+                        neighbor.additions = neighbor.additions || [];
+                        for (var f=0;f<(num_farms%5);f++) {
+                            neighbor.additions.push('farm');
+                        }
+                        if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
+                    });
+                    cell.additions = removeArrayItemNTimes(cell.additions, 'farm', 5 * (num_farms%5));
+                }
+            }
+        }
+
 
         //TODO: Add city walls
 
         return city_cells_final;
     };
+
+    function removeArrayItemNTimes(arr,toRemove,times){
+        times = times || 10;
+        for(var i = 0; i < arr.length; i++){
+            if(arr[i]==toRemove) {
+                arr.splice(i,1);
+                i--; // Prevent skipping an item
+                times--;
+                if (times<=0) break;
+            }
+        }
+        return arr;
+    }
 
     _c.generators.terrain_layer = function (game, terrain_layer, cells) {
         var map_layer;
@@ -2734,6 +2825,8 @@ Battlebox.initializeOptions = function (option_type, options) {
 
                             var layer = _.clone(water_layer.data || {});
                             layer.name = 'river';
+                            layer.x = x;
+                            layer.y = y;
                             layer.water = true;
                             layer.depth = water_layer.thickness || 1;
                             layer.symbol = dir.road_symbol;
@@ -2788,6 +2881,8 @@ Battlebox.initializeOptions = function (option_type, options) {
             y = Math.floor(y);
             if (_c.tile_is_traversable(game, x, y, false)) {
                 game.cells[x][y] = _.clone(city_info);
+                game.cells[x][y].x = x;
+                game.cells[x][y].y = y;
                 city_cells.push(game.cells[x][y]);
 
                 var neighbors = _c.surrounding_tiles(game, x, y);
@@ -3146,13 +3241,17 @@ Battlebox.initializeOptions = function (option_type, options) {
         cell.additions = cell.additions || [];
         unit.loot = unit.loot || {};
 
+        var num_farms = _c.tile_has(cell, 'farm', true);
+
         if (unit._data.try_to_pillage) {
             //TODO: Unit gains health?
             //TODO: Takes time?
 
-            if (_c.tile_has(cell, 'farm') && !_c.tile_has(cell, 'pillaged')) {
+            if (num_farms && !_c.tile_has(cell, 'pillaged')) {
                 unit.loot.food = unit.loot.food || 0;
-                unit.loot.food += 100;  //TODO: Random benefits based on technology and population
+                unit.loot.herbs = unit.loot.herbs || 0;
+                unit.loot.food += (100 * num_farms);  //TODO: Random benefits based on technology and population
+                unit.loot.herbs += (20 * num_farms);
             }
 
             cell.additions.push('pillaged');
@@ -3164,16 +3263,15 @@ Battlebox.initializeOptions = function (option_type, options) {
                 unit.loot[key] = unit.loot[key] || 0;
                 unit.loot[key] += cell.loot[key];
                 cell.loot[key] = 0;
-                //TODO: Unit takes other unit's loot
                 //TODO: Only take as much loot as can carry
             }
 
-            if (_c.tile_has(cell, 'farm') && !_c.tile_has(cell, 'pillaged') && !_c.tile_has(cell, 'looted')) {
+            if (num_farms && !_c.tile_has(cell, 'pillaged') && !_c.tile_has(cell, 'looted')) {
                 unit.loot.food = unit.loot.food || 0;
                 unit.loot.herbs = unit.loot.herbs || 0;
 
-                unit.loot.food += 30;
-                unit.loot.herbs += 10;
+                unit.loot.food += (25 * num_farms);
+                unit.loot.herbs += (6 * num_farms);
             }
             cell.additions.push('looted');
         }

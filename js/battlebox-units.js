@@ -39,13 +39,17 @@
         cell.additions = cell.additions || [];
         unit.loot = unit.loot || {};
 
+        var num_farms = _c.tile_has(cell, 'farm', true);
+
         if (unit._data.try_to_pillage) {
             //TODO: Unit gains health?
             //TODO: Takes time?
 
-            if (_c.tile_has(cell, 'farm') && !_c.tile_has(cell, 'pillaged')) {
+            if (num_farms && !_c.tile_has(cell, 'pillaged')) {
                 unit.loot.food = unit.loot.food || 0;
-                unit.loot.food += 100;  //TODO: Random benefits based on technology and population
+                unit.loot.herbs = unit.loot.herbs || 0;
+                unit.loot.food += (100 * num_farms);  //TODO: Random benefits based on technology and population
+                unit.loot.herbs += (20 * num_farms);
             }
 
             cell.additions.push('pillaged');
@@ -57,16 +61,15 @@
                 unit.loot[key] = unit.loot[key] || 0;
                 unit.loot[key] += cell.loot[key];
                 cell.loot[key] = 0;
-                //TODO: Unit takes other unit's loot
                 //TODO: Only take as much loot as can carry
             }
 
-            if (_c.tile_has(cell, 'farm') && !_c.tile_has(cell, 'pillaged') && !_c.tile_has(cell, 'looted')) {
+            if (num_farms && !_c.tile_has(cell, 'pillaged') && !_c.tile_has(cell, 'looted')) {
                 unit.loot.food = unit.loot.food || 0;
                 unit.loot.herbs = unit.loot.herbs || 0;
 
-                unit.loot.food += 30;
-                unit.loot.herbs += 10;
+                unit.loot.food += (25 * num_farms);
+                unit.loot.herbs += (6 * num_farms);
             }
             cell.additions.push('looted');
         }
