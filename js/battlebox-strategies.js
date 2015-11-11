@@ -177,10 +177,15 @@
     };
 
     _c.movement_strategies.head_towards = function (game, unit, location, options) {
-
-        var path = _c.path_from_to(game, unit.x, unit.y, location.location.x, location.location.y);
-
-        path.shift();
+        var path;
+        var to_loc = location.location && (location.location.x !== undefined) && (location.location.y !== undefined);
+        if (!to_loc) {
+            console.error('No valid location passed in to a "head towards" strategy');
+            path = [];
+        } else {
+            path = _c.path_from_to(game, unit.x, unit.y, location.location.x, location.location.y);
+            path.shift();
+        }
 
         var moves = false;
         if (path.length <= 10) {

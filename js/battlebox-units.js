@@ -277,7 +277,7 @@
 
         } else if (plan == 'invade city') {
             //TODO: If no enemies and close to city, then try to loot and pillage
-            var location = _.find(game.data.buildings, function(b){return b.type=='city'});
+            var location = _.find(game.data.buildings, function(b){return b.type=='city' || b.type=='city2'});
             options = {side: 'enemy', filter: 'closest', range: 12, plan: plan, backup_strategy: unit._data.backup_strategy};
             _c.movement_strategies.head_towards(game, unit, location, options);
 

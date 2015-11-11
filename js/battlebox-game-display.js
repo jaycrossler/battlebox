@@ -99,14 +99,14 @@
             //No information was passed in, assume it's the default cell draw without player in it
             //TODO: Have options or some way to tell it to redraw a cell that isn't a player's move
             if (cell.type == 'city') {
-                bg_color = '#9F572E';
+                bg_color = '#DE8275';
             }
             if (_c.tile_has(cell, 'mine')) {
                 bg_color = '#4c362c';
             } else if (_c.tile_has(cell, 'dock')) {
                 bg_color = '#86fffc';
             } else if (_c.tile_has(cell, 'farm')) {
-                bg_color = '#7a7110';
+                bg_color = '#BDB3A2';
             }
 
             var was_drawn = false;
@@ -136,9 +136,13 @@
                 bg_color = net.brehaut.Color('#03f').darkenByRatio(depth * .2);
                 //, color:['#06f','#08b','#05e']
             }
-
         }
 
+        if (cell.population) {
+            color = Helpers.blendColors('black', 'red', cell.population/300);
+            if (cell.population > 300) color = 'orange';
+            text = '█';
+        }
 
         if (text === undefined) {
             text = cell ? cell.symbol || " " : " "
@@ -163,14 +167,15 @@
         var path_info = _c.tile_has(cell, 'path');
         if (draw_basic_cell && path_info) {
             text = path_info.symbol || "";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), .4).toString();
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('#A2BB9B'), .7).toString();
             if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
         }
         var road_info = _c.tile_has(cell, 'road');
         if (draw_basic_cell && road_info) {
             text = road_info.symbol || ":";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .65).toString();
-            color = "#fff";
+
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('#DF8274'), .8).toString();
+            color = "#000";
             if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
         }
 

@@ -104,7 +104,7 @@
 
         } else if (options.location == 'city') {
             var cities = _.filter(game.data.buildings, function (b) {
-                return b.type == 'city'
+                return (b.type == 'city' || b.type == 'city2')
             });
             var city = _c.randOption(cities);
 
@@ -166,7 +166,7 @@
         } else if (options.location == 'top') {
             for (i = 0; i < tries; i++) {
                 if (options.x) {
-                    x = _c.randOption([options.x - 2, options.x - 1, options.x, options.x +1, options.x+2]);
+                    x = _c.randOption([options.x - 2, options.x - 1, options.x, options.x + 1, options.x + 2]);
                 } else {
                     x = _c.randInt(_c.cols(game));
                 }
@@ -182,7 +182,7 @@
             var bottom = _c.rows(game);
             for (i = 0; i < tries; i++) {
                 if (options.x) {
-                    x = _c.randOption([options.x - 2, options.x - 1, options.x, options.x +1, options.x+2]);
+                    x = _c.randOption([options.x - 2, options.x - 1, options.x, options.x + 1, options.x + 2]);
                 } else {
                     x = _c.randInt(_c.cols(game));
                 }
@@ -265,17 +265,17 @@
         var offset_y = tile_to.y - tile_from.y;
 
         if (offset_x == -1 && offset_y == -1) {
-            dir = {angle: 330, rot_number: 0, road_symbol: '\\', description: 'North West', abbr: 'NW'};
+            dir = {angle: 330, rot_number: 0, road_symbol: '╲', description: 'North West', abbr: 'NW'};
         } else if (offset_x == 1 && offset_y == -1) {
-            dir = {angle: 30, rot_number: 1, road_symbol: '/', description: 'North East', abbr: 'NE'};
+            dir = {angle: 30, rot_number: 1, road_symbol: '╱', description: 'North East', abbr: 'NE'};
         } else if (offset_x == 2 && offset_y == 0) {
-            dir = {angle: 90, rot_number: 2, road_symbol: '-', description: 'East', abbr: 'E'};
+            dir = {angle: 90, rot_number: 2, road_symbol: '━', description: 'East', abbr: 'E'};
         } else if (offset_x == 1 && offset_y == 1) {
-            dir = {angle: 150, rot_number: 3, road_symbol: '\\', description: 'South East', abbr: 'SE'};
+            dir = {angle: 150, rot_number: 3, road_symbol: '╲', description: 'South East', abbr: 'SE'};
         } else if (offset_x == -1 && offset_y == 1) {
-            dir = {angle: 210, rot_number: 4, road_symbol: '/', description: 'South West', abbr: 'SW'};
+            dir = {angle: 210, rot_number: 4, road_symbol: '╱', description: 'South West', abbr: 'SW'};
         } else if (offset_x == -2 && offset_y == 0) {
-            dir = {angle: 270, rot_number: 5, road_symbol: '-', description: 'West', abbr: 'W'};
+            dir = {angle: 270, rot_number: 5, road_symbol: '━', description: 'West', abbr: 'W'};
         }
         dir.hex_dir_change_array = ROT.DIRS[6][dir.rot_number];
 
@@ -283,27 +283,6 @@
     };
 
     //-------------------------------------------------
-    _c.generate_buildings = function (game) {
-
-        _.each(game.data.buildings, function (building_layer) {
-            var location = _c.find_a_matching_tile(game, building_layer);
-
-            if (building_layer.type == 'city') {
-                building_layer.tiles = _c.generators.city(game, location, building_layer);
-
-            } else if (building_layer.type == 'storage') {
-                _c.generators.storage(game, location, building_layer);
-
-            } else if (building_layer.type == 'dungeon') {
-//TODO: Add    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
-
-            }
-            building_layer.location = location;
-
-        });
-    };
-
-
     _c.generate_base_map = function (game) {
         game.data.terrain_options = game.data.terrain_options || [];
         if (game.data.terrain_options.length == 0) {
@@ -366,9 +345,129 @@
         });
 
     };
-
+    _c.generate_buildings = function (game) {
+        _.each(game.data.buildings, function (building_layer) {
+            var location = _c.find_a_matching_tile(game, building_layer);
+            if (building_layer.type == 'city') {
+                building_layer.tiles = _c.generators.city(game, location, building_layer);
+            } else if (building_layer.type == 'city2') {
+                building_layer.tiles = _c.generators.city2(game, location, building_layer);
+            } else if (building_layer.type == 'storage') {
+                _c.generators.storage(game, location, building_layer);
+            } else if (building_layer.type == 'dungeon') {
+                //TODO: Add    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
+            }
+            building_layer.location = location;
+        });
+    };
     //¬-----------------------------------------------------
     _c.generators = {};
+    _c.generators.city2 = function (game, location, city_info) {
+
+        //TODO: Cities build along roads only, not on roads
+        //TODO: Cities build along side of river
+
+        var building_tile_tries = Math.sqrt(city_info.population);
+        var building_tile_radius_y = Math.pow(city_info.population, 1 / 3.1);
+        var building_tile_radius_x = building_tile_radius_y * 1.5;
+        var number_of_roads = city_info.road_count || Math.pow(city_info.population / 100, 1 / 4);
+
+        var city_cells = [];
+
+        //Build roads based on city size
+        var road_tiles = _c.generators.roads_from(game, number_of_roads, location);
+        road_tiles.sort(function(a,b){
+            var dist_a = Helpers.distanceXY(location, a);
+            var dist_b = Helpers.distanceXY(location, b);
+
+            return dist_a > dist_b;
+        });
+
+        //Reset the city so it'll look the same independent of number of roads
+        ROT.RNG.setSeed(game.data.fight_seed || game.data.rand_seed);
+
+        var center = _c.tile(game, location.x, location.y);
+        center.population = center.population || 0;
+        center.population += building_tile_tries * 2;
+        city_cells.push(center);
+
+        //TODO: Not on water cells
+
+        //Add population along roads
+        for (var i = 0; i < building_tile_tries; i++) {
+            var road_index = Math.round(_c.randHistogram(.05, 5) * road_tiles.length);
+            var road_segment = road_tiles[road_index];
+            var road_neighbors = _c.surrounding_tiles(game, road_segment.x, road_segment.y);
+            _.each(road_neighbors, function (neighbor) {
+                neighbor.population = neighbor.population || 0;
+                neighbor.population += building_tile_tries / 12; //NOTE: Half of 6 (for each neighbor)
+
+                if (!city_cells[neighbor.x] || !city_cells[neighbor.x][neighbor.y]) city_cells.push(neighbor);
+            });
+        }
+
+        for (var i = 0; i < building_tile_tries; i++) {
+            var x, y;
+            x = location.x + (ROT.RNG.getNormal()*building_tile_radius_x/4);
+            y = location.y + (ROT.RNG.getNormal()*building_tile_radius_y/4);
+            x = Math.floor(x);
+            y = Math.floor(y);
+
+            if (_c.tile_is_traversable(game, x, y, false)) {
+                game.cells[x][y].population = game.cells[x][y].population || 0;
+                game.cells[x][y].population += building_tile_tries / 4;
+                if (!city_cells[x] || !city_cells[x][y]) city_cells.push(game.cells[x][y]);
+
+                var neighbors = _c.surrounding_tiles(game, x, y);
+                _.each(neighbors, function (neighbor) {
+                    neighbor.population = neighbor.population || 0;
+                    neighbor.population += building_tile_tries / 12; //NOTE: Half of 6 (for each neighbor)
+
+                    if (!city_cells[neighbor.x] || !city_cells[neighbor.x][neighbor.y]) city_cells.push(neighbor);
+                })
+            }
+        }
+
+        var city_cells_final = [city_cells[0]]; //Start with the city center
+        for (var i=0; i< city_cells.length; i++) {
+            var cell = city_cells[i];
+            x = cell.x;
+            y = cell.y;
+
+            var cell_population = Math.round(cell.population);
+            if (cell_population>=70) {
+
+                game.cells[x][y] = _.clone(city_info);
+                cell.population = cell_population;
+
+                var neighbors = _c.surrounding_tiles(game, x, y);
+                _.each(neighbors, function (neighbor) {
+                    neighbor.additions = neighbor.additions || [];
+                    if (neighbor.type != 'city') {
+                        if (neighbor.name == 'mountains') {
+                            neighbor.additions.push('mine');
+                        } else if (neighbor.name == 'lake') {
+                            neighbor.additions.push('dock');
+                        } else {
+                            neighbor.additions.push('farm');
+
+                            city_cells_final.push(neighbor);
+                        }
+                    }
+                });
+            } else {
+                game.cells[x][y].population = cell_population;
+            }
+
+        }
+
+        //TODO: Add objects for population
+
+        //TODO: Add city walls
+
+        return city_cells_final;
+    };
+
     _c.generators.terrain_layer = function (game, terrain_layer, cells) {
         var map_layer;
         if (terrain_layer.draw_type == 'digger') {
@@ -442,6 +541,7 @@
         }
         return cells;
     };
+
     function set_obj_color(obj) {
         if (obj.color && _.isArray(obj.color)) {
             obj.color = obj.color.random();
@@ -584,11 +684,11 @@
             var side = _c.randOption(['left', 'top']);
             var ending_tile, starting_tile;
             if (side == 'left') {
-                starting_tile = _c.find_a_matching_tile(game, {location: 'left', y:location.y});
-                ending_tile = _c.find_a_matching_tile(game, {location: 'right', y:location.y});
+                starting_tile = _c.find_a_matching_tile(game, {location: 'left', y: location.y});
+                ending_tile = _c.find_a_matching_tile(game, {location: 'right', y: location.y});
             } else {
-                starting_tile = _c.find_a_matching_tile(game, {location: 'top', x:location.x});
-                ending_tile = _c.find_a_matching_tile(game, {location: 'bottom', x:location.x});
+                starting_tile = _c.find_a_matching_tile(game, {location: 'top', x: location.x});
+                ending_tile = _c.find_a_matching_tile(game, {location: 'bottom', x: location.x});
             }
 
             var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y);
@@ -601,7 +701,7 @@
 
                         if (side == 'left' && thick) {
                             y += thick;
-                        } else if (side == 'top' && thick){
+                        } else if (side == 'top' && thick) {
                             x += (2 * thick);
                         }
 
@@ -641,16 +741,12 @@
 
     _c.generators.sea = function (game, water_layer, location) {
         var water_cells = [];
+        //TODO: Enter this
 
         return water_cells;
     };
 
-//    {name:'river', density:'small', thickness:1, placement:'lake'},
-//    {name:'river', title: 'Snake River', density:'medium', thickness:2, placement:'center'}
-//
     _c.generators.city = function (game, location, city_info) {
-        //TODO: Cities build along roads
-        //TODO: Cities build along side of river
 
         var building_tile_tries = Math.sqrt(city_info.population);
         var building_tile_radius_y = Math.pow(city_info.population, 1 / 3.2);
