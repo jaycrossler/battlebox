@@ -102,8 +102,8 @@
             {name: 'Large City', title: 'Anchorage', type: 'city2', location: 'center',
                 tightness:1, population: 50000,
                 fortifications: [
-                    {count:200, shape: 'circle', radius:7, towers: 10, starting_angle:.5},
-                    {count:30, shape: 'circle', radius:10, towers: 0, starting_angle:.5}
+                    {count:120, shape: 'square', radius:6.5, towers: 12, starting_angle:0},
+                    {count:30, shape: 'circle', radius:12, towers: 0, starting_angle:.5}
                 ]},
 
             {name: 'Small City', title: 'Fairbanks', type: 'city2', location: 'mid right',

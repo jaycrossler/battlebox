@@ -6,6 +6,8 @@
     //TODO: Pass in a color set to try out different images/rendering techniques
     //TODO: Use hex images for terrain
     //TODO: Use colored large circle characters for forces, not full hex colors
+    //TODO: Work on wall shape rotation
+    //TODO: Wall shapes (especially squares) are not all spaced evenly
 
     _c.tile = function (game, x, y) {
         var cell;
@@ -86,6 +88,7 @@
     };
 
 
+    //TODO: Work for 'SE', 'NW'
     _c.find_a_matching_tile = function (game, options) {
         var x, y, i, tries = 50, index = 0, key;
         if (options.location == 'center') {
@@ -338,7 +341,7 @@
         game.open_space = freeCells;
         game.cells = cells;
     };
-    _c.generate_water_layers = function (game){
+    _c.generate_water_layers = function (game) {
         //Build each water layer
         _.each(game.data.water_options, function (water_layer) {
             var location = _c.find_a_matching_tile(game, water_layer);
@@ -368,65 +371,108 @@
             building_layer.location = location;
         });
     };
-    _c.population_counter = function(game) {
+    _c.population_counter = function (game) {
         var count = 0;
-        _.each(game.cells, function (x){
-            _.each(x, function(cell){
+        _.each(game.cells, function (x) {
+            _.each(x, function (cell) {
                 if (cell) count += cell.population || 0;
             })
         });
         return count;
     };
     //¬-----------------------------------------------------
-    function screen_xy_from_tile_xy(game,x,y) {
+    function screen_xy_from_tile_xy(game, x, y) {
         var be = game.display._backend;
-        return {x: (x+1) * be._spacingX,
-       		y: y * be._spacingY + be._hexSize};
+        return {x: (x + 1) * be._spacingX,
+            y: y * be._spacingY + be._hexSize};
     }
+
     //From: ROT.Display.Hex.prototype.eventToPosition
     function tile_xy_from_screen_xy(game, x, y) {
         var be = game.display._backend;
 
         //TODO: This wont work if zoomed in
         var size = be._context.canvas.height / be._options.height;
-       	y = Math.floor(y/size);
+        y = Math.floor(y / size);
 
         if (y.mod(2)) { /* odd row */
-       		x -= be._spacingX;
-       		x = 1 + 2*Math.floor(x/(2*be._spacingX));
-       	} else {
-       		x = 2*Math.floor(x/(2*be._spacingX));
-       	}
-        return {x:x, y:y}
+            x -= be._spacingX;
+            x = 1 + 2 * Math.floor(x / (2 * be._spacingX));
+        } else {
+            x = 2 * Math.floor(x / (2 * be._spacingX));
+        }
+        return {x: x, y: y}
 
     }
 
-    _c.shape_to_tiles = function(game, center, shape, points, radius, staring_angle) {
+    _c.shape_to_tiles = function (game, center, shape, points, radius, staring_angle) {
         var tiles = [];
         var center_px = screen_xy_from_tile_xy(game, center.x, center.y);
         var radius_px = Helpers.distanceXY(
             center_px,
-            screen_xy_from_tile_xy(game, center.x-(radius*2), center.y)
+            screen_xy_from_tile_xy(game, center.x - (radius * 2), center.y)
         );
 
         if (shape == 'circle') {
-            for (var i=0; i<points; i++) {
+            for (var i = 0; i < points; i++) {
                 var a = (i / (points)) + (staring_angle || 0);
                 a *= 2 * Math.PI;
                 var screen_x = center_px.x + (radius_px * Math.cos(a));
                 var screen_y = center_px.y + (radius_px * Math.sin(a));
 
                 var tile = tile_xy_from_screen_xy(game, screen_x, screen_y)
-
-                if (_c.tile_is_traversable(game,tile.x,tile.y)) {
-                    tiles.push(_c.tile(game,tile.x,tile.y));
+                if (_c.tile_is_traversable(game, tile.x, tile.y)) {
+                    tiles.push(_c.tile(game, tile.x, tile.y));
                 }
             }
-
-
         } else if (shape == 'square') {
+            for (var i = 0; i < points; i++) {
+                var a = (i / (points)) + (staring_angle || 0);
+                a *= 2 * Math.PI;
+                var c = Math.cos(a);
+                var s = Math.sin(a);
+                c = (c < 0 ? -1 : 1) * Math.pow(Math.abs(c), 1 / 2);
+                s = (s < 0 ? -1 : 1) * Math.pow(Math.abs(s), 1 / 2);
+                var screen_x = center_px.x + (radius_px * c);
+                var screen_y = center_px.y + (radius_px * s);
 
+                var tile = tile_xy_from_screen_xy(game, screen_x, screen_y)
+                if (_c.tile_is_traversable(game, tile.x, tile.y)) {
+                    tiles.push(_c.tile(game, tile.x, tile.y));
+                }
+            }
+        } else if (shape == 'diamond') {
+            for (var i = 0; i < points; i++) {
+                var a = (i / (points)) + (staring_angle || 0);
+                a *= 2 * Math.PI;
+                var c = Math.cos(a);
+                var s = Math.sin(a);
+                c = (c < 0 ? -1 : 1) * Math.abs(Math.pow(c, 3));
+                s = (s < 0 ? -1 : 1) * Math.abs(Math.pow(s, 3));
+                var screen_x = center_px.x + (radius_px * c);
+                var screen_y = center_px.y + (radius_px * s);
 
+                var tile = tile_xy_from_screen_xy(game, screen_x, screen_y)
+                if (_c.tile_is_traversable(game, tile.x, tile.y)) {
+                    tiles.push(_c.tile(game, tile.x, tile.y));
+                }
+            }
+        } else if (shape == 'flower') {
+            for (var i = 0; i < points; i++) {
+                var a = (i / (points)) + (staring_angle || 0);
+                a *= 2 * Math.PI;
+                var c = Math.cos(a);
+                var s = Math.sin(a);
+                c = (c < 0 ? -1 : 1) * Math.abs(Math.pow(c, 4));
+                s = (s < 0 ? -1 : 1) * Math.abs(Math.pow(s, 4));
+                var screen_x = center_px.x + (radius_px * c);
+                var screen_y = center_px.y + (radius_px * s);
+
+                var tile = tile_xy_from_screen_xy(game, screen_x, screen_y)
+                if (_c.tile_is_traversable(game, tile.x, tile.y)) {
+                    tiles.push(_c.tile(game, tile.x, tile.y));
+                }
+            }
         }
 
 
@@ -437,7 +483,7 @@
         //TODO: Should walls be drawn first, and no population in those cells?
         var wall_tiles = _c.shape_to_tiles(game, location, wall_info.shape || 'circle', wall_info.count, wall_info.radius || 4, wall_info.starting_angle);
         var last_tower = -1;
-        _.each(wall_tiles, function(cell, i){
+        _.each(wall_tiles, function (cell, i) {
             cell.additions = cell.additions || [];
             cell.additions.push('wall');
 
@@ -464,7 +510,7 @@
         //Build roads based on city size
         ROT.RNG.setSeed(game.data.rand_seed);
         var road_tiles = _c.generators.roads_from(game, number_of_roads, location);
-        road_tiles.sort(function(a,b){
+        road_tiles.sort(function (a, b) {
             var dist_a = Helpers.distanceXY(location, a);
             var dist_b = Helpers.distanceXY(location, b);
 
@@ -499,19 +545,19 @@
         }
         for (var i = 0; i < building_tile_tries; i++) {
             var x, y;
-            x = location.x + (ROT.RNG.getNormal()*building_tile_radius_x/4);
-            y = location.y + (ROT.RNG.getNormal()*building_tile_radius_y/4);
+            x = location.x + (ROT.RNG.getNormal() * building_tile_radius_x / 4);
+            y = location.y + (ROT.RNG.getNormal() * building_tile_radius_y / 4);
             x = Math.floor(x);
             y = Math.floor(y);
 
             var cell = _c.tile(game, x, y);
             if (cell && _c.tile_is_traversable(game, x, y, false) && !_c.tile_has(cell, 'road') && !_c.tile_has(cell, 'river') && (cell.name != 'lake')) {
                 cell.population = cell.population || 0;
-                cell.population += building_tile_tries / 4 + (ROT.RNG.getNormal()*building_tile_radius_x);
+                cell.population += building_tile_tries / 4 + (ROT.RNG.getNormal() * building_tile_radius_x);
                 if (!city_cells[x] || !city_cells[x][y]) city_cells.push(cell);
 
                 var neighbors = _c.surrounding_tiles(game, x, y);
-                neighbors = _.filter(road_neighbors, function(r) {
+                neighbors = _.filter(road_neighbors, function (r) {
                     return (!_c.tile_has(r, 'road') && !_c.tile_has(r, 'river') && (r.name != 'lake'));
                 });
                 _.each(neighbors, function (neighbor) {
@@ -525,20 +571,21 @@
 
         //Turn cells with enough population into city cells
         var city_cells_final = [city_cells[0]]; //Start with the city center
-        for (var i=0; i< city_cells.length; i++) {
+        for (var i = 0; i < city_cells.length; i++) {
             var cell = city_cells[i];
             x = cell.x;
             y = cell.y;
 
             var cell_population = Math.round(cell.population);
-            if (cell_population>=70) {
+            if (cell_population >= 70) {
 
-                game.cells[x][y] = _.clone(city_info);
-                game.cells[x][y].population = cell_population;
-                game.cells[x][y].type = 'city';
-                game.cells[x][y].x = x;
-                game.cells[x][y].y = y;
-
+                game.cells[x][y] = {
+                    name: city_info.name,
+                    title: city_info.title,
+                    population: cell_population,
+                    type: 'city',
+                    x: x,
+                    y: y};
 
                 var neighbors = _c.surrounding_tiles(game, x, y);
                 _.each(neighbors, function (neighbor) {
@@ -564,9 +611,9 @@
         //Loop through cells with multiple farms and redistribute the farms further out
         //TODO: Use a spiral loop to move outward from city center
         var loops = 6;
-        for (var l=0; l<loops; l++) {
+        for (var l = 0; l < loops; l++) {
             var cc_length = city_cells.length;
-            for (var i=0; i< cc_length; i++) {
+            for (var i = 0; i < cc_length; i++) {
                 var cell = city_cells[i];
                 var num_farms = _c.tile_has(cell, 'farm', true);
                 if (num_farms > 5) {
@@ -575,12 +622,12 @@
                     var neighbors = _c.surrounding_tiles(game, x, y);
                     _.each(neighbors, function (neighbor) {
                         neighbor.additions = neighbor.additions || [];
-                        for (var f=0;f<(num_farms%5);f++) {
+                        for (var f = 0; f < (num_farms % 5); f++) {
                             neighbor.additions.push('farm');
                         }
                         if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
                     });
-                    cell.additions = removeArrayItemNTimes(cell.additions, 'farm', 5 * (num_farms%5));
+                    cell.additions = removeArrayItemNTimes(cell.additions, 'farm', 5 * (num_farms % 5));
                 }
             }
         }
@@ -589,12 +636,12 @@
         if (city_info.fortifications) {
             var fortifications = city_info.fortifications;
             if (!_.isArray(fortifications)) fortifications = [fortifications];
-            _.each(fortifications, function(fort){
+            _.each(fortifications, function (fort) {
                 var title = _.str.titleize(city_info.title || city_info.name) + 's walls';
                 var wall_info = {
                     count: fort.count || (city_info.population / 10000),
-                    title:fort.title || title,
-                    shape:fort.shape,
+                    title: fort.title || title,
+                    shape: fort.shape,
                     radius: fort.radius,
                     towers: fort.towers,
                     starting_angle: fort.starting_angle
@@ -608,14 +655,14 @@
         return city_cells_final;
     };
 
-    function removeArrayItemNTimes(arr,toRemove,times){
+    function removeArrayItemNTimes(arr, toRemove, times) {
         times = times || 10;
-        for(var i = 0; i < arr.length; i++){
-            if(arr[i]==toRemove) {
-                arr.splice(i,1);
+        for (var i = 0; i < arr.length; i++) {
+            if (arr[i] == toRemove) {
+                arr.splice(i, 1);
                 i--; // Prevent skipping an item
                 times--;
-                if (times<=0) break;
+                if (times <= 0) break;
             }
         }
         return arr;
