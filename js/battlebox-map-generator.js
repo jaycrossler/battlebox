@@ -287,6 +287,10 @@
     };
 
     //-------------------------------------------------
+    /**
+     * Builds all the tiles for the base game map from the gaem data settings passed in. Constructs game.cells for use in game
+     * @param {object} game Overall game information
+     */
     _c.generate_base_map = function (game) {
         game.data.terrain_options = game.data.terrain_options || [];
         if (game.data.terrain_options.length == 0) {
@@ -333,8 +337,8 @@
         }
         game.open_space = freeCells;
         game.cells = cells;
-
-
+    };
+    _c.generate_water_layers = function (game){
         //Build each water layer
         _.each(game.data.water_options, function (water_layer) {
             var location = _c.find_a_matching_tile(game, water_layer);
@@ -374,7 +378,78 @@
         return count;
     };
     //¬-----------------------------------------------------
+    function screen_xy_from_tile_xy(game,x,y) {
+        var be = game.display._backend;
+        return {x: (x+1) * be._spacingX,
+       		y: y * be._spacingY + be._hexSize};
+    }
+    //From: ROT.Display.Hex.prototype.eventToPosition
+    function tile_xy_from_screen_xy(game, x, y) {
+        var be = game.display._backend;
+
+        //TODO: This wont work if zoomed in
+        var size = be._context.canvas.height / be._options.height;
+       	y = Math.floor(y/size);
+
+        if (y.mod(2)) { /* odd row */
+       		x -= be._spacingX;
+       		x = 1 + 2*Math.floor(x/(2*be._spacingX));
+       	} else {
+       		x = 2*Math.floor(x/(2*be._spacingX));
+       	}
+        return {x:x, y:y}
+
+    }
+
+    _c.shape_to_tiles = function(game, center, shape, points, radius, staring_angle) {
+        var tiles = [];
+        var center_px = screen_xy_from_tile_xy(game, center.x, center.y);
+        var radius_px = Helpers.distanceXY(
+            center_px,
+            screen_xy_from_tile_xy(game, center.x-(radius*2), center.y)
+        );
+
+        if (shape == 'circle') {
+            for (var i=0; i<points; i++) {
+                var a = (i / (points)) + (staring_angle || 0);
+                a *= 2 * Math.PI;
+                var screen_x = center_px.x + (radius_px * Math.cos(a));
+                var screen_y = center_px.y + (radius_px * Math.sin(a));
+
+                var tile = tile_xy_from_screen_xy(game, screen_x, screen_y)
+
+                if (_c.tile_is_traversable(game,tile.x,tile.y)) {
+                    tiles.push(_c.tile(game,tile.x,tile.y));
+                }
+            }
+
+
+        } else if (shape == 'square') {
+
+
+        }
+
+
+        return tiles;
+    };
     _c.generators = {};
+    _c.generators.walls = function (game, location, wall_info) {
+        //TODO: Should walls be drawn first, and no population in those cells?
+        var wall_tiles = _c.shape_to_tiles(game, location, wall_info.shape || 'circle', wall_info.count, wall_info.radius || 4, wall_info.starting_angle);
+        var last_tower = -1;
+        _.each(wall_tiles, function(cell, i){
+            cell.additions = cell.additions || [];
+            cell.additions.push('wall');
+
+            //(i * ((wall_info.towers || 0) / wall_info.count)) % (wall_info.towers || 1) == 0;
+            var tower_count = Math.round(i * ((wall_info.towers || 0) / wall_info.count));
+            if (tower_count > last_tower) {
+                cell.additions.push('tower');
+                last_tower = tower_count;
+            }
+            cell.additions.push(i);
+        });
+    };
     _c.generators.city2 = function (game, location, city_info) {
 
         var populations_tightness = (city_info.tightness || 1) * 3.1;
@@ -510,8 +585,25 @@
             }
         }
 
+        //Add walls around city
+        if (city_info.fortifications) {
+            var fortifications = city_info.fortifications;
+            if (!_.isArray(fortifications)) fortifications = [fortifications];
+            _.each(fortifications, function(fort){
+                var title = _.str.titleize(city_info.title || city_info.name) + 's walls';
+                var wall_info = {
+                    count: fort.count || (city_info.population / 10000),
+                    title:fort.title || title,
+                    shape:fort.shape,
+                    radius: fort.radius,
+                    towers: fort.towers,
+                    starting_angle: fort.starting_angle
+                };
 
-        //TODO: Add city walls
+                _c.generators.walls(game, center, wall_info);
+
+            });
+        }
 
         return city_cells_final;
     };

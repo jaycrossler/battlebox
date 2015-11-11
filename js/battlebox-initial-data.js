@@ -99,8 +99,16 @@
         ],
 
         buildings: [
-//            {name: 'Large City', title: 'Anchorage', type: 'city2', tightness:1.5, population: 50000, fortifications: 20, location: 'center'},
-//            {name: 'Small City', title: 'Fairbanks', type: 'city2', tightness:3, road_count:1, population: 40000, fortifications: 20, location: 'mid right'},
+            {name: 'Large City', title: 'Anchorage', type: 'city2', location: 'center',
+                tightness:1, population: 50000,
+                fortifications: [
+                    {count:200, shape: 'circle', radius:7, towers: 10, starting_angle:.5},
+                    {count:30, shape: 'circle', radius:10, towers: 0, starting_angle:.5}
+                ]},
+
+            {name: 'Small City', title: 'Fairbanks', type: 'city2', location: 'mid right',
+                tightness:2, road_count:1, population: 10000,
+                fortifications: {count:50, shape: 'circle', towers:4, radius:3.5}},
 
             {name: 'Grain Storage', type: 'storage', resources: {food: 10000, gold: 2, herbs: 100}, location: 'random'},
             {name: 'Metal Storage', type: 'storage', resources: {metal: 1000, gold: 2, ore: 1000}, location: 'random'},

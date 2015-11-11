@@ -27,18 +27,20 @@
         $pointers.info_box = $('<div>')
             .appendTo($pointers.canvas_holder);
 
+        //Build the map
         _c.generate_base_map(game);
-
+        _c.generate_water_layers(game);
         _c.generate_buildings(game);
 
+        //Draw the map
         _c.draw_whole_map(game);
 
+        //Set up units
         ROT.RNG.setSeed(game.data.fight_seed || game.data.rand_seed);
         _c.build_units_from_list(game, game.data.forces);
-
         _c.build_scheduler(game);
-
         _c.add_screen_scheduler(game);
+
 
         $pointers.logs = $("<div>")
             .css({color: 'gray'})
@@ -101,7 +103,11 @@
                 bg_color = '#DE8275';
             }
             var num_farms = _c.tile_has(cell, 'farm', true);
-            if (_c.tile_has(cell, 'mine')) {
+            if (_c.tile_has(cell, 'wall')) {
+                bg_color = 'black';
+                text = "X";
+                color = "white";
+            } else if (_c.tile_has(cell, 'mine')) {
                 bg_color = '#4c362c';
             } else if (_c.tile_has(cell, 'dock')) {
                 bg_color = '#86fffc';
@@ -185,12 +191,13 @@
         }
 
 
-        var bridge = false;
+        var bridge = false, gate=false;
         var path_info = _c.tile_has(cell, 'path');
         if (draw_basic_cell && path_info) {
             text = path_info.symbol || "";
             bg = net.brehaut.Color(bg).blend(net.brehaut.Color('#A2BB9B'), .7).toString();
             if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
+            if (_c.tile_has(cell, 'wall') || _c.tile_has(cell, 'tower')) gate = true;
         }
         var road_info = _c.tile_has(cell, 'road');
         if (draw_basic_cell && road_info) {
@@ -199,6 +206,7 @@
             bg = net.brehaut.Color(bg).blend(net.brehaut.Color('#DF8274'), .8).toString();
             color = "#000";
             if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
+            if (_c.tile_has(cell, 'wall') || _c.tile_has(cell, 'tower')) gate = true;
         }
 
         if (draw_basic_cell && _c.tile_has(cell, 'storage')) {
@@ -220,6 +228,14 @@
             bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), .8).toString();
             text = "=";
             color = "#fff";
+        }
+        if (gate) {
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .8).toString();
+            text = "O";
+            color = "#fff";
+        }
+        if (_c.tile_has(cell, 'tower')) {
+            text = "╠╣";
         }
         if (population_darken_amount) {
             bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), population_darken_amount).toString();
