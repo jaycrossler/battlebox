@@ -3,9 +3,8 @@
 (function (Battlebox) {
     var _c = new Battlebox('get_private_functions');
 
-    //TODO: Have difficulty of travel tied to color
     //TODO: Add city center tile
-    //TODO: Recolor based on other hex programs
+    //TODO: Pass in a color set to try out different images/rendering techniques
     //TODO: Use hex images for terrain
     //TODO: Use colored large circle characters for forces, not full hex colors
 
@@ -205,7 +204,6 @@
             }
 
         } else { //if (options.location == 'random') {
-            //TODO: Open Spaces don't seem to be working any more
             index = Math.floor(ROT.RNG.getUniform() * game.open_space.length);
             key = game.open_space[index];
             x = parseInt(key[0]);
@@ -461,8 +459,6 @@
 
         }
 
-        //TODO: Add objects for population
-
         //TODO: Add city walls
 
         return city_cells_final;
@@ -533,8 +529,6 @@
                     set_obj_color(cells[x][y]);
                     cells[x][y].x = x;
                     cells[x][y].y = y;
-
-                    //TODO: Have cell be a mix of multiple layers
                 }
             };
             map_layer.create(digCallback.bind(game));

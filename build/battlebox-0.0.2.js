@@ -1,6 +1,6 @@
 /*
 ------------------------------------------------------------------------------------
--- battlebox.js - v0.0.2 - Built on 2015-11-10 by Jay Crossler using Grunt.js
+-- battlebox.js - v0.0.2 - Built on 2015-11-11 by Jay Crossler using Grunt.js
 ------------------------------------------------------------------------------------
 -- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara 
 -- Packaged with color.js - Copyright (c) 2008-2013, Andrew Brehaut, Tim Baumann,  
@@ -1361,14 +1361,14 @@ Battlebox.initializeOptions = function (option_type, options) {
             //No information was passed in, assume it's the default cell draw without player in it
             //TODO: Have options or some way to tell it to redraw a cell that isn't a player's move
             if (cell.type == 'city') {
-                bg_color = '#9F572E';
+                bg_color = '#DE8275';
             }
             if (_c.tile_has(cell, 'mine')) {
                 bg_color = '#4c362c';
             } else if (_c.tile_has(cell, 'dock')) {
                 bg_color = '#86fffc';
             } else if (_c.tile_has(cell, 'farm')) {
-                bg_color = '#7a7110';
+                bg_color = '#BDB3A2';
             }
 
             var was_drawn = false;
@@ -1379,6 +1379,31 @@ Battlebox.initializeOptions = function (option_type, options) {
                 }
             });
             if (was_drawn) return;
+        }
+
+        var river_info = _c.tile_has(cell, 'river');
+        if (draw_basic_cell && cell.name == 'lake') {
+            text = cell.symbol || text;
+            if (!bg_color) {
+                var depth = cell.data.depth || 1;
+                bg_color = net.brehaut.Color(cell.color || '#04e').darkenByRatio(depth * .2);
+                //, color:['#06f','#08b','#05e']
+            }
+        } else if (draw_basic_cell && river_info) {
+            text = river_info.symbol || text;
+
+            //Depth from 1-3 gets more blue
+            if (!bg_color) {
+                var depth = river_info.depth || 1;
+                bg_color = net.brehaut.Color('#03f').darkenByRatio(depth * .2);
+                //, color:['#06f','#08b','#05e']
+            }
+        }
+
+        if (cell.population) {
+            color = Helpers.blendColors('black', 'red', cell.population/300);
+            if (cell.population > 300) color = 'orange';
+            text = '█';
         }
 
         if (text === undefined) {
@@ -1399,28 +1424,20 @@ Battlebox.initializeOptions = function (option_type, options) {
             text = "x";
         }
 
-        var river_info = _c.tile_has(cell, 'river');
-        if (draw_basic_cell && river_info) {
-            text = river_info.symbol || text;
-            var depth = river_info.depth || 1;
-
-            //Depth from 1-3 gets more blue
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('blue'), (depth * .3)).toString();
-        }
-
 
         var bridge = false;
         var path_info = _c.tile_has(cell, 'path');
         if (draw_basic_cell && path_info) {
             text = path_info.symbol || "";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), .4).toString();
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('#A2BB9B'), .7).toString();
             if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
         }
         var road_info = _c.tile_has(cell, 'road');
         if (draw_basic_cell && road_info) {
             text = road_info.symbol || ":";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .65).toString();
-            color = "#fff";
+
+            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('#DF8274'), .8).toString();
+            color = "#000";
             if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
         }
 
@@ -1503,7 +1520,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             .prependTo($pointers.message_display);
 
         if (importance == 4) {
-            $msg.css({backgroundColor: color || 'red', color: 'black', border: '4px solid gold', fontSize:'1.3em'});
+            $msg.css({backgroundColor: color || 'red', color: 'black', border: '4px solid gold', fontSize: '1.3em'});
         }
         if (importance == 3) {
             $msg.css({backgroundColor: color || 'orange', color: 'black'});
@@ -1695,7 +1712,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
     function game_over_function(game) {
         console.log("GAME OVER:");
-        //TODO: Make some handy reference of results
+        //TODO: Make some handy reference functions to easily work with results
     }
 
     var _game_options = {
@@ -1711,89 +1728,101 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         cols: 260,
         rows: 90,
-        cell_size: 9,
-        cell_spacing: 1.1,
-        cell_border: 0.01,
+        cell_size: 10,
+        cell_spacing: 1,
+        cell_border: .01,
         transpose: false, //TODO: If using transpose, a number of other functions for placement should be tweaked
 
         render_style: 'outdoors', //TODO
         height: 'mountainous', //TODO
 
         terrain_options: [
-            {name:'plains', ground:true, draw_type: 'flat', color:["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"], symbol:''},
-            {name:'mountains', density:'sparse', smoothness: 3, not_center:true, color:['gray', 'darkgray'], impassible:true, symbol:'M'},
-            {name:'forest', density:'sparse', not_center:true, color:['darkgreen','green'], data:{movement:'slow'}, symbol:' '}
+            {name: 'plains', ground: true, draw_type: 'flat', color: ["#d0efc6", "#cfefc6", "#d1eec6"], symbol: ''},
+            {name: 'mountains', density: 'medium', smoothness: 3, not_center: true, color: ['#b1c3c3', '#b3c4c4', '#8b999c'], impassible: true, symbol: ' '},
+            {name: 'forest', density: 'sparse', not_center: true, color: ['#85a982', '#7B947A', '#83A283'], data: {movement: 'slow'}, symbol: ' '}
         ],
 
         water_options: [
-            {name:'lake', density:'medium', placement:'left', color:['#03f','#04b','#00d'], data:{lake:true}},
-            {name:'lake', density:'small', placement:'right', island:true, symbol:'~'},
-            {name:'river', density:'small', thickness:1, placement:'lake'},
-            {name:'river', title: 'Snake River', density:'medium', thickness:2, placement:'center'}
+            {name: 'lake', density: 'medium', location: 'left', data: {lake: true}},
+            {name: 'lake', density: 'large', location: 'mid left', data: {lake: true}},
+            {name: 'lake', density: 'small', location: 'mid right', island: true, symbol: '~'},
+            {name: 'river', density: 'small', thickness: 1, location: 'mid left'},
+//            {name:'river', density:'small', thickness:1, location:'mid right'},
+//            {name:'river', title: 'Snake River', density:'medium', thickness:2, location:'center'},
+            {name: 'river', title: 'Snake River', density: 'medium', thickness: 2, location: 'center'}
         ],
 
         forces: [
-            {name:'Attacker Main Army Force', side: 'Yellow', location:'left', player:true,
-                plan: 'invade city', backup_strategy: 'run away', try_to_loot:true, try_to_pillage:true,
-                troops:{soldiers:520, cavalry:230, siege:50}},
+            {name: 'Attacker Main Army Force', side: 'Yellow', location: 'left', player: true,
+                plan: 'invade city', backup_strategy: 'run away', try_to_loot: true, try_to_pillage: true,
+                troops: {soldiers: 520, cavalry: 230, siege: 50}},
 
-            {name:'Task Force Alpha', side: 'Yellow', symbol:'#A', location:'left', player: true,
-                plan: 'invade city', backup_strategy: 'run away', try_to_loot:true,
-                troops:{soldiers:80, cavalry:20, siege:10}},
+            {name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
+                plan: 'invade city', backup_strategy: 'run away', try_to_loot: true,
+                troops: {soldiers: 80, cavalry: 20, siege: 10}},
 
-            {name:'Task Force Bravo', side: 'Yellow', symbol:'#B', location:'left', player:true,
+            {name: 'Task Force Bravo', side: 'Yellow', symbol: '#B', location: 'left', player: true,
                 plan: 'invade city', backup_strategy: 'vigilant',
-                troops:{cavalry:20}},
+                troops: {cavalry: 20}},
 
-            {name:'Task Force Charlie', side: 'Yellow', symbol:'#C', location:'left', player:true,
-                plan: 'invade city', backup_strategy: 'invade_city', try_to_loot:true, try_to_pillage:true,
-                troops:{cavalry:20}},
+            {name: 'Task Force Charlie', side: 'Yellow', symbol: '#C', location: 'left', player: true,
+                plan: 'invade city', backup_strategy: 'invade_city', try_to_loot: true, try_to_pillage: true,
+                troops: {cavalry: 20}},
 
 
-            {name:'Defender City Force', side: 'White', location:'center',
+            {name: 'Defender City Force', side: 'Black', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
-                troops:{soldiers:620, cavalry:40, siege:100}},
+                troops: {soldiers: 620, cavalry: 40, siege: 100}},
 
-            {name:'Defender Bowmen', side: 'White', symbol:'A', location:'center',
+            {name: 'Defender Bowmen', side: 'Black', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
-                troops:{soldiers:20, siege:20}},
+                troops: {soldiers: 20, siege: 20}},
 
-            {name:'Defender Catapults', side: 'White', symbol:'B', location:'center',
+            {name: 'Defender Bowmen', side: 'Black', symbol: 'A', location: 'city',
+                plan: 'seek closest', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}},
+            {name: 'Defender Bowmen', side: 'Black', symbol: 'A', location: 'city',
+                plan: 'seek closest', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}},
+            {name: 'Defender Bowmen', side: 'Black', symbol: 'A', location: 'city',
+                plan: 'seek closest', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}},
+
+            {name: 'Defender Catapults', side: 'Black', symbol: 'B', location: 'city',
                 plan: 'run away', backup_strategy: 'vigilant',
-                troops:{soldiers:20, siege:40}},
+                troops: {soldiers: 20, siege: 40}},
 
 
-            {name:'Sleeping Dragon', side: 'Red', symbol:'D', location:'impassible', not_part_of_victory:true,
-                plan: 'vigilant', backup_strategy: 'wait', size:3, move_through_impassibles:true,
-                troops:{adult_dragon:1}}
+            {name: 'Sleeping Dragon', side: 'Red', symbol: 'D', location: 'impassible', not_part_of_victory: true,
+                plan: 'vigilant', backup_strategy: 'wait', size: 3, move_through_impassibles: true,
+                troops: {adult_dragon: 1}}
 
         ],
 
         //TODO: Use these in strength calculations
         troop_types: [
-            {name: 'soldiers', side:'Yellow', range:1, speed: 40, strength:1, defense:2, weapon:'sword', armor:'armor', carrying:5},
-            {name: 'soldiers', side:'all', range:1, speed: 30, strength:1.2, defense:1.8, weapon:'rapiers', armor:'armor', carrying:5},
-            {name: 'cavalry', side:'all', range:1, speed: 70, strength:1.5, defense:1.5, weapon:'rapier', armor:'shields', carrying:2},
-            {name: 'siege', title: 'siege units', side:'all', range:2, speed: 10, strength:5, defense:.5, weapon:'catapults', carrying:1},
-            {name: 'adult_dragon', side:'all', range:3, speed: 120, strength:150, defense:300, weapon:'fire breath', armor:'impenetrable scales', carrying:2000}
+            {name: 'soldiers', side: 'Yellow', range: 1, speed: 40, strength: 1, defense: 2, weapon: 'sword', armor: 'armor', carrying: 5},
+            {name: 'soldiers', side: 'all', range: 1, speed: 30, strength: 1.2, defense: 1.8, weapon: 'rapiers', armor: 'armor', carrying: 5},
+            {name: 'cavalry', side: 'all', range: 1, speed: 70, strength: 1.5, defense: 1.5, weapon: 'rapier', armor: 'shields', carrying: 2},
+            {name: 'siege', title: 'siege units', side: 'all', range: 2, speed: 10, strength: 5, defense: .5, weapon: 'catapults', carrying: 1},
+            {name: 'adult_dragon', side: 'all', range: 3, speed: 120, strength: 150, defense: 300, weapon: 'fire breath', armor: 'impenetrable scales', carrying: 2000}
         ],
 
-        buildings:[
-            {name:'Large City', title:'Anchorage', type:'city', population:20000, fortifications:20, location:'center'},
-            {name:'Grain Storage', type:'storage', resources:{food:10000, gold:2, herbs:100}, location:'random'},
-            {name:'Metal Storage', type:'storage', resources:{metal:1000, gold:2, ore:1000}, location:'random'},
-            {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
+        buildings: [
+            {name: 'Large City', title: 'Anchorage', type: 'city2', population: 30000, fortifications: 20, location: 'center'},
+            {name: 'Grain Storage', type: 'storage', resources: {food: 10000, gold: 2, herbs: 100}, location: 'random'},
+            {name: 'Metal Storage', type: 'storage', resources: {metal: 1000, gold: 2, ore: 1000}, location: 'random'},
+            {name: 'Cave Entrance', type: 'dungeon', requires: {mountains: true}, location: 'impassible'}
         ],
 
         variables: [
-            {name:'test', initial: 1}
+            {name: 'test', initial: 1}
         ],
 
-        functions_on_setup:[],
-        functions_each_tick:[],
+        functions_on_setup: [],
+        functions_each_tick: [],
         game_over_function: game_over_function
     };
-
 
 
     Battlebox.initializeOptions('game_options', _game_options);
@@ -1990,17 +2019,21 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
 
 })(Battlebox);
+//var test = [];
+
 (function (Battlebox) {
     var _c = new Battlebox('get_private_functions');
 
-    //TODO: Have difficulty of travel tied to color
     //TODO: Add city center tile
-    //TODO: Recolor based on other hex programs
+    //TODO: Pass in a color set to try out different images/rendering techniques
     //TODO: Use hex images for terrain
     //TODO: Use colored large circle characters for forces, not full hex colors
 
     _c.tile = function (game, x, y) {
         var cell;
+        if (!game.cells) {
+            throw "Game Cells don't seem to exist, something went wrong with generating the map."
+        }
         if (y === undefined) {
             //Assume that x is an array
             cell = game.cells[x[0]];
@@ -2063,7 +2096,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 if (!move_through_impassibles && cell.impassible) {
                     valid_num = false;
                 }
-                if (only_impassible){
+                if (only_impassible) {
                     valid_num = (cell.impassible);
                 }
             } else {
@@ -2079,22 +2112,36 @@ Battlebox.initializeOptions = function (option_type, options) {
         var x, y, i, tries = 50, index = 0, key;
         if (options.location == 'center') {
             for (i = 0; i < tries; i++) {
-                x = (_c.cols(game) / 2) + _c.randInt(_c.cols(game) / 6) - (_c.cols(game) / 12) - 1;
-                y = (_c.rows(game) / 2) + _c.randInt(_c.rows(game) / 6) - (_c.rows(game) / 12) - 1;
+                x = options.x || (_c.cols(game) / 2) + _c.randInt(_c.cols(game) / 6) - (_c.cols(game) / 12) - 1;
+                y = options.y || (_c.rows(game) / 2) + _c.randInt(_c.rows(game) / 6) - (_c.rows(game) / 12) - 1;
 
                 x = Math.floor(x);
                 y = Math.floor(y);
-                if (_c.tile_is_traversable(game, x, y, false)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
                 }
             }
 
+        } else if (options.location == 'city') {
+            var cities = _.filter(game.data.buildings, function (b) {
+                return (b.type == 'city' || b.type == 'city2')
+            });
+            var city = _c.randOption(cities);
+
+            var tile = _c.randOption(city.tiles);
+            x = tile.x;
+            y = tile.y;
+
         } else if (options.location == 'left') {
             for (i = 0; i < tries; i++) {
-                x = _c.randOption([0, 1, 2]);
-                y = _c.randInt(_c.rows(game));
+                x = options.x || _c.randOption([0, 1, 2]);
+                if (options.y) {
+                    y = _c.randOption([options.y - 1, options.x - 2, options.x - 3]);
+                } else {
+                    y = _c.randInt(_c.rows(game));
+                }
 
-                if (_c.tile_is_traversable(game, x, y, false)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
                 }
             }
@@ -2102,20 +2149,51 @@ Battlebox.initializeOptions = function (option_type, options) {
         } else if (options.location == 'right') {
             var right = _c.cols(game);
             for (i = 0; i < tries; i++) {
-                x = _c.randOption([right - 1, right - 2, right - 3]);
-                y = _c.randInt(_c.rows(game));
+                x = options.x || _c.randOption([right - 1, right - 2, right - 3]);
+                if (options.y) {
+                    y = _c.randOption([options.y - 1, options.x - 2, options.x - 3]);
+                } else {
+                    y = _c.randInt(_c.rows(game));
+                }
 
-                if (_c.tile_is_traversable(game, x, y, false)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'mid left') {
+            var mid_left = Math.round(_c.cols(game) * .25);
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption([mid_left - 2, mid_left - 1, mid_left, mid_left + 1, mid_left + 2]);
+                y = options.y || _c.randInt(_c.rows(game));
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'mid right') {
+            var mid_right = Math.round(_c.cols(game) * .75);
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption([mid_right - 2, mid_right - 1, mid_right, mid_right + 1, mid_right + 2]);
+                y = options.y || _c.randInt(_c.rows(game));
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
                 }
             }
 
         } else if (options.location == 'top') {
             for (i = 0; i < tries; i++) {
-                x = _c.randInt(_c.cols(game));
-                y = 0;//_c.randOption([0, 1]);
+                if (options.x) {
+                    x = _c.randOption([options.x - 2, options.x - 1, options.x, options.x + 1, options.x + 2]);
+                } else {
+                    x = _c.randInt(_c.cols(game));
+                }
+                y = _c.randOption([0, 1]);
 
-                if (_c.tile_is_traversable(game, x, y, false)) {
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
                 }
             }
@@ -2123,18 +2201,22 @@ Battlebox.initializeOptions = function (option_type, options) {
         } else if (options.location == 'bottom') {
             var bottom = _c.rows(game);
             for (i = 0; i < tries; i++) {
-                x = _c.randInt(_c.cols(game));
-                y = bottom; //_c.randOption([bottom - 1, bottom - 2, bottom - 3]);
+                if (options.x) {
+                    x = _c.randOption([options.x - 2, options.x - 1, options.x, options.x + 1, options.x + 2]);
+                } else {
+                    x = _c.randInt(_c.cols(game));
+                }
+                y = _c.randOption([bottom - 1, bottom - 2]);
 
-                if (_c.tile_is_traversable(game, x, y, false)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
                 }
             }
 
         } else if (options.location == 'impassible') {
             for (i = 0; i < tries; i++) {
-                y = (_c.randInt(_c.rows(game)));
-                x = (y%2) + (_c.randInt(_c.cols(game)/2)*2);
+                y = options.x || (_c.randInt(_c.rows(game)));
+                x = options.y || (y % 2) + (_c.randInt(_c.cols(game) / 2) * 2);
 
                 var loc = _c.tile_is_traversable(game, x, y, true, true);
                 if (loc) {
@@ -2202,17 +2284,17 @@ Battlebox.initializeOptions = function (option_type, options) {
         var offset_y = tile_to.y - tile_from.y;
 
         if (offset_x == -1 && offset_y == -1) {
-            dir = {angle: 330, rot_number: 0, road_symbol: '\\', description: 'North West', abbr: 'NW'};
+            dir = {angle: 330, rot_number: 0, road_symbol: '╲', description: 'North West', abbr: 'NW'};
         } else if (offset_x == 1 && offset_y == -1) {
-            dir = {angle: 30, rot_number: 1, road_symbol: '/', description: 'North East', abbr: 'NE'};
+            dir = {angle: 30, rot_number: 1, road_symbol: '╱', description: 'North East', abbr: 'NE'};
         } else if (offset_x == 2 && offset_y == 0) {
-            dir = {angle: 90, rot_number: 2, road_symbol: '-', description: 'East', abbr: 'E'};
+            dir = {angle: 90, rot_number: 2, road_symbol: '━', description: 'East', abbr: 'E'};
         } else if (offset_x == 1 && offset_y == 1) {
-            dir = {angle: 150, rot_number: 3, road_symbol: '\\', description: 'South East', abbr: 'SE'};
+            dir = {angle: 150, rot_number: 3, road_symbol: '╲', description: 'South East', abbr: 'SE'};
         } else if (offset_x == -1 && offset_y == 1) {
-            dir = {angle: 210, rot_number: 4, road_symbol: '/', description: 'South West', abbr: 'SW'};
+            dir = {angle: 210, rot_number: 4, road_symbol: '╱', description: 'South West', abbr: 'SW'};
         } else if (offset_x == -2 && offset_y == 0) {
-            dir = {angle: 270, rot_number: 5, road_symbol: '-', description: 'West', abbr: 'W'};
+            dir = {angle: 270, rot_number: 5, road_symbol: '━', description: 'West', abbr: 'W'};
         }
         dir.hex_dir_change_array = ROT.DIRS[6][dir.rot_number];
 
@@ -2220,27 +2302,6 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
 
     //-------------------------------------------------
-    _c.generate_buildings = function (game) {
-
-        _.each(game.data.buildings, function (building_layer) {
-            var location = _c.find_a_matching_tile(game, building_layer);
-
-            if (building_layer.type == 'city') {
-                building_layer.tiles = _c.generators.city(game, location, building_layer);
-
-            } else if (building_layer.type == 'storage') {
-                _c.generators.storage(game, location, building_layer);
-
-            } else if (building_layer.type == 'dungeon') {
-//    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
-
-            }
-            building_layer.location = location;
-
-        });
-    };
-
-
     _c.generate_base_map = function (game) {
         game.data.terrain_options = game.data.terrain_options || [];
         if (game.data.terrain_options.length == 0) {
@@ -2263,18 +2324,6 @@ Battlebox.initializeOptions = function (option_type, options) {
         });
 
 
-        //Build each water layer
-        _.each(game.data.water_options, function (water_layer) {
-            if (water_layer.name == 'river') {
-                cells = _c.generators.river(game, water_layer, cells);
-            } else if (water_layer.name == 'lake') {
-                cells = _c.generators.lake(game, water_layer, cells);
-            } else if (water_layer.name == 'sea') {
-                cells = _c.generators.sea(game, water_layer, cells);
-            }
-        });
-
-
         //Look for all free cells, and draw the map to be blank there
         var freeCells = [];
         var ground_layer = _.find(game.data.terrain_options, function (l) {
@@ -2290,7 +2339,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                     freeCells.push([x, y]);
                     if (!cells[x][y].name) {
                         cells[x][y] = _.clone(ground_layer);
-                        cells[x][y].color = cells[x][y].color.random();
+                        set_obj_color(cells[x][y]);
                         cells[x][y].x = x;
                         cells[x][y].y = y;
                     }
@@ -2299,10 +2348,143 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
         game.open_space = freeCells;
         game.cells = cells;
-    };
 
+
+        //Build each water layer
+        _.each(game.data.water_options, function (water_layer) {
+            var location = _c.find_a_matching_tile(game, water_layer);
+            if (water_layer.name == 'river') {
+                _c.generators.river(game, water_layer, location);
+            } else if (water_layer.name == 'lake') {
+                _c.generators.lake(game, water_layer, location);
+            } else if (water_layer.name == 'sea') {
+                _c.generators.sea(game, water_layer, location);
+            }
+            water_layer.location = location;
+        });
+
+    };
+    _c.generate_buildings = function (game) {
+        _.each(game.data.buildings, function (building_layer) {
+            var location = _c.find_a_matching_tile(game, building_layer);
+            if (building_layer.type == 'city') {
+                building_layer.tiles = _c.generators.city(game, location, building_layer);
+            } else if (building_layer.type == 'city2') {
+                building_layer.tiles = _c.generators.city2(game, location, building_layer);
+            } else if (building_layer.type == 'storage') {
+                _c.generators.storage(game, location, building_layer);
+            } else if (building_layer.type == 'dungeon') {
+                //TODO: Add    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
+            }
+            building_layer.location = location;
+        });
+    };
     //¬-----------------------------------------------------
     _c.generators = {};
+    _c.generators.city2 = function (game, location, city_info) {
+
+        //TODO: Cities build along roads only, not on roads
+        //TODO: Cities build along side of river
+
+        var building_tile_tries = Math.sqrt(city_info.population);
+        var building_tile_radius_y = Math.pow(city_info.population, 1 / 3.1);
+        var building_tile_radius_x = building_tile_radius_y * 1.5;
+        var number_of_roads = city_info.road_count || Math.pow(city_info.population / 100, 1 / 4);
+
+        var city_cells = [];
+
+        //Build roads based on city size
+        var road_tiles = _c.generators.roads_from(game, number_of_roads, location);
+        road_tiles.sort(function(a,b){
+            var dist_a = Helpers.distanceXY(location, a);
+            var dist_b = Helpers.distanceXY(location, b);
+
+            return dist_a > dist_b;
+        });
+
+        //Reset the city so it'll look the same independent of number of roads
+        ROT.RNG.setSeed(game.data.fight_seed || game.data.rand_seed);
+
+        var center = _c.tile(game, location.x, location.y);
+        center.population = center.population || 0;
+        center.population += building_tile_tries * 2;
+        city_cells.push(center);
+
+        //TODO: Not on water cells
+
+        //Add population along roads
+        for (var i = 0; i < building_tile_tries; i++) {
+            var road_index = Math.round(_c.randHistogram(.05, 5) * road_tiles.length);
+            var road_segment = road_tiles[road_index];
+            var road_neighbors = _c.surrounding_tiles(game, road_segment.x, road_segment.y);
+            _.each(road_neighbors, function (neighbor) {
+                neighbor.population = neighbor.population || 0;
+                neighbor.population += building_tile_tries / 12; //NOTE: Half of 6 (for each neighbor)
+
+                if (!city_cells[neighbor.x] || !city_cells[neighbor.x][neighbor.y]) city_cells.push(neighbor);
+            });
+        }
+
+        for (var i = 0; i < building_tile_tries; i++) {
+            var x, y;
+            x = location.x + (ROT.RNG.getNormal()*building_tile_radius_x/4);
+            y = location.y + (ROT.RNG.getNormal()*building_tile_radius_y/4);
+            x = Math.floor(x);
+            y = Math.floor(y);
+
+            if (_c.tile_is_traversable(game, x, y, false)) {
+                game.cells[x][y].population = game.cells[x][y].population || 0;
+                game.cells[x][y].population += building_tile_tries / 4;
+                if (!city_cells[x] || !city_cells[x][y]) city_cells.push(game.cells[x][y]);
+
+                var neighbors = _c.surrounding_tiles(game, x, y);
+                _.each(neighbors, function (neighbor) {
+                    neighbor.population = neighbor.population || 0;
+                    neighbor.population += building_tile_tries / 12; //NOTE: Half of 6 (for each neighbor)
+
+                    if (!city_cells[neighbor.x] || !city_cells[neighbor.x][neighbor.y]) city_cells.push(neighbor);
+                })
+            }
+        }
+
+        var city_cells_final = [city_cells[0]]; //Start with the city center
+        for (var i=0; i< city_cells.length; i++) {
+            var cell = city_cells[i];
+            x = cell.x;
+            y = cell.y;
+
+            var cell_population = Math.round(cell.population);
+            if (cell_population>=70) {
+
+                game.cells[x][y] = _.clone(city_info);
+                cell.population = cell_population;
+
+                var neighbors = _c.surrounding_tiles(game, x, y);
+                _.each(neighbors, function (neighbor) {
+                    neighbor.additions = neighbor.additions || [];
+                    if (neighbor.type != 'city') {
+                        if (neighbor.name == 'mountains') {
+                            neighbor.additions.push('mine');
+                        } else if (neighbor.name == 'lake') {
+                            neighbor.additions.push('dock');
+                        } else {
+                            neighbor.additions.push('farm');
+
+                            city_cells_final.push(neighbor);
+                        }
+                    }
+                });
+            } else {
+                game.cells[x][y].population = cell_population;
+            }
+
+        }
+
+        //TODO: Add city walls
+
+        return city_cells_final;
+    };
+
     _c.generators.terrain_layer = function (game, terrain_layer, cells) {
         var map_layer;
         if (terrain_layer.draw_type == 'digger') {
@@ -2321,8 +2503,8 @@ Battlebox.initializeOptions = function (option_type, options) {
                 born = [4, 5];
                 survive = [3, 4];
             } else if (terrain_layer.density == 'medium') {
-                born = [5, 6, 7];
-                survive = [3, 4, 5];
+                born = [4, 5];
+                survive = [4, 5, 6];
             } else if (terrain_layer.density == 'high') {
                 born = [4, 5, 6, 7];
                 survive = [3, 4, 5, 6];
@@ -2365,19 +2547,21 @@ Battlebox.initializeOptions = function (option_type, options) {
                 if (value) {
                     cells[x] = cells[x] || [];
                     cells[x][y] = _.clone(terrain_layer);
-                    if (cells[x][y].color && _.isArray(cells[x][y].color )) {
-                        cells[x][y].color = cells[x][y].color.random();
-                    }
+                    set_obj_color(cells[x][y]);
                     cells[x][y].x = x;
                     cells[x][y].y = y;
-
-                    //TODO: Have cell be a mix of multiple layers
                 }
             };
             map_layer.create(digCallback.bind(game));
         }
         return cells;
     };
+
+    function set_obj_color(obj) {
+        if (obj.color && _.isArray(obj.color)) {
+            obj.color = obj.color.random();
+        }
+    }
 
     _c.generators.storage = function (game, location, storage_info) {
         var size = 2;
@@ -2406,9 +2590,12 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
 
     };
+
     _c.generators.roads_from = function (game, number_of_roads, starting_tile) {
         var tries = 20;
         var last_side = '';
+        var road_tiles = [];
+
         for (var i = 0; i < number_of_roads; i++) {
             var side = _c.randOption(['left', 'right', 'top', 'bottom'], {}, last_side);
             last_side = side;
@@ -2424,75 +2611,167 @@ Battlebox.initializeOptions = function (option_type, options) {
                         if (cell) {
                             cell.additions = cell.additions || [];
                             cell.additions.push({name: 'road', symbol: dir.road_symbol});
+                            road_tiles.push(cell);
                         }
                     }
                     break;
                 }
             }
         }
+
+        return road_tiles;
     };
 
-    _c.generators.roads_from = function (game, number_of_roads, starting_tile) {
+
+    _c.generators.lake = function (game, water_layer, location) {
+        var water_cells = [];
+        var size = 30;
+        if (water_layer.density == 'small') {
+            size = 7;
+        } else if (water_layer.density == 'medium') {
+            size = 30;
+        } else if (water_layer.density == 'large') {
+            size = 60;
+        } else if (_.isNumber(water_layer.density)) {
+            size = parseInt(water_layer.density);
+        }
+
+        var building_tile_radius_y = Math.pow(size, 1 / 1.45);
+        var building_tile_radius_x = building_tile_radius_y * 1.5;
+
+        //TODO: Don't use recursion, instead just a for x-n to x+n loop
+
+        function make_water(x, y, recursion) {
+
+            if (!_c.tile_is_traversable(game, x, y, false)) {
+                return;
+            }
+            var is_cell_in_water_cells = (game.cells[x][y].data && game.cells[x][y].data.water);
+
+            if (is_cell_in_water_cells) {
+            } else {
+                var layer = _.clone(water_layer);
+                layer.data = layer.data || {};
+                layer.data.water = true;
+                layer.data.depth = recursion;
+                layer.x = x;
+                layer.y = y;
+                set_obj_color(layer);
+
+                //TODO: Not sure why, but depth is first setting properly, then being overwritten to 1 for large lakes
+//                test.push (x +','+y+' setting to ' + recursion);
+
+
+                game.cells[x][y] = layer;
+
+                water_cells.push(layer);
+
+                if (recursion > 1) {
+                    var neighbors = _c.surrounding_tiles(game, x, y);
+                    _.each(neighbors, function (neighbor) {
+                        make_water(neighbor.x, neighbor.y, recursion - 1);
+                    });
+                }
+            }
+        }
+
+        for (var i = 0; i < size; i++) {
+            var x, y;
+            x = location.x + _c.randInt(building_tile_radius_x) - (building_tile_radius_x / 2) - 1;
+            y = location.y + _c.randInt(building_tile_radius_y) - (building_tile_radius_y / 2) - 1;
+
+            x = Math.floor(x);
+            y = Math.floor(y);
+
+            make_water(x, y, 3);
+
+        }
+
+        return water_cells;
+    };
+
+    _c.generators.river = function (game, water_layer, location) {
+        var water_cells = [];
+
         var tries = 20;
-        var last_side = '';
-        for (var i = 0; i < number_of_roads; i++) {
-            var side = _c.randOption(['left', 'right', 'top', 'bottom'], {}, last_side);
-            last_side = side;
-            for (var t = 0; t < tries; t++) {
-                var ending_tile = _c.find_a_matching_tile(game, {location: side});
-                var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y);
-                if (path && path.length) {
-                    for (var step = 1; step < path.length; step++) {
-                        var cell = _c.tile(game, path[step]);
-                        var last_cell = _c.tile(game, path[step - 1]);
-                        var dir = _c.direction_from_tile_to_tile(last_cell, cell);
 
-                        if (cell) {
+        for (var t = 0; t < tries; t++) {
+            var side = _c.randOption(['left', 'top']);
+            var ending_tile, starting_tile;
+            if (side == 'left') {
+                starting_tile = _c.find_a_matching_tile(game, {location: 'left', y: location.y});
+                ending_tile = _c.find_a_matching_tile(game, {location: 'right', y: location.y});
+            } else {
+                starting_tile = _c.find_a_matching_tile(game, {location: 'top', x: location.x});
+                ending_tile = _c.find_a_matching_tile(game, {location: 'bottom', x: location.x});
+            }
+
+            var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y);
+            if (path && path.length) {
+                for (var step = 1; step < path.length; step++) {
+                    for (var thick = 0; thick < (water_layer.thickness || 1); thick++) {
+
+                        var y = path[step][1];
+                        var x = path[step][0];
+
+                        if (side == 'left' && thick) {
+                            y += thick;
+                        } else if (side == 'top' && thick) {
+                            x += (2 * thick);
+                        }
+
+                        var cell = _c.tile(game, x, y);
+                        if (_c.tile_is_traversable(game, x, y)) {
+                            var last_cell = _c.tile(game, path[step - 1]);
+                            var dir;
+                            if (thick == 0) {
+                                dir = _c.direction_from_tile_to_tile(last_cell, cell) || {road_symbol: ""};
+                            } else {
+                                dir = _c.direction_from_tile_to_tile(last_cell, _c.tile(game, path[step])) || {road_symbol: ""};
+                            }
+
+                            //TODO: Don't use pathfinding, instead make it snaking
+
+                            var layer = _.clone(water_layer.data || {});
+                            layer.name = 'river';
+                            layer.water = true;
+                            layer.depth = water_layer.thickness || 1;
+                            layer.symbol = dir.road_symbol;
+                            layer.title = water_layer.title || water_layer.name;
+
                             cell.additions = cell.additions || [];
-                            cell.additions.push({name: 'road', symbol: dir.road_symbol});
+                            cell.additions.push(layer);
+
+                            set_obj_color(cell);
                         }
                     }
-                    break;
                 }
+                break;
             }
         }
+
+
+        return water_cells;
     };
 
-    _c.generators.lake = function (game, water_layer, cells) {
+    _c.generators.sea = function (game, water_layer, location) {
+        var water_cells = [];
+        //TODO: Enter this
 
-
-        return cells;
+        return water_cells;
     };
 
-    _c.generators.river = function (game, water_layer, cells) {
-
-
-        return cells;
-    };
-
-    _c.generators.sea = function (game, water_layer, cells) {
-
-
-        return cells;
-    };
-
-//    {name:'lake', density:'medium', placement:'left', color:['#03f','#04b','#00d'], data:{lake:true}},
-//    {name:'lake', density:'small', placement:'right', island:true, symbol:'~'},
-//    {name:'river', density:'small', thickness:1, placement:'lake'},
-//    {name:'river', title: 'Snake River', density:'medium', thickness:2, placement:'center'}
-//
     _c.generators.city = function (game, location, city_info) {
-        //TODO: Cities build along roads
-        //TODO: Cities build along side of river
 
         var building_tile_tries = Math.sqrt(city_info.population);
-        var building_tile_radius = Math.pow(city_info.population, 1 / 3.2);
+        var building_tile_radius_y = Math.pow(city_info.population, 1 / 3.2);
+        var building_tile_radius_x = building_tile_radius_y * 1.5;
         var number_of_roads = city_info.road_count || Math.pow(city_info.population / 100, 1 / 4);
 
         var city_cells = [];
 
         //Build roads based on city size
-        _c.generators.roads_from(game, number_of_roads, location);
+        var road_tiles = _c.generators.roads_from(game, number_of_roads, location);
 
 
         //Reset the city so it'll look the same independent of number of roads
@@ -2502,8 +2781,8 @@ Battlebox.initializeOptions = function (option_type, options) {
         //Generate city tiles & surrounding tiles
         for (var i = 0; i < building_tile_tries; i++) {
             var x, y;
-            x = location.x + _c.randInt(building_tile_radius) - (building_tile_radius / 2) - 1;
-            y = location.y + _c.randInt(building_tile_radius) - (building_tile_radius / 2) - 1;
+            x = location.x + _c.randInt(building_tile_radius_x) - (building_tile_radius_x / 2) - 1;
+            y = location.y + _c.randInt(building_tile_radius_y) - (building_tile_radius_y / 2) - 1;
 
             x = Math.floor(x);
             y = Math.floor(y);
@@ -2546,7 +2825,24 @@ Battlebox.initializeOptions = function (option_type, options) {
     //TODO: At end of game, spend x turns to look for nearby loot and pillage town
     //TODO: Have strategy to find nearby loot
     //TODO: Have units on nearby fortifications and defenders to go to fortifications if possible
-    //TODO: Have a timeout so that if % of city remains after countdown, battle ends
+
+    _c.tile_traversability_weight = function (game, x, y) {
+        var cell = _c.tile(game, x, y);
+        var weight = 0;
+
+        if (cell.name == 'plains') weight += 2;
+        if (cell.name == 'mountains') weight += 6;
+        if (cell.name == 'forest') weight += 3;
+        if (cell.density == 'medium') weight += 2;
+        if (cell.density == 'large') weight += 4;
+        if (cell.name == 'lake') weight += 4;
+        if (_c.tile_has(cell, 'path')) weight -= 1;
+        if (_c.tile_has(cell, 'road')) weight -= 2;
+        if (_c.tile_has(cell, 'rail')) weight -= 4;
+        if (_c.tile_has(cell, 'river')) weight += 2;
+
+        return Math.max(0, weight);
+    };
 
     _c.path_from_to = function (game, from_x, from_y, to_x, to_y) {
 
@@ -2561,7 +2857,11 @@ Battlebox.initializeOptions = function (option_type, options) {
         var pathCallback = function (x, y) {
             path.push([x, y]);
         };
-        astar.compute(from_x, from_y, pathCallback);
+        var weightingCallback = function (x, y) {
+            return _c.tile_traversability_weight(game, x, y);
+        };
+        astar.compute(from_x, from_y, pathCallback, weightingCallback);
+//        astar.compute(from_x, from_y, pathCallback);
 
         return path;
     };
@@ -2718,10 +3018,15 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
 
     _c.movement_strategies.head_towards = function (game, unit, location, options) {
-
-        var path = _c.path_from_to(game, unit.x, unit.y, location.location.x, location.location.y);
-
-        path.shift();
+        var path;
+        var to_loc = location.location && (location.location.x !== undefined) && (location.location.y !== undefined);
+        if (!to_loc) {
+            console.error('No valid location passed in to a "head towards" strategy');
+            path = [];
+        } else {
+            path = _c.path_from_to(game, unit.x, unit.y, location.location.x, location.location.y);
+            path.shift();
+        }
 
         var moves = false;
         if (path.length <= 10) {
@@ -2810,8 +3115,8 @@ Battlebox.initializeOptions = function (option_type, options) {
     //TODO: SetCenter to have large map and redraw every movement
     //TODO: Have movement be based on values
     //TODO: Move faster over roads, and slower over water
-    //TODO: Have A*Star use the terrain movement variables
     //TODO: Have enemy searching only look if within a likely radius
+    //TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
 
     _c.build_units_from_list = function (game, list) {
         _.each(list || [], function (unit_info, id) {
@@ -3078,7 +3383,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         } else if (plan == 'invade city') {
             //TODO: If no enemies and close to city, then try to loot and pillage
-            var location = _.find(game.data.buildings, function(b){return b.type=='city'});
+            var location = _.find(game.data.buildings, function(b){return b.type=='city' || b.type=='city2'});
             options = {side: 'enemy', filter: 'closest', range: 12, plan: plan, backup_strategy: unit._data.backup_strategy};
             _c.movement_strategies.head_towards(game, unit, location, options);
 

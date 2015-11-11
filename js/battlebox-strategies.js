@@ -5,7 +5,24 @@
     //TODO: At end of game, spend x turns to look for nearby loot and pillage town
     //TODO: Have strategy to find nearby loot
     //TODO: Have units on nearby fortifications and defenders to go to fortifications if possible
-    //TODO: Have a timeout so that if % of city remains after countdown, battle ends
+
+    _c.tile_traversability_weight = function (game, x, y) {
+        var cell = _c.tile(game, x, y);
+        var weight = 0;
+
+        if (cell.name == 'plains') weight += 2;
+        if (cell.name == 'mountains') weight += 6;
+        if (cell.name == 'forest') weight += 3;
+        if (cell.density == 'medium') weight += 2;
+        if (cell.density == 'large') weight += 4;
+        if (cell.name == 'lake') weight += 4;
+        if (_c.tile_has(cell, 'path')) weight -= 1;
+        if (_c.tile_has(cell, 'road')) weight -= 2;
+        if (_c.tile_has(cell, 'rail')) weight -= 4;
+        if (_c.tile_has(cell, 'river')) weight += 2;
+
+        return Math.max(0, weight);
+    };
 
     _c.path_from_to = function (game, from_x, from_y, to_x, to_y) {
 
@@ -20,7 +37,11 @@
         var pathCallback = function (x, y) {
             path.push([x, y]);
         };
-        astar.compute(from_x, from_y, pathCallback);
+        var weightingCallback = function (x, y) {
+            return _c.tile_traversability_weight(game, x, y);
+        };
+        astar.compute(from_x, from_y, pathCallback, weightingCallback);
+//        astar.compute(from_x, from_y, pathCallback);
 
         return path;
     };

@@ -8,7 +8,6 @@
     //TODO: SetCenter to have large map and redraw every movement
     //TODO: Have movement be based on values
     //TODO: Move faster over roads, and slower over water
-    //TODO: Have A*Star use the terrain movement variables
     //TODO: Have enemy searching only look if within a likely radius
     //TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
 
