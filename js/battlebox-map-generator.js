@@ -106,9 +106,11 @@
             });
             var city = _c.randOption(cities);
 
-            var tile = _c.randOption(city.tiles);
-            x = tile.x;
-            y = tile.y;
+            if (city && city.tiles) {
+                var tile = _c.randOption(city.tiles);
+                x = tile.x;
+                y = tile.y;
+            }
 
         } else if (options.location == 'left') {
             for (i = 0; i < tries; i++) {
@@ -375,14 +377,17 @@
     _c.generators = {};
     _c.generators.city2 = function (game, location, city_info) {
 
+        var populations_tightness = (city_info.tightness || 1) * 3.1;
+
         var building_tile_tries = Math.sqrt(city_info.population);
-        var building_tile_radius_y = Math.pow(city_info.population, 1 / 3.1);
+        var building_tile_radius_y = Math.pow(city_info.population, 1 / populations_tightness);
         var building_tile_radius_x = building_tile_radius_y * 1.5;
-        var number_of_roads = city_info.road_count || Math.pow(city_info.population / 100, 1 / 4);
+        var number_of_roads = (city_info.road_count !== undefined) ? city_info.road_count : Math.pow(city_info.population / 100, 1 / 4);
 
         var city_cells = [];
 
         //Build roads based on city size
+        ROT.RNG.setSeed(game.data.rand_seed);
         var road_tiles = _c.generators.roads_from(game, number_of_roads, location);
         road_tiles.sort(function(a,b){
             var dist_a = Helpers.distanceXY(location, a);
@@ -392,31 +397,31 @@
         });
 
         //Reset the city so it'll look the same independent of number of roads
-        ROT.RNG.setSeed(game.data.fight_seed || game.data.rand_seed);
-
+        ROT.RNG.setSeed(game.data.rand_seed);
         var center = _c.tile(game, location.x, location.y);
         center.population = center.population || 0;
         center.population += building_tile_tries * 2;
         city_cells.push(center);
 
         //Add population along roads
-        for (var i = 0; i < building_tile_tries; i++) {
-            var road_index = Math.round(_c.randHistogram(.05, 5) * road_tiles.length);
-            var road_segment = road_tiles[road_index];
+        if (road_tiles.length) {
+            for (var i = 0; i < building_tile_tries; i++) {
+                var road_index = Math.round(_c.randHistogram(.05, 5) * road_tiles.length);
+                var road_segment = road_tiles[road_index];
 
-            //Assign population to all non-road/river/lake cells
-            var road_neighbors = _c.surrounding_tiles(game, road_segment.x, road_segment.y);
-            road_neighbors = _.filter(road_neighbors, function(r) {
-                return (!_c.tile_has(r, 'road') && !_c.tile_has(r, 'river') && (r.name != 'lake'));
-            });
-            _.each(road_neighbors, function (neighbor) {
-                neighbor.population = neighbor.population || 0;
-                neighbor.population += building_tile_tries / (road_neighbors.length * 1.6423);
+                //Assign population to all non-road/river/lake cells
+                var road_neighbors = _c.surrounding_tiles(game, road_segment.x, road_segment.y);
+                road_neighbors = _.filter(road_neighbors, function (r) {
+                    return (!_c.tile_has(r, 'road') && !_c.tile_has(r, 'river') && (r.name != 'lake'));
+                });
+                _.each(road_neighbors, function (neighbor) {
+                    neighbor.population = neighbor.population || 0;
+                    neighbor.population += building_tile_tries / (road_neighbors.length * 1.6423);
 
-                if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
-            });
+                    if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
+                });
+            }
         }
-
         for (var i = 0; i < building_tile_tries; i++) {
             var x, y;
             x = location.x + (ROT.RNG.getNormal()*building_tile_radius_x/4);
@@ -424,8 +429,8 @@
             x = Math.floor(x);
             y = Math.floor(y);
 
-            var cell = game.cells[x][y];
-            if (_c.tile_is_traversable(game, x, y, false) && !_c.tile_has(cell, 'road') && !_c.tile_has(cell, 'river') && (cell.name != 'lake')) {
+            var cell = _c.tile(game, x, y);
+            if (cell && _c.tile_is_traversable(game, x, y, false) && !_c.tile_has(cell, 'road') && !_c.tile_has(cell, 'river') && (cell.name != 'lake')) {
                 cell.population = cell.population || 0;
                 cell.population += building_tile_tries / 4 + (ROT.RNG.getNormal()*building_tile_radius_x);
                 if (!city_cells[x] || !city_cells[x][y]) city_cells.push(cell);

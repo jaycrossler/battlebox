@@ -99,7 +99,9 @@
         ],
 
         buildings: [
-            {name: 'Large City', title: 'Anchorage', type: 'city2', population: 50000, fortifications: 20, location: 'center'},
+//            {name: 'Large City', title: 'Anchorage', type: 'city2', tightness:1.5, population: 50000, fortifications: 20, location: 'center'},
+//            {name: 'Small City', title: 'Fairbanks', type: 'city2', tightness:3, road_count:1, population: 40000, fortifications: 20, location: 'mid right'},
+
             {name: 'Grain Storage', type: 'storage', resources: {food: 10000, gold: 2, herbs: 100}, location: 'random'},
             {name: 'Metal Storage', type: 'storage', resources: {metal: 1000, gold: 2, ore: 1000}, location: 'random'},
             {name: 'Cave Entrance', type: 'dungeon', requires: {mountains: true}, location: 'impassible'}

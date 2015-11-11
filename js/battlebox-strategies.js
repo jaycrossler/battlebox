@@ -199,10 +199,14 @@
 
     _c.movement_strategies.head_towards = function (game, unit, location, options) {
         var path;
-        var to_loc = location.location && (location.location.x !== undefined) && (location.location.y !== undefined);
+
+        var to_loc = location && (location.location) && (location.location.x !== undefined) && (location.location.y !== undefined);
         if (!to_loc) {
-            console.error('No valid location passed in to a "head towards" strategy');
-            path = [];
+            options = {side: 'enemy', filter: 'closest', range: 100, plan: 'seek closest', backup_strategy: unit._data.backup_strategy};
+            target_status = _c.find_unit_by_filters(game, unit, options);
+            _c.movement_strategies.seek(game, unit, target_status, options);
+            return;
+
         } else {
             path = _c.path_from_to(game, unit.x, unit.y, location.location.x, location.location.y);
             path.shift();

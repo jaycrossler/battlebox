@@ -34,7 +34,7 @@
         return new EntityType(game, location.x, location.y, id, unit_info);
     };
 
-    _c.raze_or_loot = function(game, unit, cell){
+    _c.raze_or_loot = function (game, unit, cell) {
 
         cell.additions = cell.additions || [];
         unit.loot = unit.loot || {};
@@ -117,7 +117,7 @@
             var cell = _c.tile(game, x, y);
             if (cell) {
                 cell.additions = cell.additions || [];
-                cell.additions.push({name:'unit corpse', unit:unit._data});
+                cell.additions.push({name: 'unit corpse', unit: unit._data});
             }
             if (unit.loot) {
                 cell.loot = cell.loot || {};
@@ -260,31 +260,33 @@
         if (plan == 'seek closest') {
             options = {side: 'enemy', filter: 'closest', range: 20, plan: plan, backup_strategy: unit._data.backup_strategy};
             target_status = _c.find_unit_by_filters(game, unit, options);
-            _c.movement_strategies.seek(game, unit, target_status, options)
+            _c.movement_strategies.seek(game, unit, target_status, options);
 
         } else if (plan == 'vigilant') {
             options = {side: 'enemy', filter: 'closest', range: 3, plan: plan, backup_strategy: unit._data.backup_strategy};
             target_status = _c.find_unit_by_filters(game, unit, options);
-            _c.movement_strategies.seek(game, unit, target_status, options)
+            _c.movement_strategies.seek(game, unit, target_status, options);
 
         } else if (plan == 'seek weakest') {
             options = {side: 'enemy', filter: 'weakest', range: 20, plan: plan, backup_strategy: unit._data.backup_strategy};
             target_status = _c.find_unit_by_filters(game, unit, options);
-            _c.movement_strategies.seek(game, unit, target_status, options)
+            _c.movement_strategies.seek(game, unit, target_status, options);
 
         } else if (plan == 'run away') {
             options = {side: 'enemy', filter: 'closest', range: 12, plan: plan, backup_strategy: 'vigilant'};
             target_status = _c.find_unit_by_filters(game, unit, options);
-            _c.movement_strategies.avoid(game, unit, target_status, options)
+            _c.movement_strategies.avoid(game, unit, target_status, options);
 
         } else if (plan == 'invade city') {
             //TODO: If no enemies and close to city, then try to loot and pillage
-            var location = _.find(game.data.buildings, function(b){return b.type=='city' || b.type=='city2'});
+            var location = _.find(game.data.buildings, function (b) {
+                return b.type == 'city' || b.type == 'city2'
+            });
             options = {side: 'enemy', filter: 'closest', range: 12, plan: plan, backup_strategy: unit._data.backup_strategy};
             _c.movement_strategies.head_towards(game, unit, location, options);
 
         } else if (plan == 'wait') {
-            _c.movement_strategies.wait(game, unit)
+            _c.movement_strategies.wait(game, unit);
 
 
         } else { //if (plan == 'wander') {
