@@ -504,13 +504,23 @@
         var building_tile_tries = Math.sqrt(city_info.population);
         var building_tile_radius_y = Math.pow(city_info.population, 1 / populations_tightness);
         var building_tile_radius_x = building_tile_radius_y * 1.5;
-        var number_of_roads = (city_info.road_count !== undefined) ? city_info.road_count : Math.pow(city_info.population / 100, 1 / 4);
 
         var city_cells = [];
 
         //Build roads based on city size
         ROT.RNG.setSeed(game.data.rand_seed);
-        var road_tiles = _c.generators.roads_from(game, number_of_roads, location);
+        var number_of_roads;
+        var road_location = null;
+        var all_cities = _.filter(game.data.buildings, function(b){return b.type == 'city' || b.type == 'city2'});
+
+        if (all_cities.length > 1 && _.indexOf(all_cities, city_info) > 0 && all_cities[0].tiles) {
+            road_location = all_cities[0].tiles[0];
+            number_of_roads = 1;
+        } else {
+            number_of_roads = (city_info.road_count !== undefined) ? city_info.road_count : Math.pow(city_info.population / 100, 1 / 4);
+        }
+
+        var road_tiles = _c.generators.roads_from(game, number_of_roads, location, road_location);
         road_tiles.sort(function (a, b) {
             var dist_a = Helpers.distanceXY(location, a);
             var dist_b = Helpers.distanceXY(location, b);
@@ -775,7 +785,7 @@
 
     };
 
-    _c.generators.roads_from = function (game, number_of_roads, starting_tile) {
+    _c.generators.roads_from = function (game, number_of_roads, starting_tile, ending_tile) {
         var tries = 20;
         var last_side = '';
         var road_tiles = [];
@@ -784,8 +794,9 @@
             var side = _c.randOption(['left', 'right', 'top', 'bottom'], {}, last_side);
             last_side = side;
             for (var t = 0; t < tries; t++) {
-                var ending_tile = _c.find_a_matching_tile(game, {location: side});
+                ending_tile = ending_tile || _c.find_a_matching_tile(game, {location: side});
                 var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y);
+                ending_tile = null;
                 if (path && path.length) {
                     for (var step = 1; step < path.length; step++) {
                         var cell = _c.tile(game, path[step]);
