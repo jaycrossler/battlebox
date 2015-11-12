@@ -8,6 +8,7 @@
     //TODO: Use colored large circle characters for forces, not full hex colors
     //TODO: Work on wall shape rotation
     //TODO: Wall shapes (especially squares) are not all spaced evenly
+    //TODO: Pre-roll all placement random numbers for city in order so that additionals build upon
 
     _c.tile = function (game, x, y) {
         var cell;
@@ -527,7 +528,7 @@
         //Add population along roads
         if (road_tiles.length) {
             for (var i = 0; i < building_tile_tries; i++) {
-                var road_index = Math.round(_c.randHistogram(.05, 5) * road_tiles.length);
+                var road_index = Math.round(_c.randHistogram(.05, populations_tightness*2) * road_tiles.length);
                 var road_segment = road_tiles[road_index];
 
                 //Assign population to all non-road/river/lake cells

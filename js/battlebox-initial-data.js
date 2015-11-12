@@ -60,31 +60,31 @@
                 troops: {cavalry: 20}},
 
 
-            {name: 'Defender City Force', side: 'Black', location: 'city',
+            {name: 'Defender City Force', side: 'Pink', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 620, cavalry: 40, siege: 100}},
 
-            {name: 'Defender Bowmen', side: 'Black', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
 
-            {name: 'Defender Bowmen', side: 'Black', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
-            {name: 'Defender Bowmen', side: 'Black', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
-            {name: 'Defender Bowmen', side: 'Black', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
 
-            {name: 'Defender Catapults', side: 'Black', symbol: 'B', location: 'city',
+            {name: 'Defender Catapults', side: 'Pink', symbol: 'B', location: 'city',
                 plan: 'run away', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 40}},
 
 
-            {name: 'Sleeping Dragon', side: 'Red', symbol: 'D', location: 'impassible', not_part_of_victory: true,
-                plan: 'vigilant', backup_strategy: 'wait', size: 3, move_through_impassibles: true,
+            {name: 'Sleeping Dragon', side: 'Red', symbol: '}{', location: 'impassible', not_part_of_victory: true,
+                plan: 'wander', backup_strategy: 'wait', size: 3, move_through_impassibles: true, try_to_loot: true, try_to_pillage: true,
                 troops: {adult_dragon: 1}}
 
         ],
@@ -100,15 +100,9 @@
 
         buildings: [
             {name: 'Large City', title: 'Anchorage', type: 'city2', location: 'center',
-                tightness:1, population: 50000,
+                tightness:1, population: 20000,
                 fortifications: [
-                    {count:120, shape: 'square', radius:6.5, towers: 12, starting_angle:0},
-                    {count:30, shape: 'circle', radius:12, towers: 0, starting_angle:.5}
                 ]},
-
-            {name: 'Small City', title: 'Fairbanks', type: 'city2', location: 'mid right',
-                tightness:2, road_count:1, population: 10000,
-                fortifications: {count:50, shape: 'circle', towers:4, radius:3.5}},
 
             {name: 'Grain Storage', type: 'storage', resources: {food: 10000, gold: 2, herbs: 100}, location: 'random'},
             {name: 'Metal Storage', type: 'storage', resources: {metal: 1000, gold: 2, ore: 1000}, location: 'random'},
