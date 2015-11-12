@@ -259,37 +259,62 @@
 
     };
 
-    //TODO: Work for distant tiles also
+    var hex_angle_lookups = [
+        {angle: 330, rot_number: 0, road_symbol: '╲', description: 'North West', abbr: 'NW'},
+        {angle: 30, rot_number: 1, road_symbol: '╱', description: 'North East', abbr: 'NE'},
+        {angle: 90, rot_number: 2, road_symbol: '━', description: 'East', abbr: 'E'},
+        {angle: 150, rot_number: 3, road_symbol: '╲', description: 'South East', abbr: 'SE'},
+        {angle: 210, rot_number: 4, road_symbol: '╱', description: 'South West', abbr: 'SW'},
+        {angle: 270, rot_number: 5, road_symbol: '━', description: 'West', abbr: 'W'}
+    ];
     /**
-     * Returns a cardinal direction from one tile to an adjacent tile
+     * Returns a cardinal direction from one tile to an another hex tile
      * @param {cell} tile_from
      * @param {cell} tile_to
-     * @returns {object} angle, hex_dir_change_array, road_symbol, description
+     * @returns {object} cell_info {angle, hex_dir_change_array, road_symbol, description, abbr}
      */
     _c.direction_from_tile_to_tile = function (tile_from, tile_to) {
-        var dir = {angle: null, rot_number: -1, hex_dir_change_array: [0, 0], road_symbol: '', description: ''};
+        var angle = Math.atan2(tile_to.y - tile_from.y, tile_to.x - tile_from.x);
+        angle += (Math.PI*.5); //Orient it to map
+        angle = (angle + (Math.PI*2)) % (Math.PI*2);  //Constrain it to 0 - 2*PI
 
-        var offset_x = tile_to.x - tile_from.x;
-        var offset_y = tile_to.y - tile_from.y;
-
-        if (offset_x == -1 && offset_y == -1) {
-            dir = {angle: 330, rot_number: 0, road_symbol: '╲', description: 'North West', abbr: 'NW'};
-        } else if (offset_x == 1 && offset_y == -1) {
-            dir = {angle: 30, rot_number: 1, road_symbol: '╱', description: 'North East', abbr: 'NE'};
-        } else if (offset_x == 2 && offset_y == 0) {
-            dir = {angle: 90, rot_number: 2, road_symbol: '━', description: 'East', abbr: 'E'};
-        } else if (offset_x == 1 && offset_y == 1) {
-            dir = {angle: 150, rot_number: 3, road_symbol: '╲', description: 'South East', abbr: 'SE'};
-        } else if (offset_x == -1 && offset_y == 1) {
-            dir = {angle: 210, rot_number: 4, road_symbol: '╱', description: 'South West', abbr: 'SW'};
-        } else if (offset_x == -2 && offset_y == 0) {
-            dir = {angle: 270, rot_number: 5, road_symbol: '━', description: 'West', abbr: 'W'};
-        }
+        var slice = angle / ( (Math.PI*2) / 6);
+        var dir_num = Math.ceil(slice) % 6;
+        var dir = hex_angle_lookups[dir_num];
         dir.hex_dir_change_array = ROT.DIRS[6][dir.rot_number];
 
         return dir;
     };
+    /**
+     * Returns the opposite neighboring tiles to (tile_to) from the perspective of (tile_from)
+     * @param {object} game
+     * @param {cell} tile_from
+     * @param {cell} tile_to (returns 3 neighbors of this tile)
+     * @returns {Array} neighbor_cells
+     */
+    _c.opposite_tiles_from_tile_to_tile = function (game, tile_from, tile_to) {
+        var neighbor_cells = [];
 
+        var angle = Math.atan2(tile_to.y - tile_from.y, tile_to.x - tile_from.x);
+        angle += (Math.PI*.5); //Orient it to map
+        angle = (angle + (Math.PI*2)) % (Math.PI*2);  //Constrain it to 0 - 2*PI
+
+        var slice = angle / ( (Math.PI*2) / 6);
+        var dir_num_1 = Math.ceil(slice+5) % 6;
+        var dir_num_2 = Math.ceil(slice) % 6;
+        var dir_num_3 = Math.ceil(slice+1) % 6;
+
+        for (var i=0; i<6; i++) {
+            if ((dir_num_1 != i) && (dir_num_2 != i) && (dir_num_3 != i)) {
+                var moves = ROT.DIRS[6][i];
+
+                var cell = _c.tile(game, tile_to.x+moves[0], tile_to.y+moves[1]);
+                neighbor_cells.push(cell);
+            }
+        }
+
+        return neighbor_cells;
+    };
     //-------------------------------------------------
     /**
      * Builds all the tiles for the base game map from the gaem data settings passed in. Constructs game.cells for use in game
@@ -372,13 +397,21 @@
             building_layer.location = location;
         });
     };
-    _c.population_counter = function (game) {
+    _c.population_counter = function (game, city_cells) {
         var count = 0;
-        _.each(game.cells, function (x) {
-            _.each(x, function (cell) {
-                if (cell) count += cell.population || 0;
+        if (city_cells && city_cells.length) {
+            _.each(city_cells, function (cell) {
+                if (cell) {
+                    count += game.cells[cell.x][cell.y].population || 0;
+                }
             })
-        });
+        } else {
+            _.each(game.cells, function (x) {
+                _.each(x, function (cell) {
+                    if (cell) count += cell.population || 0;
+                })
+            });
+        }
         return count;
     };
     //¬-----------------------------------------------------
@@ -501,9 +534,6 @@
 
         var populations_tightness = (city_info.tightness || 1) * 3.1;
 
-        var building_tile_tries = Math.sqrt(city_info.population);
-        var building_tile_radius_y = Math.pow(city_info.population, 1 / populations_tightness);
-        var building_tile_radius_x = building_tile_radius_y * 1.5;
 
         var city_cells = [];
 
@@ -530,7 +560,10 @@
 
         //Reset the city so it'll look the same independent of number of roads
         ROT.RNG.setSeed(game.data.rand_seed);
+
+        //Build the center and give it some population
         var center = _c.tile(game, location.x, location.y);
+        var building_tile_tries = Math.sqrt(city_info.population);
         center.population = center.population || 0;
         center.population += building_tile_tries * 2;
         city_cells.push(center);
@@ -548,12 +581,16 @@
                 });
                 _.each(road_neighbors, function (neighbor) {
                     neighbor.population = neighbor.population || 0;
-                    neighbor.population += building_tile_tries / (road_neighbors.length * 1.6423);
+                    neighbor.population += building_tile_tries / (road_neighbors.length * 3);
 
                     if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
                 });
             }
         }
+
+        //Randomly add population in square around city
+        var building_tile_radius_y = Math.pow(city_info.population, 1 / populations_tightness);
+        var building_tile_radius_x = building_tile_radius_y * 1.5;
         for (var i = 0; i < building_tile_tries; i++) {
             var x, y;
             x = location.x + (ROT.RNG.getNormal() * building_tile_radius_x / 4);
@@ -565,7 +602,9 @@
             if (cell && _c.tile_is_traversable(game, x, y, false) && !_c.tile_has(cell, 'road') && !_c.tile_has(cell, 'river') && (cell.name != 'lake')) {
                 cell.population = cell.population || 0;
                 cell.population += building_tile_tries / 4 + (ROT.RNG.getNormal() * building_tile_radius_x);
-                if (!city_cells[x] || !city_cells[x][y]) city_cells.push(cell);
+                game.cells[x][y] = cell;
+
+                if (_.indexOf(city_cells, cell) == -1) city_cells.push(cell);
 
                 var neighbors = _c.surrounding_tiles(game, x, y);
                 neighbors = _.filter(road_neighbors, function (r) {
@@ -573,14 +612,15 @@
                 });
                 _.each(neighbors, function (neighbor) {
                     neighbor.population = neighbor.population || 0;
-                    neighbor.population += building_tile_tries / (road_neighbors.length * 1.7);
+                    neighbor.population += building_tile_tries / (road_neighbors.length * 1.8);
+                    game.cells[neighbor.x][neighbor.y] = neighbor;
 
                     if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
                 })
             }
         }
 
-        //Turn cells with enough population into city cells
+        //Turn cells with enough population into city cells and build farms
         var city_cells_final = [city_cells[0]]; //Start with the city center
         for (var i = 0; i < city_cells.length; i++) {
             var cell = city_cells[i];
@@ -597,6 +637,8 @@
                     type: 'city',
                     x: x,
                     y: y};
+
+                cell.population = cell_population;
 
                 var neighbors = _c.surrounding_tiles(game, x, y);
                 _.each(neighbors, function (neighbor) {
@@ -615,33 +657,51 @@
                 if (_.indexOf(city_cells_final, cell) == -1) city_cells_final.push(cell);
 
             } else {
+                cell.population = cell_population;
                 game.cells[x][y].population = cell_population;
             }
         }
 
+        var pop_count = city_info.population - _c.population_counter(game, city_cells);
+        if (pop_count > 0) {
+            city_cells[0].population+=Math.round(pop_count);
+        }
+
         //Loop through cells with multiple farms and redistribute the farms further out
-        //TODO: Use a spiral loop to move outward from city center
-        var loops = 6;
+        var loops = 10;
         for (var l = 0; l < loops; l++) {
             var cc_length = city_cells.length;
             for (var i = 0; i < cc_length; i++) {
                 var cell = city_cells[i];
                 var num_farms = _c.tile_has(cell, 'farm', true);
-                if (num_farms > 5) {
-                    x = cell.x;
-                    y = cell.y;
-                    var neighbors = _c.surrounding_tiles(game, x, y);
+                if ((num_farms > 5) || (cell.population > 100)) {
+
+                    cell.additions = cell.additions || [];
+
+//                    var neighbors = _c.opposite_tiles_from_tile_to_tile(game, city_cells[0], cell);
+                    var neighbors = _c.surrounding_tiles(game, cell.x, cell.y);
+
+                    var farms_to_give_each_neighbor = Math.floor(num_farms / neighbors.length);
+                    var population_to_give_each_neighbor = (cell.population-100) / (neighbors.length+1);
                     _.each(neighbors, function (neighbor) {
                         neighbor.additions = neighbor.additions || [];
-                        for (var f = 0; f < (num_farms % 5); f++) {
+                        for (var f = 0; f < farms_to_give_each_neighbor; f++) {
                             neighbor.additions.push('farm');
                         }
+
+                        neighbor.population = neighbor.population || 0;
+                        neighbor.population += Math.round(population_to_give_each_neighbor);
+                        game.cells[neighbor.x][neighbor.y] = neighbor;
+
                         if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
                     });
-                    cell.additions = removeArrayItemNTimes(cell.additions, 'farm', 5 * (num_farms % 5));
+                    cell.additions = removeArrayItemNTimes(cell.additions, 'farm', neighbors.length * farms_to_give_each_neighbor);
+                    cell.population -= Math.round(population_to_give_each_neighbor * neighbors.length);
+                    game.cells[cell.x][cell.y] = cell;
                 }
             }
         }
+
 
         //Add walls around city
         if (city_info.fortifications) {

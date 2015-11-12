@@ -3,6 +3,9 @@
 //--------------------------------------------
 
 var Helpers = Helpers || {};
+Helpers.radians = function (degrees) { return degrees * Math.PI / 180};
+Helpers.degrees = function (radians) { return radians * 180 / Math.PI};
+
 Helpers.between = function (s, prefix, suffix, suffixAtEnd, prefixAtEnd) {
     if (!s.lastIndexOf || !s.indexOf) {
         return s;

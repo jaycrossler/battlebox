@@ -12,7 +12,7 @@ maths.heightOnSin = function (theta_min, theta_max, step, steps, amplitude, func
 
     var percent = step / steps;
     var theta = theta_min + ((theta_max - theta_min) * percent);
-    return Math.sin(theta * Math.PI) * amplitude;
+    return func(theta * Math.PI) * amplitude;
 };
 maths.sizeFromAmountRange = function (size_min, size_max, amount, amount_min, amount_max) {
     var percent = (amount - amount_min) / (amount_max - amount_min);
