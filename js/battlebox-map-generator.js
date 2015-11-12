@@ -880,7 +880,7 @@
         var tries = 20;
 
         for (var t = 0; t < tries; t++) {
-            var side = _c.randOption(['left', 'top']);
+            var side = 'top';//_c.randOption(['left', 'top']);
             var ending_tile, starting_tile;
             if (side == 'left') {
                 starting_tile = _c.find_a_matching_tile(game, {location: 'left', y: location.y});

@@ -1811,30 +1811,30 @@ Battlebox.initializeOptions = function (option_type, options) {
                 troops: {cavalry: 20}},
 
 
-            {name: 'Defender City Force', side: 'Black', location: 'city',
+            {name: 'Defender City Force', side: 'Pink', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 620, cavalry: 40, siege: 100}},
 
-            {name: 'Defender Bowmen', side: 'Black', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
 
-            {name: 'Defender Bowmen', side: 'Black', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
-            {name: 'Defender Bowmen', side: 'Black', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
-            {name: 'Defender Bowmen', side: 'Black', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
 
-            {name: 'Defender Catapults', side: 'Black', symbol: 'B', location: 'city',
+            {name: 'Defender Catapults', side: 'Pink', symbol: 'B', location: 'city',
                 plan: 'run away', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 40}},
 
 
-            {name: 'Sleeping Dragon', side: 'Red', symbol: 'D', location: 'impassible', not_part_of_victory: true,
+            {name: 'Sleeping Dragon', side: 'Red', symbol: '}{', location: 'impassible', not_part_of_victory: true,
                 plan: 'wander', backup_strategy: 'wait', size: 3, move_through_impassibles: true, try_to_loot: true, try_to_pillage: true,
                 troops: {adult_dragon: 1}}
 
@@ -2946,7 +2946,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         var tries = 20;
 
         for (var t = 0; t < tries; t++) {
-            var side = _c.randOption(['left', 'top']);
+            var side = 'top';//_c.randOption(['left', 'top']);
             var ending_tile, starting_tile;
             if (side == 'left') {
                 starting_tile = _c.find_a_matching_tile(game, {location: 'left', y: location.y});
