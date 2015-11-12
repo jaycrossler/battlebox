@@ -122,7 +122,7 @@
         });
         var loot_msg = [];
         for (var key in loot) {
-            loot_msg.push(loot[key] + " " + Helpers.pluralize(key))
+            loot_msg.push(Helpers.abbreviateNumber(loot[key]) + " " + Helpers.pluralize(key))
         }
 
 
@@ -130,16 +130,22 @@
         var city_msg = [];
         var tiles_total = 0;
         var tiles_ruined = 0;
+        var population_displaced = 0;
+
         _.each(game.data.buildings, function(city){
-            if (city.type == 'city') {
+            if (city.type == 'city' || city.type == 'city2') {
                 _.each(city.tiles || [], function (tile) {
                     tiles_total++;
-                    if (_c.tile_has(tile, 'pillaged') || _c.tile_has(tile, 'looted')) {
+
+                    var tile_orig = game.cells[tile.x][tile.y]
+                    if (_c.tile_has(tile_orig, 'pillaged') || _c.tile_has(tile_orig, 'looted')) {
                         tiles_ruined++;
+                        population_displaced += tile_orig.population;
                     }
                 });
                 var pct = Math.round((tiles_ruined/tiles_total) * 100);
-                var msg_c = pct+"% of "+(city.title || city.name) +" destroyed";
+                var msg_c = pct+"% of "+(city.title || city.name) +" destroyed, ";
+                msg_c += Helpers.abbreviateNumber(population_displaced) + " population displaced";
                 city_msg.push(msg_c);
             }
         });
@@ -148,7 +154,7 @@
             msg += "<hr/><b>Cities:</b><br/> " + city_msg.join("<br/>");
         }
         if (loot_msg.length) {
-            msg += "<hr/><b>Loot:</b><br/>" + loot_msg.join("<br/>");
+            msg += "<hr/><b>Loot:</b><br/>" + loot_msg.join(", ");
         }
 
         _c.log_message_to_user(game, msg, 4, (side_wins == "No one" ? 'gray' : side_wins));

@@ -1,6 +1,6 @@
 /*
 ------------------------------------------------------------------------------------
--- battlebox.js - v0.0.2 - Built on 2015-11-11 by Jay Crossler using Grunt.js
+-- battlebox.js - v0.0.2 - Built on 2015-11-12 by Jay Crossler using Grunt.js
 ------------------------------------------------------------------------------------
 -- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara 
 -- Packaged with color.js - Copyright (c) 2008-2013, Andrew Brehaut, Tim Baumann,  
@@ -1711,7 +1711,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         });
         var loot_msg = [];
         for (var key in loot) {
-            loot_msg.push(loot[key] + " " + Helpers.pluralize(key))
+            loot_msg.push(Helpers.abbreviateNumber(loot[key]) + " " + Helpers.pluralize(key))
         }
 
 
@@ -1719,16 +1719,22 @@ Battlebox.initializeOptions = function (option_type, options) {
         var city_msg = [];
         var tiles_total = 0;
         var tiles_ruined = 0;
+        var population_displaced = 0;
+
         _.each(game.data.buildings, function(city){
-            if (city.type == 'city') {
+            if (city.type == 'city' || city.type == 'city2') {
                 _.each(city.tiles || [], function (tile) {
                     tiles_total++;
-                    if (_c.tile_has(tile, 'pillaged') || _c.tile_has(tile, 'looted')) {
+
+                    var tile_orig = game.cells[tile.x][tile.y]
+                    if (_c.tile_has(tile_orig, 'pillaged') || _c.tile_has(tile_orig, 'looted')) {
                         tiles_ruined++;
+                        population_displaced += tile_orig.population;
                     }
                 });
                 var pct = Math.round((tiles_ruined/tiles_total) * 100);
-                var msg_c = pct+"% of "+(city.title || city.name) +" destroyed";
+                var msg_c = pct+"% of "+(city.title || city.name) +" destroyed, ";
+                msg_c += Helpers.abbreviateNumber(population_displaced) + " population displaced";
                 city_msg.push(msg_c);
             }
         });
@@ -1737,7 +1743,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             msg += "<hr/><b>Cities:</b><br/> " + city_msg.join("<br/>");
         }
         if (loot_msg.length) {
-            msg += "<hr/><b>Loot:</b><br/>" + loot_msg.join("<br/>");
+            msg += "<hr/><b>Loot:</b><br/>" + loot_msg.join(", ");
         }
 
         _c.log_message_to_user(game, msg, 4, (side_wins == "No one" ? 'gray' : side_wins));
@@ -1811,25 +1817,25 @@ Battlebox.initializeOptions = function (option_type, options) {
                 troops: {cavalry: 20}},
 
 
-            {name: 'Defender City Force', side: 'Pink', location: 'city',
+            {name: 'Defender City Force', side: 'White', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 620, cavalry: 40, siege: 100}},
 
-            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
 
-            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
-            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
-            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
 
-            {name: 'Defender Catapults', side: 'Pink', symbol: 'B', location: 'city',
+            {name: 'Defender Catapults', side: 'White', symbol: 'B', location: 'city',
                 plan: 'run away', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 40}},
 
@@ -3375,6 +3381,8 @@ Battlebox.initializeOptions = function (option_type, options) {
     //TODO: Move faster over roads, and slower over water
     //TODO: Have enemy searching only look if within a likely radius
     //TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
+    //TODO: Pillaging happening multiple times
+    //TODO: On win, give n extra turns to finish pillaging
 
     _c.build_units_from_list = function (game, list) {
         _.each(list || [], function (unit_info, id) {
@@ -3415,9 +3423,25 @@ Battlebox.initializeOptions = function (option_type, options) {
                 unit.loot.herbs = unit.loot.herbs || 0;
                 unit.loot.food += (100 * num_farms);  //TODO: Random benefits based on technology and population
                 unit.loot.herbs += (20 * num_farms);
+                cell.additions.push('pillaged');
+
+            } else if (cell.type == 'city' && !_c.tile_has(cell, 'pillaged')) {
+                unit.loot.food = unit.loot.food || 0;
+                unit.loot.wood = unit.loot.wood || 0;
+                unit.loot.metal = unit.loot.metal || 0;
+                unit.loot.skins = unit.loot.skins || 0;
+                unit.loot.food += 10;
+                unit.loot.wood += 10;
+                unit.loot.metal += 10;
+                unit.loot.skins += 10;
+                cell.additions.push('pillaged');
+
+                if ((cell.population > 3000) && (_c.random() > .8)) {
+                    unit.loot.gold = unit.loot.gold || 0;
+                    unit.loot.gold += 1;
+                }
             }
 
-            cell.additions.push('pillaged');
         }
         if (unit._data.try_to_loot && (_c.tile_has(cell, 'storage') || cell.loot)) {
 
@@ -3432,11 +3456,27 @@ Battlebox.initializeOptions = function (option_type, options) {
             if (num_farms && !_c.tile_has(cell, 'pillaged') && !_c.tile_has(cell, 'looted')) {
                 unit.loot.food = unit.loot.food || 0;
                 unit.loot.herbs = unit.loot.herbs || 0;
-
                 unit.loot.food += (25 * num_farms);
                 unit.loot.herbs += (6 * num_farms);
+                cell.additions.push('looted');
+
+            } else if (cell.type == 'city' && !_c.tile_has(cell, 'looted')) {
+                unit.loot.food = unit.loot.food || 0;
+                unit.loot.wood = unit.loot.wood || 0;
+                unit.loot.metal = unit.loot.metal || 0;
+                unit.loot.skins = unit.loot.skins || 0;
+                unit.loot.food += 5;
+                unit.loot.wood += 5;
+                unit.loot.metal += 5;
+                unit.loot.skins += 5;
+                cell.additions.push('looted');
+
+                if ((cell.population > 3000) && (_c.random() > .9)) {
+                    unit.loot.gold = unit.loot.gold || 0;
+                    unit.loot.gold += 1;
+                }
+
             }
-            cell.additions.push('looted');
         }
 
     };

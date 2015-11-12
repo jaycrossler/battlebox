@@ -60,25 +60,25 @@
                 troops: {cavalry: 20}},
 
 
-            {name: 'Defender City Force', side: 'Pink', location: 'city',
+            {name: 'Defender City Force', side: 'White', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 620, cavalry: 40, siege: 100}},
 
-            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
 
-            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
-            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
-            {name: 'Defender Bowmen', side: 'Pink', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
 
-            {name: 'Defender Catapults', side: 'Pink', symbol: 'B', location: 'city',
+            {name: 'Defender Catapults', side: 'White', symbol: 'B', location: 'city',
                 plan: 'run away', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 40}},
 

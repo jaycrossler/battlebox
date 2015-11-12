@@ -10,6 +10,8 @@
     //TODO: Move faster over roads, and slower over water
     //TODO: Have enemy searching only look if within a likely radius
     //TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
+    //TODO: Pillaging happening multiple times
+    //TODO: On win, give n extra turns to finish pillaging
 
     _c.build_units_from_list = function (game, list) {
         _.each(list || [], function (unit_info, id) {
@@ -50,9 +52,25 @@
                 unit.loot.herbs = unit.loot.herbs || 0;
                 unit.loot.food += (100 * num_farms);  //TODO: Random benefits based on technology and population
                 unit.loot.herbs += (20 * num_farms);
+                cell.additions.push('pillaged');
+
+            } else if (cell.type == 'city' && !_c.tile_has(cell, 'pillaged')) {
+                unit.loot.food = unit.loot.food || 0;
+                unit.loot.wood = unit.loot.wood || 0;
+                unit.loot.metal = unit.loot.metal || 0;
+                unit.loot.skins = unit.loot.skins || 0;
+                unit.loot.food += 10;
+                unit.loot.wood += 10;
+                unit.loot.metal += 10;
+                unit.loot.skins += 10;
+                cell.additions.push('pillaged');
+
+                if ((cell.population > 3000) && (_c.random() > .8)) {
+                    unit.loot.gold = unit.loot.gold || 0;
+                    unit.loot.gold += 1;
+                }
             }
 
-            cell.additions.push('pillaged');
         }
         if (unit._data.try_to_loot && (_c.tile_has(cell, 'storage') || cell.loot)) {
 
@@ -67,11 +85,27 @@
             if (num_farms && !_c.tile_has(cell, 'pillaged') && !_c.tile_has(cell, 'looted')) {
                 unit.loot.food = unit.loot.food || 0;
                 unit.loot.herbs = unit.loot.herbs || 0;
-
                 unit.loot.food += (25 * num_farms);
                 unit.loot.herbs += (6 * num_farms);
+                cell.additions.push('looted');
+
+            } else if (cell.type == 'city' && !_c.tile_has(cell, 'looted')) {
+                unit.loot.food = unit.loot.food || 0;
+                unit.loot.wood = unit.loot.wood || 0;
+                unit.loot.metal = unit.loot.metal || 0;
+                unit.loot.skins = unit.loot.skins || 0;
+                unit.loot.food += 5;
+                unit.loot.wood += 5;
+                unit.loot.metal += 5;
+                unit.loot.skins += 5;
+                cell.additions.push('looted');
+
+                if ((cell.population > 3000) && (_c.random() > .9)) {
+                    unit.loot.gold = unit.loot.gold || 0;
+                    unit.loot.gold += 1;
+                }
+
             }
-            cell.additions.push('looted');
         }
 
     };
