@@ -3,6 +3,9 @@
 (function (Battlebox) {
     var _c = new Battlebox('get_private_functions');
 
+    var overlay_lines = []; //Lines for testing or showing information after canvas is drawn
+    //TODO: Update rot.js to have a draw_after_dirty function
+
     //TODO: Pass in a color set to try out different images/rendering techniques
     //TODO: Use hex images for terrain
     //TODO: Use colored large circle characters for forces, not full hex colors
@@ -10,6 +13,7 @@
     //TODO: Wall shapes (especially squares) are not all spaced evenly
     //TODO: Find out why pre-rolling placement numbers isn't turning out almost exactly the same between builds
     //TODO: Adding population doesnt add new roads if they should
+    //TODO: Walls currently going over river - is that good?
 
     _c.tile = function (game, x, y) {
         var cell;
@@ -541,6 +545,26 @@
                 //TODO: Add    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
             }
             building_layer.location = location;
+
+
+            //Add walls around structure
+            if (building_layer.fortifications) {
+                var fortifications = building_layer.fortifications;
+                if (!_.isArray(fortifications)) fortifications = [fortifications];
+                _.each(fortifications, function (fort) {
+                    var title = _.str.titleize(building_layer.title || building_layer.name) + 's walls';
+                    var wall_info = {
+                        count: fort.count || ((building_layer.population || 0) / 10000),
+                        title: fort.title || title,
+                        shape: fort.shape,
+                        radius: fort.radius,
+                        towers: fort.towers,
+                        starting_angle: fort.starting_angle
+                    };
+                    _c.generators.walls(game, location, wall_info);
+                });
+            }
+
         });
     };
     _c.population_counter = function (game, city_cells) {
@@ -587,7 +611,110 @@
 
     }
 
-    _c.shape_to_tiles = function (game, center, shape, points, radius, staring_angle) {
+    function checkLineIntersection(line1Start, line1End, line2Start, line2End, crossedName) {
+        //From: http://jsfiddle.net/justin_c_rounds/Gd2S2/
+        // if the lines intersect, the result contains the x and y of the intersection (treating the lines as infinite)
+        // and booleans for whether line segment 1 or line segment 2 contain the point
+
+        var denominator, a, b, numerator1, numerator2, result = {
+            x: null,
+            y: null,
+            onLine1: false,
+            onLine2: false
+        };
+        denominator = ((line2End.y - line2Start.y) * (line1End.x - line1Start.x)) - ((line2End.x - line2Start.x) * (line1End.y - line1Start.y));
+        if (denominator == 0) {
+            return result;
+        }
+        a = line1Start.y - line2Start.y;
+        b = line1Start.x - line2Start.x;
+        numerator1 = ((line2End.x - line2Start.x) * a) - ((line2End.y - line2Start.y) * b);
+        numerator2 = ((line1End.x - line1Start.x) * a) - ((line1End.y - line1Start.y) * b);
+        a = numerator1 / denominator;
+        b = numerator2 / denominator;
+
+        // if we cast these lines infinitely in both directions, they intersect here:
+        result.x = line1Start.x + (a * (line1End.x - line1Start.x));
+        result.y = line1Start.y + (a * (line1End.y - line1Start.y));
+
+        // it is worth noting that this should be the same as:
+        // x = line2Start.x + (b * (line2End.x - line2Start.x));
+        // y = line2Start.x + (b * (line2End.y - line2Start.y));
+
+        // if line1 is a segment and line2 is infinite, they intersect if:
+        if (a > 0 && a < 1) {
+            result.onLine1 = true;
+        }
+        // if line2 is a segment and line1 is infinite, they intersect if:
+        if (b > 0 && b < 1) {
+            result.onLine2 = true;
+        }
+        if (crossedName) {
+            result.crossed = crossedName;
+        }
+        // if line1 and line2 are segments, they intersect if both of the above are true
+        return result;
+    }
+
+    function polygon_intersections(game, sides, points, starting_angle, center, center_px, radius_px) {
+        var corners = [];
+        var tiles = [];
+
+        for (var i = 0; i < sides; i++) {
+            var a = ((i / (sides)) + (starting_angle || 0)) % 1;
+            a *= 2 * Math.PI;
+            var x = center_px.x + (radius_px * Math.cos(a));
+            var y = center_px.y + (radius_px * Math.sin(a));
+            corners.push({x: x, y: y});
+        }
+
+        var tester_multiplier = 1.5;
+        for (var i = 0; i < points; i++) {
+            var a = ((i / (points)) + (starting_angle || 0)) % 1;
+            a *= 2 * Math.PI;
+            var point_to = {
+                x: center_px.x + (radius_px * tester_multiplier * Math.cos(a)),
+                y: center_px.y + (radius_px * tester_multiplier * Math.sin(a))
+            };
+
+            for (var l = 0; l < corners.length; l++) {
+                var corner_1 = corners[l];
+                var corner_2 = corners[(l + 1) % corners.length];
+
+                var intersect = checkLineIntersection(center_px, point_to, corner_1, corner_2);
+
+                if (intersect.onLine1 && intersect.onLine2) {
+                    var tile = tile_xy_from_screen_xy(game, intersect.x, intersect.y); //TODO: Handle multiple intersections
+                    //if (_c.tile_is_traversable(game, tile.x, tile.y)) {
+                    tiles.push(_c.tile(game, tile.x, tile.y));
+                    //}
+                }
+            }
+
+            //TESTING for visibility and placement checking
+            overlay_lines.push({p1: center_px, p2: point_to});
+
+        }
+
+        return tiles;
+    }
+
+    //TESTING
+    _c.testAddRandomLines = function (context, color) {
+        context.strokeStyle = color || 'blue';
+        for (var i = 0; i < overlay_lines.length; i++) {
+            var segment = overlay_lines[i];
+
+            context.beginPath();
+            context.moveTo(segment.p1.x, segment.p1.y);
+            context.lineTo(segment.p2.x, segment.p2.y);
+            context.closePath();
+            context.stroke()
+        }
+        return context;
+    };
+
+    _c.shape_to_tiles = function (game, center, shape, points, radius, starting_angle) {
         var tiles = [];
         var center_px = screen_xy_from_tile_xy(game, center.x, center.y);
         var radius_px = Helpers.distanceXY(
@@ -597,7 +724,7 @@
 
         if (shape == 'circle') {
             for (var i = 0; i < points; i++) {
-                var a = (i / (points)) + (staring_angle || 0);
+                var a = (i / (points)) + (starting_angle || 0);
                 a *= 2 * Math.PI;
                 var screen_x = center_px.x + (radius_px * Math.cos(a));
                 var screen_y = center_px.y + (radius_px * Math.sin(a));
@@ -608,8 +735,21 @@
                 }
             }
         } else if (shape == 'square') {
+            tiles = polygon_intersections(game, 4, points, starting_angle, center, center_px, radius_px)
+
+        } else if (shape == 'pentagon') {
+            tiles = polygon_intersections(game, 5, points, starting_angle, center, center_px, radius_px)
+
+        } else if (shape == 'hexagon') {
+            tiles = polygon_intersections(game, 6, points, starting_angle, center, center_px, radius_px)
+
+        } else if (shape == 'septagon') {
+            tiles = polygon_intersections(game, 7, points, starting_angle, center, center_px, radius_px)
+
+
+        } else if (shape == 'rounded square') {
             for (var i = 0; i < points; i++) {
-                var a = (i / (points)) + (staring_angle || 0);
+                var a = (i / (points)) + (starting_angle || 0);
                 a *= 2 * Math.PI;
                 var c = Math.cos(a);
                 var s = Math.sin(a);
@@ -625,7 +765,7 @@
             }
         } else if (shape == 'diamond') {
             for (var i = 0; i < points; i++) {
-                var a = (i / (points)) + (staring_angle || 0);
+                var a = (i / (points)) + (starting_angle || 0);
                 a *= 2 * Math.PI;
                 var c = Math.cos(a);
                 var s = Math.sin(a);
@@ -641,7 +781,7 @@
             }
         } else if (shape == 'flower') {
             for (var i = 0; i < points; i++) {
-                var a = (i / (points)) + (staring_angle || 0);
+                var a = (i / (points)) + (starting_angle || 0);
                 a *= 2 * Math.PI;
                 var c = Math.cos(a);
                 var s = Math.sin(a);
@@ -661,7 +801,6 @@
     };
     _c.generators = {};
     _c.generators.walls = function (game, location, wall_info) {
-        //TODO: Should walls be drawn first, and no population in those cells?
         var wall_tiles = _c.shape_to_tiles(game, location, wall_info.shape || 'circle', wall_info.count, wall_info.radius || 4, wall_info.starting_angle);
         var last_tower = -1;
         _.each(wall_tiles, function (cell, i) {
@@ -674,7 +813,6 @@
                 cell.additions.push('tower');
                 last_tower = tower_count;
             }
-            cell.additions.push(i);
         });
     };
     function resetSeed(game, extra) {
@@ -865,27 +1003,6 @@
                     game.cells[cell.x][cell.y] = cell;
                 }
             }
-        }
-
-
-        //Add walls around city
-        if (city_info.fortifications) {
-            var fortifications = city_info.fortifications;
-            if (!_.isArray(fortifications)) fortifications = [fortifications];
-            _.each(fortifications, function (fort) {
-                var title = _.str.titleize(city_info.title || city_info.name) + 's walls';
-                var wall_info = {
-                    count: fort.count || (city_info.population / 10000),
-                    title: fort.title || title,
-                    shape: fort.shape,
-                    radius: fort.radius,
-                    towers: fort.towers,
-                    starting_angle: fort.starting_angle
-                };
-
-                _c.generators.walls(game, center, wall_info);
-
-            });
         }
 
         return city_cells_final;

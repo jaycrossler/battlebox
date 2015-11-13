@@ -41,11 +41,43 @@ $(function () {
     if (forts) {
         forts = parseInt(forts);
         if (forts >= 1) {
-            game_options.buildings[0].fortifications.push({count: 120, shape: 'square', radius: 6.5, towers: 12, starting_angle: 0});
+            game_options.buildings[0].fortifications.push({
+                count: 40,
+                shape: 'square',
+                radius: 6.5,
+                towers: 8,
+                starting_angle: .125
+            });
         }
         if (forts >= 2) {
-            game_options.buildings[0].fortifications.push({count: 300, shape: 'circle', radius: 12, towers: 10, starting_angle: .5});
+            game_options.buildings[0].fortifications.push({
+                count: 90,
+                shape: 'circle',
+                radius: 10,
+                towers: 10,
+                starting_angle: .5
+            });
         }
+        if (forts >= 3) {
+            game_options.buildings[0].fortifications.push({
+                count: 260,
+                shape: 'pentagon',
+                radius: 18,
+                towers: 10,
+                starting_angle: .2
+            });
+        }
+        if (forts >= 4) {
+            game_options.buildings[0].fortifications.push({
+                count: 380,
+                shape: 'hexagon',
+                radius: 26,
+                towers: 30,
+                starting_angle: 0
+            });
+        }
+
+
     }
 
     battlebox = new Battlebox({rand_seed:land_seed || 42, fight_seed: fight_seed});
