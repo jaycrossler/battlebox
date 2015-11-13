@@ -51,6 +51,13 @@
         return info;
     };
 
+    /**
+     * Returns the 6 surrounding hexes around a tile
+     * @param {object} game class data
+     * @param {int} x
+     * @param {int} y
+     * @returns {Array.<Object>} cells and entity data
+     */
     _c.surrounding_tiles = function (game, x, y) {
         var cells = [];
 
@@ -70,6 +77,15 @@
         return cells;
     };
 
+    /**
+     * Returns whether a tile is a valid cell, and if it is passable
+     * @param {object} game class data
+     * @param {int} x
+     * @param {int} y
+     * @param {boolean} move_through_impassibles return true even if the sell is impassible
+     * @param {boolean} only_impassible return true only if the cell is impassible
+     * @returns {boolean} valid if cell is valid and passable
+     */
     _c.tile_is_traversable = function (game, x, y, move_through_impassibles, only_impassible) {
         var valid_num = (x >= 0) && (y >= 0) && (x < _c.cols(game)) && (y < _c.rows(game));
         if (valid_num) {
@@ -89,9 +105,29 @@
         return valid_num
     };
 
-
-    //TODO: Work for 'SE', 'NW'
+    /**
+     * Find a tile that matches location parameters
+     * @param {object} game class data
+     * @param {object} options {location:'center'} or 'e' or 'impassible' or 'right' or 'top', etc...
+     * @returns {object} tile hex cell that matches location result, or random if one wasn't found
+     */
     _c.find_a_matching_tile = function (game, options) {
+        var mid_left = Math.round(_c.cols(game) * .25);
+        var mid_right = Math.round(_c.cols(game) * .75);
+        var center_left_right = Math.round(_c.cols(game) * .5);
+
+        var mid_top = Math.round(_c.rows(game) * .25);
+        var mid_bottom = Math.round(_c.rows(game) * .75);
+        var center_top_bottom = Math.round(_c.rows(game) * .5);
+
+        var mid_left_range = [mid_left - 4, mid_left - 3, mid_left - 2, mid_left - 1, mid_left, mid_left + 1, mid_left + 2, mid_left + 3, mid_left + 4];
+        var center_left_right_range = [center_left_right - 4, center_left_right - 3, center_left_right - 2, center_left_right - 1, center_left_right, center_left_right + 1, center_left_right + 2, center_left_right + 3, center_left_right + 4];
+        var mid_right_range = [mid_right - 4, mid_right - 3, mid_right - 2, mid_right - 1, mid_right, mid_right + 1, mid_right + 2, mid_right + 3, mid_right + 4];
+
+        var mid_bottom_range = [mid_bottom - 4, mid_bottom - 3, mid_bottom - 2, mid_bottom - 1, mid_bottom, mid_bottom + 1, mid_bottom + 2, mid_bottom + 3, mid_bottom + 4];
+        var center_top_bottom_range = [center_top_bottom - 4, center_top_bottom - 3, center_top_bottom - 2, center_top_bottom - 1, center_top_bottom, center_top_bottom + 1, center_top_bottom + 2, center_top_bottom + 3, center_top_bottom + 4];
+        var mid_top_range = [mid_top - 4, mid_top - 3, mid_top - 2, mid_top - 1, mid_top, mid_top + 1, mid_top + 2, mid_top + 3, mid_top + 4];
+
         var x, y, i, tries = 50, index = 0, key;
         if (options.location == 'center') {
             for (i = 0; i < tries; i++) {
@@ -149,9 +185,8 @@
             }
 
         } else if (options.location == 'mid left') {
-            var mid_left = Math.round(_c.cols(game) * .25);
             for (i = 0; i < tries; i++) {
-                x = options.x || _c.randOption([mid_left - 2, mid_left - 1, mid_left, mid_left + 1, mid_left + 2]);
+                x = options.x || _c.randOption(mid_left_range);
                 y = options.y || _c.randInt(_c.rows(game));
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
@@ -160,10 +195,109 @@
             }
 
         } else if (options.location == 'mid right') {
-            var mid_right = Math.round(_c.cols(game) * .75);
             for (i = 0; i < tries; i++) {
-                x = options.x || _c.randOption([mid_right - 2, mid_right - 1, mid_right, mid_right + 1, mid_right + 2]);
+                x = options.x || _c.randOption(mid_right_range);
                 y = options.y || _c.randInt(_c.rows(game));
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'mid top') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randInt(_c.cols(game));
+                y = options.y || _c.randOption(mid_top_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'mid bottom') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randInt(_c.cols(game));
+                y = options.y || _c.randOption(mid_bottom_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'w') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(mid_left_range);
+                y = options.y || _c.randOption(center_top_bottom_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 's') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(center_left_right_range);
+                y = options.y || _c.randOption(mid_bottom_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'n') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(center_left_right_range);
+                y = options.y || _c.randOption(mid_top_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'e') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(mid_right_range);
+                y = options.y || _c.randOption(center_top_bottom_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'sw') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(mid_left_range);
+                y = options.y || _c.randOption(mid_bottom_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'se') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(mid_right_range);
+                y = options.y || _c.randOption(mid_bottom_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'nw') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(mid_left_range);
+                y = options.y || _c.randOption(mid_top_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'ne') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(mid_right_range);
+                y = options.y || _c.randOption(mid_top_range);
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
@@ -178,7 +312,6 @@
                     x = _c.randInt(_c.cols(game));
                 }
                 y = _c.randOption([0, 1]);
-
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
@@ -205,8 +338,17 @@
                 y = options.x || (_c.randInt(_c.rows(game)));
                 x = options.y || (y % 2) + (_c.randInt(_c.cols(game) / 2) * 2);
 
-                var loc = _c.tile_is_traversable(game, x, y, true, true);
-                if (loc) {
+                if (_c.tile_is_traversable(game, x, y, true, true)) {
+                    break;
+                }
+            }
+
+        } else if (options.location) {
+            for (i = 0; i < tries; i++) {
+                y = options.x || (_c.randInt(_c.rows(game)));
+                x = options.y || (y % 2) + (_c.randInt(_c.cols(game) / 2) * 2);
+
+                if (_c.tile_is_traversable(game, x, y) && _c.tile_has(game, x, y, options.location)) {
                     break;
                 }
             }
@@ -218,7 +360,7 @@
             y = parseInt(key[1]);
         }
 
-        //Do a last final check for valid
+        //Do a last final check for valid, and try an open cell if not found
         if (!_c.tile_is_traversable(game, x, y, true)) {
             index = Math.floor(ROT.RNG.getUniform() * game.open_space.length);
             key = game.open_space[index];
@@ -227,7 +369,7 @@
         }
 
         if (!game.open_space.length || x === undefined || y === undefined) {
-            console.error("No open spaces, can't draw units");
+            console.error("No open spaces, can't find valid cell");
             x = 0;
             y = game.randInt(_c.rows(gmae), game.game_options);
         }
@@ -515,7 +657,6 @@
             }
         }
 
-
         return tiles;
     };
     _c.generators = {};
@@ -623,7 +764,7 @@
             if (cell && _c.tile_is_traversable(game, x, y, false) && !_c.tile_has(cell, 'road') && !_c.tile_has(cell, 'river') && (cell.name != 'lake')) {
                 cell.population = cell.population || 0;
                 cell.population += building_tile_tries / 4 + (rolls[i][3] * building_tile_radius_x);
-                cell.population = Math.ceil(Math.max(0,cell.population));
+                cell.population = Math.ceil(Math.max(0, cell.population));
                 game.cells[x][y] = cell;
 
                 if (_.indexOf(city_cells, cell) == -1) city_cells.push(cell);
@@ -635,7 +776,7 @@
                 _.each(neighbors, function (neighbor) {
                     neighbor.population = neighbor.population || 0;
                     neighbor.population += building_tile_tries / (road_neighbors.length * 1.8);
-                    neighbor.population = Math.ceil(Math.max(0,neighbor.population));
+                    neighbor.population = Math.ceil(Math.max(0, neighbor.population));
                     game.cells[neighbor.x][neighbor.y] = neighbor;
 
                     if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
@@ -795,7 +936,6 @@
                 survive: survive
             });
 
-
             // initialize with irregularly random values with less in middle
             if (terrain_layer.not_center) {
                 for (var i = 0; i < _c.cols(game); i++) {
@@ -897,7 +1037,6 @@
                 }
             }
         }
-
         return road_tiles;
     };
 
@@ -921,7 +1060,6 @@
         //TODO: Don't use recursion, instead just a for x-n to x+n loop
 
         function make_water(x, y, recursion) {
-
             if (!_c.tile_is_traversable(game, x, y, false)) {
                 return;
             }
@@ -939,7 +1077,6 @@
 
                 //TODO: Not sure why, but depth is first setting properly, then being overwritten to 1 for large lakes
 //                test.push (x +','+y+' setting to ' + recursion);
-
 
                 game.cells[x][y] = layer;
 

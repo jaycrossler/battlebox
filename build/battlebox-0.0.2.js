@@ -1269,6 +1269,18 @@ Battlebox.initializeOptions = function (option_type, options) {
 
     //TODO: Pass in a length of rounds before game is over
 
+    _c.add_main_city_population = function(game, population) {
+        game.data.buildings[0].population += population;
+        for (var y = 0; y < _c.rows(game); y++) {
+            for (var x = y % 2; x < _c.cols(game); x += 2) {
+                game.cells[x][y].population = 0;
+            }
+        }
+        _c.generate_buildings(game);
+        _c.draw_whole_map(game);
+        console.log("Pop now at: " + game._private_functions.population_counter(game));
+    };
+
     _c.draw_initial_display = function (game, options) {
         $pointers.canvas_holder = $('#container');
 
@@ -1293,6 +1305,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             .appendTo($pointers.canvas_holder);
 
         //Build the map
+        ROT.RNG.setSeed(game.data.rand_seed);
         _c.generate_base_map(game);
         _c.generate_water_layers(game);
         _c.generate_buildings(game);
@@ -1325,6 +1338,21 @@ Battlebox.initializeOptions = function (option_type, options) {
                 }
             })
             .appendTo($pointers.canvas_holder);
+
+        $pointers.play_pause_button = $('<button>')
+            .text('Add 100 people')
+            .on('click', function () {
+                _c.add_main_city_population(game,100);
+            })
+            .appendTo($pointers.canvas_holder);
+
+        $pointers.play_pause_button = $('<button>')
+            .text('Add 1000 people')
+            .on('click', function () {
+                _c.add_main_city_population(game,1000);
+            })
+            .appendTo($pointers.canvas_holder);
+
 
         return container_canvas;
     };
@@ -2083,7 +2111,8 @@ Battlebox.initializeOptions = function (option_type, options) {
     //TODO: Use colored large circle characters for forces, not full hex colors
     //TODO: Work on wall shape rotation
     //TODO: Wall shapes (especially squares) are not all spaced evenly
-    //TODO: Pre-roll all placement random numbers for city in order so that additionals build upon
+    //TODO: Find out why pre-rolling placement numbers isn't turning out almost exactly the same between builds
+    //TODO: Adding population doesnt add new roads if they should
 
     _c.tile = function (game, x, y) {
         var cell;
@@ -2178,6 +2207,8 @@ Battlebox.initializeOptions = function (option_type, options) {
                     break;
                 }
             }
+        } else if (_.isObject(options.location)) {
+            return options.location;
 
         } else if (options.location == 'city') {
             var cities = _.filter(game.data.buildings, function (b) {
@@ -2309,7 +2340,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
     /**
      * Returns whether a tile has a specific addition (either a simple text feature like 'field', or a complex object feature like {name:'road', symbol:'-'}
-     * @param {cell} cell - tile to look at
+     * @param {object} cell - tile to look at
      * @param {string} feature - a feature class, like 'field', or 'road'
      * @param {boolean} return_count - return just a count of features instead of feature details
      * @returns {object} null if no object, or the first feature info (string or object) if it was found, or count of objects if return_count specified
@@ -2344,16 +2375,16 @@ Battlebox.initializeOptions = function (option_type, options) {
     ];
     /**
      * Returns a cardinal direction from one tile to an another hex tile
-     * @param {cell} tile_from
-     * @param {cell} tile_to
+     * @param {object} tile_from
+     * @param {object} tile_to
      * @returns {object} cell_info {angle, hex_dir_change_array, road_symbol, description, abbr}
      */
     _c.direction_from_tile_to_tile = function (tile_from, tile_to) {
         var angle = Math.atan2(tile_to.y - tile_from.y, tile_to.x - tile_from.x);
-        angle += (Math.PI*.5); //Orient it to map
-        angle = (angle + (Math.PI*2)) % (Math.PI*2);  //Constrain it to 0 - 2*PI
+        angle += (Math.PI * .5); //Orient it to map
+        angle = (angle + (Math.PI * 2)) % (Math.PI * 2);  //Constrain it to 0 - 2*PI
 
-        var slice = angle / ( (Math.PI*2) / 6);
+        var slice = angle / ( (Math.PI * 2) / 6);
         var dir_num = Math.ceil(slice) % 6;
         var dir = hex_angle_lookups[dir_num];
         dir.hex_dir_change_array = ROT.DIRS[6][dir.rot_number];
@@ -2363,27 +2394,27 @@ Battlebox.initializeOptions = function (option_type, options) {
     /**
      * Returns the opposite neighboring tiles to (tile_to) from the perspective of (tile_from)
      * @param {object} game
-     * @param {cell} tile_from
-     * @param {cell} tile_to (returns 3 neighbors of this tile)
+     * @param {object} tile_from
+     * @param {object} tile_to (returns 3 neighbors of this tile)
      * @returns {Array} neighbor_cells
      */
     _c.opposite_tiles_from_tile_to_tile = function (game, tile_from, tile_to) {
         var neighbor_cells = [];
 
         var angle = Math.atan2(tile_to.y - tile_from.y, tile_to.x - tile_from.x);
-        angle += (Math.PI*.5); //Orient it to map
-        angle = (angle + (Math.PI*2)) % (Math.PI*2);  //Constrain it to 0 - 2*PI
+        angle += (Math.PI * .5); //Orient it to map
+        angle = (angle + (Math.PI * 2)) % (Math.PI * 2);  //Constrain it to 0 - 2*PI
 
-        var slice = angle / ( (Math.PI*2) / 6);
-        var dir_num_1 = Math.ceil(slice+5) % 6;
+        var slice = angle / ( (Math.PI * 2) / 6);
+        var dir_num_1 = Math.ceil(slice + 5) % 6;
         var dir_num_2 = Math.ceil(slice) % 6;
-        var dir_num_3 = Math.ceil(slice+1) % 6;
+        var dir_num_3 = Math.ceil(slice + 1) % 6;
 
-        for (var i=0; i<6; i++) {
+        for (var i = 0; i < 6; i++) {
             if ((dir_num_1 != i) && (dir_num_2 != i) && (dir_num_3 != i)) {
                 var moves = ROT.DIRS[6][i];
 
-                var cell = _c.tile(game, tile_to.x+moves[0], tile_to.y+moves[1]);
+                var cell = _c.tile(game, tile_to.x + moves[0], tile_to.y + moves[1]);
                 neighbor_cells.push(cell);
             }
         }
@@ -2420,8 +2451,8 @@ Battlebox.initializeOptions = function (option_type, options) {
         //Look for all free cells, and draw the map to be blank there
         var freeCells = [];
         var ground_layer = _.find(game.data.terrain_options, function (l) {
-            return l.ground
-        }) || game.data.terrain_options[0];
+                return l.ground
+            }) || game.data.terrain_options[0];
 
         for (var y = 0; y < _c.rows(game); y++) {
             for (var x = y % 2; x < _c.cols(game); x += 2) {
@@ -2458,7 +2489,8 @@ Battlebox.initializeOptions = function (option_type, options) {
 
     };
     _c.generate_buildings = function (game) {
-        _.each(game.data.buildings, function (building_layer) {
+        _.each(game.data.buildings, function (building_layer, i) {
+            resetSeed(game, i);
             var location = _c.find_a_matching_tile(game, building_layer);
             if (building_layer.type == 'city') {
                 building_layer.tiles = _c.generators.city(game, location, building_layer);
@@ -2492,8 +2524,10 @@ Battlebox.initializeOptions = function (option_type, options) {
     //¬-----------------------------------------------------
     function screen_xy_from_tile_xy(game, x, y) {
         var be = game.display._backend;
-        return {x: (x + 1) * be._spacingX,
-            y: y * be._spacingY + be._hexSize};
+        return {
+            x: (x + 1) * be._spacingX,
+            y: y * be._spacingY + be._hexSize
+        };
     }
 
     //From: ROT.Display.Hex.prototype.eventToPosition
@@ -2605,18 +2639,20 @@ Battlebox.initializeOptions = function (option_type, options) {
             cell.additions.push(i);
         });
     };
+    function resetSeed(game, extra) {
+        ROT.RNG.setSeed(game.data.rand_seed + (extra || 0));
+    }
+
     _c.generators.city2 = function (game, location, city_info) {
-
         var populations_tightness = (city_info.tightness || 1) * 3.1;
-
-
         var city_cells = [];
 
         //Build roads based on city size
-        ROT.RNG.setSeed(game.data.rand_seed);
         var number_of_roads;
         var road_location = null;
-        var all_cities = _.filter(game.data.buildings, function(b){return b.type == 'city' || b.type == 'city2'});
+        var all_cities = _.filter(game.data.buildings, function (b) {
+            return b.type == 'city' || b.type == 'city2'
+        });
 
         if (all_cities.length > 1 && _.indexOf(all_cities, city_info) > 0 && all_cities[0].tiles) {
             road_location = all_cities[0].tiles[0];
@@ -2625,28 +2661,41 @@ Battlebox.initializeOptions = function (option_type, options) {
             number_of_roads = (city_info.road_count !== undefined) ? city_info.road_count : Math.pow(city_info.population / 100, 1 / 4);
         }
 
-        var road_tiles = _c.generators.roads_from(game, number_of_roads, location, road_location);
+        var road_tiles = city_info.road_tiles || _c.generators.roads_from(game, number_of_roads, location, road_location);
         road_tiles.sort(function (a, b) {
             var dist_a = Helpers.distanceXY(location, a);
             var dist_b = Helpers.distanceXY(location, b);
-
             return dist_a > dist_b;
         });
+        city_info.road_tiles = road_tiles;
 
         //Reset the city so it'll look the same independent of number of roads
-        ROT.RNG.setSeed(game.data.rand_seed);
+        resetSeed(game);
 
         //Build the center and give it some population
         var center = _c.tile(game, location.x, location.y);
-        var building_tile_tries = Math.sqrt(city_info.population);
+        var building_tile_tries = Math.floor(Math.sqrt(city_info.population));
         center.population = center.population || 0;
         center.population += building_tile_tries * 2;
         city_cells.push(center);
 
+
+        //Pre-roll all random rolls so that they will always build in the same pattern
+        var rolls = [];
+        for (var i = 0; i < building_tile_tries; i++) {
+            var roll_set = [
+                _c.randHistogram(.05, populations_tightness * 2),
+                ROT.RNG.getNormal(),
+                ROT.RNG.getNormal(),
+                ROT.RNG.getNormal()
+            ];
+            rolls.push(roll_set);
+        }
+
         //Add population along roads
         if (road_tiles.length) {
             for (var i = 0; i < building_tile_tries; i++) {
-                var road_index = Math.round(_c.randHistogram(.05, populations_tightness*2) * road_tiles.length);
+                var road_index = Math.round(rolls[i][0] * road_tiles.length);
                 var road_segment = road_tiles[road_index];
 
                 //Assign population to all non-road/river/lake cells
@@ -2668,15 +2717,16 @@ Battlebox.initializeOptions = function (option_type, options) {
         var building_tile_radius_x = building_tile_radius_y * 1.5;
         for (var i = 0; i < building_tile_tries; i++) {
             var x, y;
-            x = location.x + (ROT.RNG.getNormal() * building_tile_radius_x / 4);
-            y = location.y + (ROT.RNG.getNormal() * building_tile_radius_y / 4);
+            x = location.x + (rolls[i][1] * building_tile_radius_x / 4);
+            y = location.y + (rolls[i][2] * building_tile_radius_y / 4);
             x = Math.floor(x);
             y = Math.floor(y);
 
             var cell = _c.tile(game, x, y);
             if (cell && _c.tile_is_traversable(game, x, y, false) && !_c.tile_has(cell, 'road') && !_c.tile_has(cell, 'river') && (cell.name != 'lake')) {
                 cell.population = cell.population || 0;
-                cell.population += building_tile_tries / 4 + (ROT.RNG.getNormal() * building_tile_radius_x);
+                cell.population += building_tile_tries / 4 + (rolls[i][3] * building_tile_radius_x);
+                cell.population = Math.ceil(Math.max(0,cell.population));
                 game.cells[x][y] = cell;
 
                 if (_.indexOf(city_cells, cell) == -1) city_cells.push(cell);
@@ -2688,6 +2738,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 _.each(neighbors, function (neighbor) {
                     neighbor.population = neighbor.population || 0;
                     neighbor.population += building_tile_tries / (road_neighbors.length * 1.8);
+                    neighbor.population = Math.ceil(Math.max(0,neighbor.population));
                     game.cells[neighbor.x][neighbor.y] = neighbor;
 
                     if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
@@ -2711,7 +2762,8 @@ Battlebox.initializeOptions = function (option_type, options) {
                     population: cell_population,
                     type: 'city',
                     x: x,
-                    y: y};
+                    y: y
+                };
 
                 cell.population = cell_population;
 
@@ -2739,7 +2791,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         var pop_count = city_info.population - _c.population_counter(game, city_cells);
         if (pop_count > 0) {
-            city_cells[0].population+=Math.round(pop_count);
+            city_cells[0].population += Math.round(pop_count);
         }
 
         //Loop through cells with multiple farms and redistribute the farms further out
@@ -2757,7 +2809,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                     var neighbors = _c.surrounding_tiles(game, cell.x, cell.y);
 
                     var farms_to_give_each_neighbor = Math.floor(num_farms / neighbors.length);
-                    var population_to_give_each_neighbor = (cell.population-100) / (neighbors.length+1);
+                    var population_to_give_each_neighbor = (cell.population - 100) / (neighbors.length + 1);
                     _.each(neighbors, function (neighbor) {
                         neighbor.additions = neighbor.additions || [];
                         for (var f = 0; f < farms_to_give_each_neighbor; f++) {
@@ -3631,7 +3683,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         game.data.tick_count++;
 //        console.log('Game Tick: ' + game.data.tick_count);
 
-        if (game.data.tick_count > game.game_options.game_over_time) {
+        if ((game.game_options.game_over_time !== undefined) && (game.data.tick_count > game.game_options.game_over_time)) {
             _c.game_over(game);
         }
 
