@@ -22,6 +22,7 @@ $(function () {
     if (forces) {
         if (forces = "none") {
             game_options.forces = [];
+            game_options.game_over_time = undefined;
         }
     }
 

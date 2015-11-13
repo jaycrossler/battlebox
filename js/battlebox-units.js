@@ -186,7 +186,7 @@
         game.data.tick_count++;
 //        console.log('Game Tick: ' + game.data.tick_count);
 
-        if (game.data.tick_count > game.game_options.game_over_time) {
+        if ((game.game_options.game_over_time !== undefined) && (game.data.tick_count > game.game_options.game_over_time)) {
             _c.game_over(game);
         }
 

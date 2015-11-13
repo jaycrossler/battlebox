@@ -4,6 +4,18 @@
 
     //TODO: Pass in a length of rounds before game is over
 
+    _c.add_main_city_population = function(game, population) {
+        game.data.buildings[0].population += population;
+        for (var y = 0; y < _c.rows(game); y++) {
+            for (var x = y % 2; x < _c.cols(game); x += 2) {
+                game.cells[x][y].population = 0;
+            }
+        }
+        _c.generate_buildings(game);
+        _c.draw_whole_map(game);
+        console.log("Pop now at: " + game._private_functions.population_counter(game));
+    };
+
     _c.draw_initial_display = function (game, options) {
         $pointers.canvas_holder = $('#container');
 
@@ -28,6 +40,7 @@
             .appendTo($pointers.canvas_holder);
 
         //Build the map
+        ROT.RNG.setSeed(game.data.rand_seed);
         _c.generate_base_map(game);
         _c.generate_water_layers(game);
         _c.generate_buildings(game);
@@ -60,6 +73,21 @@
                 }
             })
             .appendTo($pointers.canvas_holder);
+
+        $pointers.play_pause_button = $('<button>')
+            .text('Add 100 people')
+            .on('click', function () {
+                _c.add_main_city_population(game,100);
+            })
+            .appendTo($pointers.canvas_holder);
+
+        $pointers.play_pause_button = $('<button>')
+            .text('Add 1000 people')
+            .on('click', function () {
+                _c.add_main_city_population(game,1000);
+            })
+            .appendTo($pointers.canvas_holder);
+
 
         return container_canvas;
     };
