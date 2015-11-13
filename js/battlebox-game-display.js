@@ -265,10 +265,22 @@
         if (_c.tile_has(cell, 'tower')) {
             text = "╠╣";
         }
+        if (_c.tile_has(cell, 'river') && _c.tile_has(cell, 'wall')) {
+            text = "{}";
+        }
+
         if (population_darken_amount) {
             bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), population_darken_amount).toString();
         }
 
+        _.each(game.game_options.hex_drawing_callbacks, function (callback) {
+            var results = callback(game, cell, text, color, bg);
+            if (results) {
+                text = results.text || text;
+                color = results.color || color;
+                bg = results.bg || bg;
+            }
+        });
 
         //First draw it black, then redraw it with the chosen color to help get edges proper color
         game.display.draw(x, y, text, color || "#000", bg);

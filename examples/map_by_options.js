@@ -13,8 +13,20 @@ $(function () {
     var forces = Helpers.getQueryVariable('forces');
     var forts = Helpers.getQueryVariable('forts');
     var tightness = Helpers.getQueryVariable('tightness');
+    var placement = Helpers.getQueryVariable('placement');
+
+    function custom_color_hex(game, cell, text, color, bg) {
+        if (text == " ") {
+            text = ' ';
+        }
+
+        return {text: text, color: color, bg: bg};
+    }
+
 
     var game_options = new Battlebox('get_game_options');
+    game_options.hex_drawing_callbacks.push(custom_color_hex);
+
     if (cities) {
         game_options.buildings.push(second_city)
     }
@@ -38,15 +50,19 @@ $(function () {
         game_options.buildings[0].tightness = tightness;
     }
 
+    if (placement) {
+        game_options.buildings[0].location = placement;
+    }
+
     if (forts) {
         forts = parseInt(forts);
         if (forts >= 1) {
             game_options.buildings[0].fortifications.push({
-                count: 40,
+                count: 80,
                 shape: 'square',
                 radius: 6.5,
                 towers: 8,
-                starting_angle: .125
+                starting_angle: 0
             });
         }
         if (forts >= 2) {

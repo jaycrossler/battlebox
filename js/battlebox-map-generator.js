@@ -804,14 +804,16 @@
         var wall_tiles = _c.shape_to_tiles(game, location, wall_info.shape || 'circle', wall_info.count, wall_info.radius || 4, wall_info.starting_angle);
         var last_tower = -1;
         _.each(wall_tiles, function (cell, i) {
-            cell.additions = cell.additions || [];
-            cell.additions.push('wall');
+            if (cell && !cell.impassible) {
+                cell.additions = cell.additions || [];
+                cell.additions.push('wall');
 
-            //(i * ((wall_info.towers || 0) / wall_info.count)) % (wall_info.towers || 1) == 0;
-            var tower_count = Math.round(i * ((wall_info.towers || 0) / wall_info.count));
-            if (tower_count > last_tower) {
-                cell.additions.push('tower');
-                last_tower = tower_count;
+                //(i * ((wall_info.towers || 0) / wall_info.count)) % (wall_info.towers || 1) == 0;
+                var tower_count = Math.round(i * ((wall_info.towers || 0) / wall_info.count));
+                if (tower_count > last_tower) {
+                    cell.additions.push('tower');
+                    last_tower = tower_count;
+                }
             }
         });
     };

@@ -115,6 +115,7 @@
 
         functions_on_setup: [],
         functions_each_tick: [],
+        hex_drawing_callbacks: [],
         game_over_function: game_over_function
     };
 
