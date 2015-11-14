@@ -50,22 +50,6 @@
         }
     };
 
-    _c.initialize_ui_display = function (game) {
-        var canvas = _c.draw_initial_display(game, {});
-
-        canvas.addEventListener("mousemove", function (ev) {
-            var loc = game.display.eventToPosition(ev);
-            _c.highlight_position(game, loc);
-
-            _c.show_info(_c.tile_info(game, loc[0], loc[1]));
-        });
-    };
-
-    _c.update_ui_display = function (game) {
-
-
-    };
-
     _c.start_game_loop = function (game) {
         game.logMessage("Starting game loop");
         game.data.in_progress = true;

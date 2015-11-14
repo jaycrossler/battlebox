@@ -1,6 +1,6 @@
 /*
 ------------------------------------------------------------------------------------
--- battlebox.js - v0.0.2 - Built on 2015-11-12 by Jay Crossler using Grunt.js
+-- battlebox.js - v0.0.2 - Built on 2015-11-13 by Jay Crossler using Grunt.js
 ------------------------------------------------------------------------------------
 -- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara 
 -- Packaged with color.js - Copyright (c) 2008-2013, Andrew Brehaut, Tim Baumann,  
@@ -1210,6 +1210,117 @@ Battlebox.initializeOptions = function (option_type, options) {
     //TODO: Should there be a list of sides that matter in a conflict?
 
     var _c = new Battlebox('get_private_functions');
+    _c.battle = {};
+    _c.battle.fight = function (game, attacker, defender) {
+
+        var attacker_strength = 0;
+        var attacker_defense = 0;
+        _.each(attacker.forces, function (force) {
+            attacker_strength += (force.count || 1) * (force.strength || 1);
+            attacker_defense += (force.count || 1) * (force.defense || 1);
+            force.mode = 'attacking';
+        });
+
+        var defender_strength = 0;
+        var defender_defense = 0;
+        _.each(defender.forces, function (force) {
+            defender_strength += (force.count || 1) * (force.strength || 1);
+            defender_defense += (force.count || 1) * (force.defense || 1);
+            force.mode = 'defending';
+        });
+
+
+        //Sort from fastest to slowest
+        var all_forces = [].concat(attacker.forces, defender.forces);
+        all_forces.sort(function (a, b) {
+            return (a.speed || 40) < (b.speed || 40)
+        });
+
+        //For each group of forces
+        for (var f = 0; f < all_forces.length; f++) {
+            var force = all_forces[f];
+
+            if (!force.dead) {
+                for (var i = 0; i < force.count; i++) {
+                    //Have each troop attack a random enemy
+                    //TODO: Allow attacking fastest, slowest, weakest, strongest, least defended, etc
+                    var enemy_side = force.mode == 'attacking' ? defender.forces : attacker.forces;
+                    if (enemy_side.length) {
+
+                        //TODO: Have defense force use defenses of current tile
+                        var target_force = _c.randOption(force.mode == 'attacking' ? defender.forces : attacker.forces);
+                        var to_hit_chance = force.strength / target_force.defense;
+
+                        var enemy_killed = (to_hit_chance >= 1) ? true : (_c.random() <= to_hit_chance);
+                        if (enemy_killed) {
+                            //------------------------------------------------
+                            //If the attacked force is removed, take it off the unit
+                            target_force.count--;
+                            if (target_force.count <= 0) {
+                                var f_i = _.indexOf(all_forces, target_force);
+                                if (f_i > -1) {
+                                    all_forces[f_i].dead = true;
+                                }
+
+                                if (force.mode == 'attacking') {
+                                    defender.forces = _.reject(defender.forces, target_force);
+                                } else {
+                                    attacker.forces = _.reject(attacker.forces, target_force);
+                                }
+                            }
+
+                            //------------------------------------------------
+                            //See if enemy gets returning free hit against attacker - 20% of normal attack chance
+                            var return_hit_chance = (.2 * target_force.defense) / force.strength;
+                            if (_c.random() <= return_hit_chance) {
+
+                                //------------------------------------------------
+                                //If the returned-fire force is removed, take it off the unit
+                                force.count--;
+                                if (force.count <= 0) {
+                                    var f_i = _.indexOf(all_forces, force);
+                                    if (f_i > -1) {
+                                        all_forces[f_i].dead = true;
+                                    }
+
+                                    if (force.mode == 'attacking') {
+                                        attacker.forces = _.reject(attacker.forces, force);
+                                    } else {
+                                        defender.forces = _.reject(defender.forces, force);
+                                    }
+                                }
+                            }
+
+                        }
+                    } else {
+                        //Enemy eliminated
+                        break;
+                    }
+                }
+            }
+        }
+
+    };
+    _c.battle.hydrate_metadata = function (game, troop, count, side) {
+        var troop_data = _.find(game.game_options.troop_types, function (tt) {
+            return tt.side == side && tt.name == troop
+        });
+        if (!troop_data) {
+            troop_data = _.find(game.game_options.troop_types, function (tt) {
+                return tt.side == 'all' && tt.name == troop
+            });
+        }
+        var troop_object = {};
+        if (!troop_data) {
+            console.error("troop_data not found for: " + troop);
+            troop_object = {name: troop, count: count, side: side};
+        } else {
+            troop_object = _.clone(troop_data);
+            troop_object.side = side;
+            troop_object.count = count;
+        }
+        return troop_object;
+    };
 
     _c.entity_attacks_entity = function (game, attacker, defender, callback) {
         attacker._data.troops = attacker._data.troops || {};
@@ -1218,48 +1329,111 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         var a_name = attacker._data.name || "Attacker";
         var a_side = attacker._data.side || "Side 1";
-        var a_count = (attacker._data.troops.soldiers || 0) + (attacker._data.troops.cavalry || 0) + (attacker._data.troops.siege || 0) + (1000 * (attacker._data.troops.adult_dragon || 0));
 
         var d_name = defender._data.name || "Defender";
         var b_side = defender._data.side || "Side 2";
-        var d_count = (defender._data.troops.soldiers || 0) + (defender._data.troops.cavalry || 0) + (defender._data.troops.siege || 0) + (1000 * (defender._data.troops.adult_dragon || 0));
 
+
+        //Add metadata from game_options.troop_types to each troop
+        //TODO: Move this all to unit setup on provisioning
+        if (!attacker.data_expanded) {
+            attacker.forces = [];
+            for (var key in attacker._data.troops) {
+                var force = _c.battle.hydrate_metadata(game, key, attacker._data.troops[key], attacker._data.side);
+                attacker.forces.push(force);
+            }
+            attacker.data_expanded = true;
+        }
+        if (!defender.data_expanded) {
+            defender.forces = [];
+            for (var key in defender._data.troops) {
+                var force = _c.battle.hydrate_metadata(game, key, defender._data.troops[key], defender._data.side);
+                defender.forces.push(force);
+            }
+            defender.data_expanded = true;
+        }
+
+
+        //Count before fight
+        var a_count = 0;
+        _.each(attacker.forces, function (force) {
+            a_count += force.count || 0;
+        });
+
+        var d_count = 0;
+        _.each(defender.forces, function (force) {
+            d_count += force.count || 0;
+        });
+
+        if ((a_count <= 0) || (d_count <= 0)) return true;
+
+        //Have the forces fight together
+        _c.battle.fight(game, attacker, defender);
+
+
+        //Count the survivors
+        var a_count_after = 0;
+        _.each(attacker.forces, function (force) {
+            a_count_after += force.count || 0;
+        });
+
+        var d_count_after = 0;
+        _.each(defender.forces, function (force) {
+            d_count_after += force.count || 0;
+        });
+
+        //Find if the game ended or if attacker won
         var enemies_alive;
         var message = "";
         var game_over_side;
 
-        if (a_count >= d_count) {
-            defender.is_dead = true;
-            _c.remove_entity(game, defender);
+        var a_msg = "<span style='background-color:" + attacker._data.side + "'>" + a_name + " ([" + (attacker._symbol || '@') + "] was size " + a_count + ", now " + (a_count_after) + ")</span>";
+        var d_msg = "<span style='background-color:" + defender._data.side + "'>" + d_name + " ([" + (defender._symbol || '@') + "] was size " + d_count + ", now " + (d_count_after) + ")</span>";
 
-            message = "<b>" +a_name + " ("+a_side+", size "+a_count+")</b> wins attacking "+ d_name + " ("+b_side+", power "+d_count+")";
+        var a_lost = a_count - a_count_after;
+        var d_lost = d_count - d_count_after;
 
-            enemies_alive = _c.find_unit_by_filters(game, attacker, {side: 'enemy', return_multiple:true, only_count_forces:true});
-            if (enemies_alive.target.length == 0) {
-                game_over_side = attacker._data.side;
-            }
+
+        if (d_lost >= a_lost) {
+            message = a_msg + " WINS attacking " + d_msg;
             callback(game, message, 3, a_side);
-
         } else {
+            message = a_msg + " LOST attacking " + d_msg;
+            callback(game, message, 3, b_side);
+        }
+
+
+        if (a_count_after <= 0) {
             attacker.is_dead = true;
             _c.remove_entity(game, attacker);
 
-            message = a_name + " ("+a_side+", size "+a_count+") loses attacking <b>"+ d_name + " ("+b_side+", power "+d_count+")</b>";
+            enemies_alive = _c.find_unit_by_filters(game, attacker, {
+                side: 'enemy',
+                return_multiple: true,
+                only_count_forces: true
+            });
+            if (enemies_alive.target.length == 0) {
+                game_over_side = attacker._data.side;
+            }
+        }
+        if (d_count_after <= 0) {
+            defender.is_dead = true;
+            _c.remove_entity(game, defender);
 
-            enemies_alive = _c.find_unit_by_filters(game, defender, {side: 'enemy', return_multiple:true});
+            enemies_alive = _c.find_unit_by_filters(game, defender, {side: 'enemy', return_multiple: true});
             if (enemies_alive.target.length == 0) {
                 game_over_side = defender._data.side;
             }
-
-            callback(game, message, 3, b_side);
         }
+
 
         if (game_over_side) {
             _c.game_over(game, game_over_side);
         }
 
-    }
+        return defender.is_dead;
 
+    }
 
 
 })(Battlebox);
@@ -1281,6 +1455,22 @@ Battlebox.initializeOptions = function (option_type, options) {
         console.log("Pop now at: " + game._private_functions.population_counter(game));
     };
 
+    _c.initialize_ui_display = function (game) {
+        var canvas = _c.draw_initial_display(game, {});
+
+        canvas.addEventListener("mousemove", function (ev) {
+            var loc = game.display.eventToPosition(ev);
+            _c.highlight_position(game, loc);
+
+            _c.show_info(_c.tile_info(game, loc[0], loc[1]));
+        });
+    };
+
+    _c.update_ui_display = function (game) {
+
+
+    };
+
     _c.draw_initial_display = function (game, options) {
         $pointers.canvas_holder = $('#container');
 
@@ -1293,7 +1483,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             fontSize: game.game_options.cell_size,
             layout: "hex",
 //            fontFamily: "droid sans mono",
-            border: game.game_options.cell_border || 0.1,
+            border: (game.game_options.cell_border !== undefined) ? game.game_options.cell_border : null,
             spacing: game.game_options.cell_spacing || .88
         });
         var container_canvas = game.display.getContainer();
@@ -1530,10 +1720,22 @@ Battlebox.initializeOptions = function (option_type, options) {
         if (_c.tile_has(cell, 'tower')) {
             text = "╠╣";
         }
+        if (_c.tile_has(cell, 'river') && _c.tile_has(cell, 'wall')) {
+            text = "{}";
+        }
+
         if (population_darken_amount) {
             bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), population_darken_amount).toString();
         }
 
+        _.each(game.game_options.hex_drawing_callbacks, function (callback) {
+            var results = callback(game, cell, text, color, bg);
+            if (results) {
+                text = results.text || text;
+                color = results.color || color;
+                bg = results.bg || bg;
+            }
+        });
 
         //First draw it black, then redraw it with the chosen color to help get edges proper color
         game.display.draw(x, y, text, color || "#000", bg);
@@ -1670,22 +1872,6 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
     };
 
-    _c.initialize_ui_display = function (game) {
-        var canvas = _c.draw_initial_display(game, {});
-
-        canvas.addEventListener("mousemove", function (ev) {
-            var loc = game.display.eventToPosition(ev);
-            _c.highlight_position(game, loc);
-
-            _c.show_info(_c.tile_info(game, loc[0], loc[1]));
-        });
-    };
-
-    _c.update_ui_display = function (game) {
-
-
-    };
-
     _c.start_game_loop = function (game) {
         game.logMessage("Starting game loop");
         game.data.in_progress = true;
@@ -1808,7 +1994,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         rows: 90,
         cell_size: 10,
         cell_spacing: 1,
-        cell_border: .01,
+        cell_border: 0,
         transpose: false, //TODO: If using transpose, a number of other functions for placement should be tweaked
 
         render_style: 'outdoors', //TODO
@@ -1832,37 +2018,31 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         forces: [
             {name: 'Attacker Main Army Force', side: 'Yellow', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'run away', try_to_loot: true, try_to_pillage: true,
+                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
                 troops: {soldiers: 520, cavalry: 230, siege: 50}},
-
             {name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'run away', try_to_loot: true,
+                plan: 'invade city', backup_strategy: 'run away',  try_to_loot: true, try_to_pillage: true,
                 troops: {soldiers: 80, cavalry: 20, siege: 10}},
-
             {name: 'Task Force Bravo', side: 'Yellow', symbol: '#B', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'vigilant',
+                plan: 'invade city', backup_strategy: 'invade city', try_to_loot: true, try_to_pillage: true,
                 troops: {cavalry: 20}},
-
             {name: 'Task Force Charlie', side: 'Yellow', symbol: '#C', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'invade_city', try_to_loot: true, try_to_pillage: true,
+                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
                 troops: {cavalry: 20}},
-
 
             {name: 'Defender City Force', side: 'White', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 620, cavalry: 40, siege: 100}},
-
-            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen 1', side: 'White', symbol: '2', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
-
-            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen 2', side: 'White', symbol: '3', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
-            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen 3', side: 'White', symbol: '4', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
-            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
+            {name: 'Defender Bowmen 4', side: 'White', symbol: '1', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
 
@@ -1883,7 +2063,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             {name: 'soldiers', side: 'all', range: 1, speed: 30, strength: 1.2, defense: 1.8, weapon: 'rapiers', armor: 'armor', carrying: 5},
             {name: 'cavalry', side: 'all', range: 1, speed: 70, strength: 1.5, defense: 1.5, weapon: 'rapier', armor: 'shields', carrying: 2},
             {name: 'siege', title: 'siege units', side: 'all', range: 2, speed: 10, strength: 5, defense: .5, weapon: 'catapults', carrying: 1},
-            {name: 'adult_dragon', side: 'all', range: 3, speed: 120, strength: 150, defense: 300, weapon: 'fire breath', armor: 'impenetrable scales', carrying: 2000}
+            {name: 'adult_dragon', side: 'all', range: 2, speed: 120, strength: 150, defense: 300, weapon: 'fire breath', armor: 'impenetrable scales', carrying: 2000}
         ],
 
         buildings: [
@@ -1891,7 +2071,6 @@ Battlebox.initializeOptions = function (option_type, options) {
                 tightness:1, population: 20000,
                 fortifications: [
                 ]},
-
             {name: 'Grain Storage', type: 'storage', resources: {food: 10000, gold: 2, herbs: 100}, location: 'random'},
             {name: 'Metal Storage', type: 'storage', resources: {metal: 1000, gold: 2, ore: 1000}, location: 'random'},
             {name: 'Cave Entrance', type: 'dungeon', requires: {mountains: true}, location: 'impassible'}
@@ -1903,6 +2082,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         functions_on_setup: [],
         functions_each_tick: [],
+        hex_drawing_callbacks: [],
         game_over_function: game_over_function
     };
 
@@ -2106,6 +2286,9 @@ Battlebox.initializeOptions = function (option_type, options) {
 (function (Battlebox) {
     var _c = new Battlebox('get_private_functions');
 
+    var overlay_lines = []; //Lines for testing or showing information after canvas is drawn
+    //TODO: Update rot.js to have a draw_after_dirty function
+
     //TODO: Pass in a color set to try out different images/rendering techniques
     //TODO: Use hex images for terrain
     //TODO: Use colored large circle characters for forces, not full hex colors
@@ -2113,6 +2296,7 @@ Battlebox.initializeOptions = function (option_type, options) {
     //TODO: Wall shapes (especially squares) are not all spaced evenly
     //TODO: Find out why pre-rolling placement numbers isn't turning out almost exactly the same between builds
     //TODO: Adding population doesnt add new roads if they should
+    //TODO: Walls currently going over river - is that good?
 
     _c.tile = function (game, x, y) {
         var cell;
@@ -2148,12 +2332,19 @@ Battlebox.initializeOptions = function (option_type, options) {
         _.each(_c.entities(game), function (entity, id) {
             if (entity.x == x && entity.y == y && entity._draw) {
                 info.forces = info.forces || [];
-                info.forces.push({id: id, data: entity._data});
+                info.forces.push({id: id, data: entity.forces});
             }
         });
         return info;
     };
 
+    /**
+     * Returns the 6 surrounding hexes around a tile
+     * @param {object} game class data
+     * @param {int} x
+     * @param {int} y
+     * @returns {Array.<Object>} cells and entity data
+     */
     _c.surrounding_tiles = function (game, x, y) {
         var cells = [];
 
@@ -2173,6 +2364,15 @@ Battlebox.initializeOptions = function (option_type, options) {
         return cells;
     };
 
+    /**
+     * Returns whether a tile is a valid cell, and if it is passable
+     * @param {object} game class data
+     * @param {int} x
+     * @param {int} y
+     * @param {boolean} move_through_impassibles return true even if the sell is impassible
+     * @param {boolean} only_impassible return true only if the cell is impassible
+     * @returns {boolean} valid if cell is valid and passable
+     */
     _c.tile_is_traversable = function (game, x, y, move_through_impassibles, only_impassible) {
         var valid_num = (x >= 0) && (y >= 0) && (x < _c.cols(game)) && (y < _c.rows(game));
         if (valid_num) {
@@ -2192,9 +2392,29 @@ Battlebox.initializeOptions = function (option_type, options) {
         return valid_num
     };
 
-
-    //TODO: Work for 'SE', 'NW'
+    /**
+     * Find a tile that matches location parameters
+     * @param {object} game class data
+     * @param {object} options {location:'center'} or 'e' or 'impassible' or 'right' or 'top', etc...
+     * @returns {object} tile hex cell that matches location result, or random if one wasn't found
+     */
     _c.find_a_matching_tile = function (game, options) {
+        var mid_left = Math.round(_c.cols(game) * .25);
+        var mid_right = Math.round(_c.cols(game) * .75);
+        var center_left_right = Math.round(_c.cols(game) * .5);
+
+        var mid_top = Math.round(_c.rows(game) * .25);
+        var mid_bottom = Math.round(_c.rows(game) * .75);
+        var center_top_bottom = Math.round(_c.rows(game) * .5);
+
+        var mid_left_range = [mid_left - 4, mid_left - 3, mid_left - 2, mid_left - 1, mid_left, mid_left + 1, mid_left + 2, mid_left + 3, mid_left + 4];
+        var center_left_right_range = [center_left_right - 4, center_left_right - 3, center_left_right - 2, center_left_right - 1, center_left_right, center_left_right + 1, center_left_right + 2, center_left_right + 3, center_left_right + 4];
+        var mid_right_range = [mid_right - 4, mid_right - 3, mid_right - 2, mid_right - 1, mid_right, mid_right + 1, mid_right + 2, mid_right + 3, mid_right + 4];
+
+        var mid_bottom_range = [mid_bottom - 4, mid_bottom - 3, mid_bottom - 2, mid_bottom - 1, mid_bottom, mid_bottom + 1, mid_bottom + 2, mid_bottom + 3, mid_bottom + 4];
+        var center_top_bottom_range = [center_top_bottom - 4, center_top_bottom - 3, center_top_bottom - 2, center_top_bottom - 1, center_top_bottom, center_top_bottom + 1, center_top_bottom + 2, center_top_bottom + 3, center_top_bottom + 4];
+        var mid_top_range = [mid_top - 4, mid_top - 3, mid_top - 2, mid_top - 1, mid_top, mid_top + 1, mid_top + 2, mid_top + 3, mid_top + 4];
+
         var x, y, i, tries = 50, index = 0, key;
         if (options.location == 'center') {
             for (i = 0; i < tries; i++) {
@@ -2252,9 +2472,8 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
 
         } else if (options.location == 'mid left') {
-            var mid_left = Math.round(_c.cols(game) * .25);
             for (i = 0; i < tries; i++) {
-                x = options.x || _c.randOption([mid_left - 2, mid_left - 1, mid_left, mid_left + 1, mid_left + 2]);
+                x = options.x || _c.randOption(mid_left_range);
                 y = options.y || _c.randInt(_c.rows(game));
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
@@ -2263,10 +2482,109 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
 
         } else if (options.location == 'mid right') {
-            var mid_right = Math.round(_c.cols(game) * .75);
             for (i = 0; i < tries; i++) {
-                x = options.x || _c.randOption([mid_right - 2, mid_right - 1, mid_right, mid_right + 1, mid_right + 2]);
+                x = options.x || _c.randOption(mid_right_range);
                 y = options.y || _c.randInt(_c.rows(game));
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'mid top') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randInt(_c.cols(game));
+                y = options.y || _c.randOption(mid_top_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'mid bottom') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randInt(_c.cols(game));
+                y = options.y || _c.randOption(mid_bottom_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'w') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(mid_left_range);
+                y = options.y || _c.randOption(center_top_bottom_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 's') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(center_left_right_range);
+                y = options.y || _c.randOption(mid_bottom_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'n') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(center_left_right_range);
+                y = options.y || _c.randOption(mid_top_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'e') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(mid_right_range);
+                y = options.y || _c.randOption(center_top_bottom_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'sw') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(mid_left_range);
+                y = options.y || _c.randOption(mid_bottom_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'se') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(mid_right_range);
+                y = options.y || _c.randOption(mid_bottom_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'nw') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(mid_left_range);
+                y = options.y || _c.randOption(mid_top_range);
+
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                    break;
+                }
+            }
+
+        } else if (options.location == 'ne') {
+            for (i = 0; i < tries; i++) {
+                x = options.x || _c.randOption(mid_right_range);
+                y = options.y || _c.randOption(mid_top_range);
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
@@ -2281,7 +2599,6 @@ Battlebox.initializeOptions = function (option_type, options) {
                     x = _c.randInt(_c.cols(game));
                 }
                 y = _c.randOption([0, 1]);
-
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
                     break;
@@ -2308,8 +2625,17 @@ Battlebox.initializeOptions = function (option_type, options) {
                 y = options.x || (_c.randInt(_c.rows(game)));
                 x = options.y || (y % 2) + (_c.randInt(_c.cols(game) / 2) * 2);
 
-                var loc = _c.tile_is_traversable(game, x, y, true, true);
-                if (loc) {
+                if (_c.tile_is_traversable(game, x, y, true, true)) {
+                    break;
+                }
+            }
+
+        } else if (options.location) {
+            for (i = 0; i < tries; i++) {
+                y = options.x || (_c.randInt(_c.rows(game)));
+                x = options.y || (y % 2) + (_c.randInt(_c.cols(game) / 2) * 2);
+
+                if (_c.tile_is_traversable(game, x, y) && _c.tile_has(game, x, y, options.location)) {
                     break;
                 }
             }
@@ -2321,7 +2647,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             y = parseInt(key[1]);
         }
 
-        //Do a last final check for valid
+        //Do a last final check for valid, and try an open cell if not found
         if (!_c.tile_is_traversable(game, x, y, true)) {
             index = Math.floor(ROT.RNG.getUniform() * game.open_space.length);
             key = game.open_space[index];
@@ -2330,7 +2656,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
 
         if (!game.open_space.length || x === undefined || y === undefined) {
-            console.error("No open spaces, can't draw units");
+            console.error("No open spaces, can't find valid cell");
             x = 0;
             y = game.randInt(_c.rows(gmae), game.game_options);
         }
@@ -2502,6 +2828,26 @@ Battlebox.initializeOptions = function (option_type, options) {
                 //TODO: Add    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
             }
             building_layer.location = location;
+
+
+            //Add walls around structure
+            if (building_layer.fortifications) {
+                var fortifications = building_layer.fortifications;
+                if (!_.isArray(fortifications)) fortifications = [fortifications];
+                _.each(fortifications, function (fort) {
+                    var title = _.str.titleize(building_layer.title || building_layer.name) + 's walls';
+                    var wall_info = {
+                        count: fort.count || ((building_layer.population || 0) / 10000),
+                        title: fort.title || title,
+                        shape: fort.shape,
+                        radius: fort.radius,
+                        towers: fort.towers,
+                        starting_angle: fort.starting_angle
+                    };
+                    _c.generators.walls(game, location, wall_info);
+                });
+            }
+
         });
     };
     _c.population_counter = function (game, city_cells) {
@@ -2548,7 +2894,110 @@ Battlebox.initializeOptions = function (option_type, options) {
 
     }
 
-    _c.shape_to_tiles = function (game, center, shape, points, radius, staring_angle) {
+    function checkLineIntersection(line1Start, line1End, line2Start, line2End, crossedName) {
+        //From: http://jsfiddle.net/justin_c_rounds/Gd2S2/
+        // if the lines intersect, the result contains the x and y of the intersection (treating the lines as infinite)
+        // and booleans for whether line segment 1 or line segment 2 contain the point
+
+        var denominator, a, b, numerator1, numerator2, result = {
+            x: null,
+            y: null,
+            onLine1: false,
+            onLine2: false
+        };
+        denominator = ((line2End.y - line2Start.y) * (line1End.x - line1Start.x)) - ((line2End.x - line2Start.x) * (line1End.y - line1Start.y));
+        if (denominator == 0) {
+            return result;
+        }
+        a = line1Start.y - line2Start.y;
+        b = line1Start.x - line2Start.x;
+        numerator1 = ((line2End.x - line2Start.x) * a) - ((line2End.y - line2Start.y) * b);
+        numerator2 = ((line1End.x - line1Start.x) * a) - ((line1End.y - line1Start.y) * b);
+        a = numerator1 / denominator;
+        b = numerator2 / denominator;
+
+        // if we cast these lines infinitely in both directions, they intersect here:
+        result.x = line1Start.x + (a * (line1End.x - line1Start.x));
+        result.y = line1Start.y + (a * (line1End.y - line1Start.y));
+
+        // it is worth noting that this should be the same as:
+        // x = line2Start.x + (b * (line2End.x - line2Start.x));
+        // y = line2Start.x + (b * (line2End.y - line2Start.y));
+
+        // if line1 is a segment and line2 is infinite, they intersect if:
+        if (a > 0 && a < 1) {
+            result.onLine1 = true;
+        }
+        // if line2 is a segment and line1 is infinite, they intersect if:
+        if (b > 0 && b < 1) {
+            result.onLine2 = true;
+        }
+        if (crossedName) {
+            result.crossed = crossedName;
+        }
+        // if line1 and line2 are segments, they intersect if both of the above are true
+        return result;
+    }
+
+    function polygon_intersections(game, sides, points, starting_angle, center, center_px, radius_px) {
+        var corners = [];
+        var tiles = [];
+
+        for (var i = 0; i < sides; i++) {
+            var a = ((i / (sides)) + (starting_angle || 0)) % 1;
+            a *= 2 * Math.PI;
+            var x = center_px.x + (radius_px * Math.cos(a));
+            var y = center_px.y + (radius_px * Math.sin(a));
+            corners.push({x: x, y: y});
+        }
+
+        var tester_multiplier = 1.5;
+        for (var i = 0; i < points; i++) {
+            var a = ((i / (points)) + (starting_angle || 0)) % 1;
+            a *= 2 * Math.PI;
+            var point_to = {
+                x: center_px.x + (radius_px * tester_multiplier * Math.cos(a)),
+                y: center_px.y + (radius_px * tester_multiplier * Math.sin(a))
+            };
+
+            for (var l = 0; l < corners.length; l++) {
+                var corner_1 = corners[l];
+                var corner_2 = corners[(l + 1) % corners.length];
+
+                var intersect = checkLineIntersection(center_px, point_to, corner_1, corner_2);
+
+                if (intersect.onLine1 && intersect.onLine2) {
+                    var tile = tile_xy_from_screen_xy(game, intersect.x, intersect.y); //TODO: Handle multiple intersections
+                    //if (_c.tile_is_traversable(game, tile.x, tile.y)) {
+                    tiles.push(_c.tile(game, tile.x, tile.y));
+                    //}
+                }
+            }
+
+            //TESTING for visibility and placement checking
+            overlay_lines.push({p1: center_px, p2: point_to});
+
+        }
+
+        return tiles;
+    }
+
+    //TESTING
+    _c.testAddRandomLines = function (context, color) {
+        context.strokeStyle = color || 'blue';
+        for (var i = 0; i < overlay_lines.length; i++) {
+            var segment = overlay_lines[i];
+
+            context.beginPath();
+            context.moveTo(segment.p1.x, segment.p1.y);
+            context.lineTo(segment.p2.x, segment.p2.y);
+            context.closePath();
+            context.stroke()
+        }
+        return context;
+    };
+
+    _c.shape_to_tiles = function (game, center, shape, points, radius, starting_angle) {
         var tiles = [];
         var center_px = screen_xy_from_tile_xy(game, center.x, center.y);
         var radius_px = Helpers.distanceXY(
@@ -2558,7 +3007,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         if (shape == 'circle') {
             for (var i = 0; i < points; i++) {
-                var a = (i / (points)) + (staring_angle || 0);
+                var a = (i / (points)) + (starting_angle || 0);
                 a *= 2 * Math.PI;
                 var screen_x = center_px.x + (radius_px * Math.cos(a));
                 var screen_y = center_px.y + (radius_px * Math.sin(a));
@@ -2569,8 +3018,21 @@ Battlebox.initializeOptions = function (option_type, options) {
                 }
             }
         } else if (shape == 'square') {
+            tiles = polygon_intersections(game, 4, points, starting_angle, center, center_px, radius_px)
+
+        } else if (shape == 'pentagon') {
+            tiles = polygon_intersections(game, 5, points, starting_angle, center, center_px, radius_px)
+
+        } else if (shape == 'hexagon') {
+            tiles = polygon_intersections(game, 6, points, starting_angle, center, center_px, radius_px)
+
+        } else if (shape == 'septagon') {
+            tiles = polygon_intersections(game, 7, points, starting_angle, center, center_px, radius_px)
+
+
+        } else if (shape == 'rounded square') {
             for (var i = 0; i < points; i++) {
-                var a = (i / (points)) + (staring_angle || 0);
+                var a = (i / (points)) + (starting_angle || 0);
                 a *= 2 * Math.PI;
                 var c = Math.cos(a);
                 var s = Math.sin(a);
@@ -2586,7 +3048,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
         } else if (shape == 'diamond') {
             for (var i = 0; i < points; i++) {
-                var a = (i / (points)) + (staring_angle || 0);
+                var a = (i / (points)) + (starting_angle || 0);
                 a *= 2 * Math.PI;
                 var c = Math.cos(a);
                 var s = Math.sin(a);
@@ -2602,7 +3064,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
         } else if (shape == 'flower') {
             for (var i = 0; i < points; i++) {
-                var a = (i / (points)) + (staring_angle || 0);
+                var a = (i / (points)) + (starting_angle || 0);
                 a *= 2 * Math.PI;
                 var c = Math.cos(a);
                 var s = Math.sin(a);
@@ -2618,25 +3080,24 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
         }
 
-
         return tiles;
     };
     _c.generators = {};
     _c.generators.walls = function (game, location, wall_info) {
-        //TODO: Should walls be drawn first, and no population in those cells?
         var wall_tiles = _c.shape_to_tiles(game, location, wall_info.shape || 'circle', wall_info.count, wall_info.radius || 4, wall_info.starting_angle);
         var last_tower = -1;
         _.each(wall_tiles, function (cell, i) {
-            cell.additions = cell.additions || [];
-            cell.additions.push('wall');
+            if (cell && !cell.impassible) {
+                cell.additions = cell.additions || [];
+                cell.additions.push('wall');
 
-            //(i * ((wall_info.towers || 0) / wall_info.count)) % (wall_info.towers || 1) == 0;
-            var tower_count = Math.round(i * ((wall_info.towers || 0) / wall_info.count));
-            if (tower_count > last_tower) {
-                cell.additions.push('tower');
-                last_tower = tower_count;
+                //(i * ((wall_info.towers || 0) / wall_info.count)) % (wall_info.towers || 1) == 0;
+                var tower_count = Math.round(i * ((wall_info.towers || 0) / wall_info.count));
+                if (tower_count > last_tower) {
+                    cell.additions.push('tower');
+                    last_tower = tower_count;
+                }
             }
-            cell.additions.push(i);
         });
     };
     function resetSeed(game, extra) {
@@ -2726,7 +3187,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             if (cell && _c.tile_is_traversable(game, x, y, false) && !_c.tile_has(cell, 'road') && !_c.tile_has(cell, 'river') && (cell.name != 'lake')) {
                 cell.population = cell.population || 0;
                 cell.population += building_tile_tries / 4 + (rolls[i][3] * building_tile_radius_x);
-                cell.population = Math.ceil(Math.max(0,cell.population));
+                cell.population = Math.ceil(Math.max(0, cell.population));
                 game.cells[x][y] = cell;
 
                 if (_.indexOf(city_cells, cell) == -1) city_cells.push(cell);
@@ -2738,7 +3199,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 _.each(neighbors, function (neighbor) {
                     neighbor.population = neighbor.population || 0;
                     neighbor.population += building_tile_tries / (road_neighbors.length * 1.8);
-                    neighbor.population = Math.ceil(Math.max(0,neighbor.population));
+                    neighbor.population = Math.ceil(Math.max(0, neighbor.population));
                     game.cells[neighbor.x][neighbor.y] = neighbor;
 
                     if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
@@ -2829,27 +3290,6 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
         }
 
-
-        //Add walls around city
-        if (city_info.fortifications) {
-            var fortifications = city_info.fortifications;
-            if (!_.isArray(fortifications)) fortifications = [fortifications];
-            _.each(fortifications, function (fort) {
-                var title = _.str.titleize(city_info.title || city_info.name) + 's walls';
-                var wall_info = {
-                    count: fort.count || (city_info.population / 10000),
-                    title: fort.title || title,
-                    shape: fort.shape,
-                    radius: fort.radius,
-                    towers: fort.towers,
-                    starting_angle: fort.starting_angle
-                };
-
-                _c.generators.walls(game, center, wall_info);
-
-            });
-        }
-
         return city_cells_final;
     };
 
@@ -2897,7 +3337,6 @@ Battlebox.initializeOptions = function (option_type, options) {
                 born: born,
                 survive: survive
             });
-
 
             // initialize with irregularly random values with less in middle
             if (terrain_layer.not_center) {
@@ -3000,7 +3439,6 @@ Battlebox.initializeOptions = function (option_type, options) {
                 }
             }
         }
-
         return road_tiles;
     };
 
@@ -3024,7 +3462,6 @@ Battlebox.initializeOptions = function (option_type, options) {
         //TODO: Don't use recursion, instead just a for x-n to x+n loop
 
         function make_water(x, y, recursion) {
-
             if (!_c.tile_is_traversable(game, x, y, false)) {
                 return;
             }
@@ -3042,7 +3479,6 @@ Battlebox.initializeOptions = function (option_type, options) {
 
                 //TODO: Not sure why, but depth is first setting properly, then being overwritten to 1 for large lakes
 //                test.push (x +','+y+' setting to ' + recursion);
-
 
                 game.cells[x][y] = layer;
 
@@ -3611,7 +4047,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         var can_move_to = _c.tile_is_traversable(game, x, y, unit._data.move_through_impassibles);
         if (can_move_to) {
             var is_unit_there = _c.find_unit_by_filters(game, unit, {location: {x: x, y: y}});
-            if (is_unit_there) {
+            if (is_unit_there && is_unit_there.target) {
                 if (is_unit_there.side != unit.side) {
                     can_move_to = _c.entity_attacks_entity(game, unit, is_unit_there, _c.log_message_to_user);
                 } else {
@@ -3659,7 +4095,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
 
             game.scheduler.remove(game.entities[entity_id]);
-            delete game.entities[entity_id];
+            game.entities = _.reject(game.entities, unit);
             //TODO: Collapse entities
 
             _c.draw_tile(game, x, y);
@@ -3838,7 +4274,6 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         /* wait for user input; do stuff when user hits a key */
         if (unit._id == controlled_entity_id) {
-//            unit._game.engine.lock();
             window.addEventListener("keydown", this);
         }
         if (!unit.is_dead && unit._data.plan) {

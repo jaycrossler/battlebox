@@ -20,7 +20,7 @@
         rows: 90,
         cell_size: 10,
         cell_spacing: 1,
-        cell_border: .01,
+        cell_border: 0,
         transpose: false, //TODO: If using transpose, a number of other functions for placement should be tweaked
 
         render_style: 'outdoors', //TODO
@@ -44,39 +44,38 @@
 
         forces: [
             {name: 'Attacker Main Army Force', side: 'Yellow', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'run away', try_to_loot: true, try_to_pillage: true,
+                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
                 troops: {soldiers: 520, cavalry: 230, siege: 50}},
-
             {name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'run away', try_to_loot: true,
+                plan: 'invade city', backup_strategy: 'run away', try_to_loot: true, try_to_pillage: true,
                 troops: {soldiers: 80, cavalry: 20, siege: 10}},
-
             {name: 'Task Force Bravo', side: 'Yellow', symbol: '#B', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'vigilant',
+                plan: 'invade city', backup_strategy: 'invade city', try_to_loot: true, try_to_pillage: true,
                 troops: {cavalry: 20}},
-
             {name: 'Task Force Charlie', side: 'Yellow', symbol: '#C', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'invade_city', try_to_loot: true, try_to_pillage: true,
+                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
                 troops: {cavalry: 20}},
-
 
             {name: 'Defender City Force', side: 'White', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 620, cavalry: 40, siege: 100}},
-
-            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
+            {
+                name: 'Defender Bowmen 1', side: 'White', symbol: '2', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
-
-            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
+            {
+                name: 'Defender Bowmen 2', side: 'White', symbol: '3', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
-            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
+            {
+                name: 'Defender Bowmen 3', side: 'White', symbol: '4', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}},
-            {name: 'Defender Bowmen', side: 'White', symbol: 'A', location: 'city',
+            {
+                name: 'Defender Bowmen 4', side: 'White', symbol: '1', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
-                troops: {soldiers: 20, siege: 20}},
+                troops: {soldiers: 20, siege: 20}
+            },
 
             {name: 'Defender Catapults', side: 'White', symbol: 'B', location: 'city',
                 plan: 'run away', backup_strategy: 'vigilant',
@@ -95,7 +94,17 @@
             {name: 'soldiers', side: 'all', range: 1, speed: 30, strength: 1.2, defense: 1.8, weapon: 'rapiers', armor: 'armor', carrying: 5},
             {name: 'cavalry', side: 'all', range: 1, speed: 70, strength: 1.5, defense: 1.5, weapon: 'rapier', armor: 'shields', carrying: 2},
             {name: 'siege', title: 'siege units', side: 'all', range: 2, speed: 10, strength: 5, defense: .5, weapon: 'catapults', carrying: 1},
-            {name: 'adult_dragon', side: 'all', range: 3, speed: 120, strength: 150, defense: 300, weapon: 'fire breath', armor: 'impenetrable scales', carrying: 2000}
+            {
+                name: 'adult_dragon',
+                side: 'all',
+                range: 2,
+                speed: 120,
+                strength: 150,
+                defense: 300,
+                weapon: 'fire breath',
+                armor: 'impenetrable scales',
+                carrying: 2000
+            }
         ],
 
         buildings: [
@@ -103,7 +112,6 @@
                 tightness:1, population: 20000,
                 fortifications: [
                 ]},
-
             {name: 'Grain Storage', type: 'storage', resources: {food: 10000, gold: 2, herbs: 100}, location: 'random'},
             {name: 'Metal Storage', type: 'storage', resources: {metal: 1000, gold: 2, ore: 1000}, location: 'random'},
             {name: 'Cave Entrance', type: 'dungeon', requires: {mountains: true}, location: 'impassible'}

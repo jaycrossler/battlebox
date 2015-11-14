@@ -16,6 +16,22 @@
         console.log("Pop now at: " + game._private_functions.population_counter(game));
     };
 
+    _c.initialize_ui_display = function (game) {
+        var canvas = _c.draw_initial_display(game, {});
+
+        canvas.addEventListener("mousemove", function (ev) {
+            var loc = game.display.eventToPosition(ev);
+            _c.highlight_position(game, loc);
+
+            _c.show_info(_c.tile_info(game, loc[0], loc[1]));
+        });
+    };
+
+    _c.update_ui_display = function (game) {
+
+
+    };
+
     _c.draw_initial_display = function (game, options) {
         $pointers.canvas_holder = $('#container');
 
@@ -28,7 +44,7 @@
             fontSize: game.game_options.cell_size,
             layout: "hex",
 //            fontFamily: "droid sans mono",
-            border: game.game_options.cell_border || 0.1,
+            border: (game.game_options.cell_border !== undefined) ? game.game_options.cell_border : null,
             spacing: game.game_options.cell_spacing || .88
         });
         var container_canvas = game.display.getContainer();

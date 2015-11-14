@@ -4,6 +4,117 @@
     //TODO: Should there be a list of sides that matter in a conflict?
 
     var _c = new Battlebox('get_private_functions');
+    _c.battle = {};
+    _c.battle.fight = function (game, attacker, defender) {
+
+        var attacker_strength = 0;
+        var attacker_defense = 0;
+        _.each(attacker.forces, function (force) {
+            attacker_strength += (force.count || 1) * (force.strength || 1);
+            attacker_defense += (force.count || 1) * (force.defense || 1);
+            force.mode = 'attacking';
+        });
+
+        var defender_strength = 0;
+        var defender_defense = 0;
+        _.each(defender.forces, function (force) {
+            defender_strength += (force.count || 1) * (force.strength || 1);
+            defender_defense += (force.count || 1) * (force.defense || 1);
+            force.mode = 'defending';
+        });
+
+
+        //Sort from fastest to slowest
+        var all_forces = [].concat(attacker.forces, defender.forces);
+        all_forces.sort(function (a, b) {
+            return (a.speed || 40) < (b.speed || 40)
+        });
+
+        //For each group of forces
+        for (var f = 0; f < all_forces.length; f++) {
+            var force = all_forces[f];
+
+            if (!force.dead) {
+                for (var i = 0; i < force.count; i++) {
+                    //Have each troop attack a random enemy
+                    //TODO: Allow attacking fastest, slowest, weakest, strongest, least defended, etc
+                    var enemy_side = force.mode == 'attacking' ? defender.forces : attacker.forces;
+                    if (enemy_side.length) {
+
+                        //TODO: Have defense force use defenses of current tile
+                        var target_force = _c.randOption(force.mode == 'attacking' ? defender.forces : attacker.forces);
+                        var to_hit_chance = force.strength / target_force.defense;
+
+                        var enemy_killed = (to_hit_chance >= 1) ? true : (_c.random() <= to_hit_chance);
+                        if (enemy_killed) {
+                            //------------------------------------------------
+                            //If the attacked force is removed, take it off the unit
+                            target_force.count--;
+                            if (target_force.count <= 0) {
+                                var f_i = _.indexOf(all_forces, target_force);
+                                if (f_i > -1) {
+                                    all_forces[f_i].dead = true;
+                                }
+
+                                if (force.mode == 'attacking') {
+                                    defender.forces = _.reject(defender.forces, target_force);
+                                } else {
+                                    attacker.forces = _.reject(attacker.forces, target_force);
+                                }
+                            }
+
+                            //------------------------------------------------
+                            //See if enemy gets returning free hit against attacker - 20% of normal attack chance
+                            var return_hit_chance = (.2 * target_force.defense) / force.strength;
+                            if (_c.random() <= return_hit_chance) {
+
+                                //------------------------------------------------
+                                //If the returned-fire force is removed, take it off the unit
+                                force.count--;
+                                if (force.count <= 0) {
+                                    var f_i = _.indexOf(all_forces, force);
+                                    if (f_i > -1) {
+                                        all_forces[f_i].dead = true;
+                                    }
+
+                                    if (force.mode == 'attacking') {
+                                        attacker.forces = _.reject(attacker.forces, force);
+                                    } else {
+                                        defender.forces = _.reject(defender.forces, force);
+                                    }
+                                }
+                            }
+
+                        }
+                    } else {
+                        //Enemy eliminated
+                        break;
+                    }
+                }
+            }
+        }
+
+    };
+    _c.battle.hydrate_metadata = function (game, troop, count, side) {
+        var troop_data = _.find(game.game_options.troop_types, function (tt) {
+            return tt.side == side && tt.name == troop
+        });
+        if (!troop_data) {
+            troop_data = _.find(game.game_options.troop_types, function (tt) {
+                return tt.side == 'all' && tt.name == troop
+            });
+        }
+        var troop_object = {};
+        if (!troop_data) {
+            console.error("troop_data not found for: " + troop);
+            troop_object = {name: troop, count: count, side: side};
+        } else {
+            troop_object = _.clone(troop_data);
+            troop_object.side = side;
+            troop_object.count = count;
+        }
+        return troop_object;
+    };
 
     _c.entity_attacks_entity = function (game, attacker, defender, callback) {
         attacker._data.troops = attacker._data.troops || {};
@@ -12,48 +123,111 @@
 
         var a_name = attacker._data.name || "Attacker";
         var a_side = attacker._data.side || "Side 1";
-        var a_count = (attacker._data.troops.soldiers || 0) + (attacker._data.troops.cavalry || 0) + (attacker._data.troops.siege || 0) + (1000 * (attacker._data.troops.adult_dragon || 0));
 
         var d_name = defender._data.name || "Defender";
         var b_side = defender._data.side || "Side 2";
-        var d_count = (defender._data.troops.soldiers || 0) + (defender._data.troops.cavalry || 0) + (defender._data.troops.siege || 0) + (1000 * (defender._data.troops.adult_dragon || 0));
 
+
+        //Add metadata from game_options.troop_types to each troop
+        //TODO: Move this all to unit setup on provisioning
+        if (!attacker.data_expanded) {
+            attacker.forces = [];
+            for (var key in attacker._data.troops) {
+                var force = _c.battle.hydrate_metadata(game, key, attacker._data.troops[key], attacker._data.side);
+                attacker.forces.push(force);
+            }
+            attacker.data_expanded = true;
+        }
+        if (!defender.data_expanded) {
+            defender.forces = [];
+            for (var key in defender._data.troops) {
+                var force = _c.battle.hydrate_metadata(game, key, defender._data.troops[key], defender._data.side);
+                defender.forces.push(force);
+            }
+            defender.data_expanded = true;
+        }
+
+
+        //Count before fight
+        var a_count = 0;
+        _.each(attacker.forces, function (force) {
+            a_count += force.count || 0;
+        });
+
+        var d_count = 0;
+        _.each(defender.forces, function (force) {
+            d_count += force.count || 0;
+        });
+
+        if ((a_count <= 0) || (d_count <= 0)) return true;
+
+        //Have the forces fight together
+        _c.battle.fight(game, attacker, defender);
+
+
+        //Count the survivors
+        var a_count_after = 0;
+        _.each(attacker.forces, function (force) {
+            a_count_after += force.count || 0;
+        });
+
+        var d_count_after = 0;
+        _.each(defender.forces, function (force) {
+            d_count_after += force.count || 0;
+        });
+
+        //Find if the game ended or if attacker won
         var enemies_alive;
         var message = "";
         var game_over_side;
 
-        if (a_count >= d_count) {
-            defender.is_dead = true;
-            _c.remove_entity(game, defender);
+        var a_msg = "<span style='background-color:" + attacker._data.side + "'>" + a_name + " ([" + (attacker._symbol || '@') + "] was size " + a_count + ", now " + (a_count_after) + ")</span>";
+        var d_msg = "<span style='background-color:" + defender._data.side + "'>" + d_name + " ([" + (defender._symbol || '@') + "] was size " + d_count + ", now " + (d_count_after) + ")</span>";
 
-            message = "<b>" +a_name + " ("+a_side+", size "+a_count+")</b> wins attacking "+ d_name + " ("+b_side+", power "+d_count+")";
+        var a_lost = a_count - a_count_after;
+        var d_lost = d_count - d_count_after;
 
-            enemies_alive = _c.find_unit_by_filters(game, attacker, {side: 'enemy', return_multiple:true, only_count_forces:true});
-            if (enemies_alive.target.length == 0) {
-                game_over_side = attacker._data.side;
-            }
+
+        if (d_lost >= a_lost) {
+            message = a_msg + " WINS attacking " + d_msg;
             callback(game, message, 3, a_side);
-
         } else {
+            message = a_msg + " LOST attacking " + d_msg;
+            callback(game, message, 3, b_side);
+        }
+
+
+        if (a_count_after <= 0) {
             attacker.is_dead = true;
             _c.remove_entity(game, attacker);
 
-            message = a_name + " ("+a_side+", size "+a_count+") loses attacking <b>"+ d_name + " ("+b_side+", power "+d_count+")</b>";
+            enemies_alive = _c.find_unit_by_filters(game, attacker, {
+                side: 'enemy',
+                return_multiple: true,
+                only_count_forces: true
+            });
+            if (enemies_alive.target.length == 0) {
+                game_over_side = attacker._data.side;
+            }
+        }
+        if (d_count_after <= 0) {
+            defender.is_dead = true;
+            _c.remove_entity(game, defender);
 
-            enemies_alive = _c.find_unit_by_filters(game, defender, {side: 'enemy', return_multiple:true});
+            enemies_alive = _c.find_unit_by_filters(game, defender, {side: 'enemy', return_multiple: true});
             if (enemies_alive.target.length == 0) {
                 game_over_side = defender._data.side;
             }
-
-            callback(game, message, 3, b_side);
         }
+
 
         if (game_over_side) {
             _c.game_over(game, game_over_side);
         }
 
-    }
+        return defender.is_dead;
 
+    }
 
 
 })(Battlebox);

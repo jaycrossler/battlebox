@@ -114,7 +114,7 @@
         var can_move_to = _c.tile_is_traversable(game, x, y, unit._data.move_through_impassibles);
         if (can_move_to) {
             var is_unit_there = _c.find_unit_by_filters(game, unit, {location: {x: x, y: y}});
-            if (is_unit_there) {
+            if (is_unit_there && is_unit_there.target) {
                 if (is_unit_there.side != unit.side) {
                     can_move_to = _c.entity_attacks_entity(game, unit, is_unit_there, _c.log_message_to_user);
                 } else {
@@ -162,7 +162,7 @@
             }
 
             game.scheduler.remove(game.entities[entity_id]);
-            delete game.entities[entity_id];
+            game.entities = _.reject(game.entities, unit);
             //TODO: Collapse entities
 
             _c.draw_tile(game, x, y);
@@ -341,7 +341,6 @@
 
         /* wait for user input; do stuff when user hits a key */
         if (unit._id == controlled_entity_id) {
-//            unit._game.engine.lock();
             window.addEventListener("keydown", this);
         }
         if (!unit.is_dead && unit._data.plan) {
