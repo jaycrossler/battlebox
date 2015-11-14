@@ -7,7 +7,7 @@
     //TODO: Have icons for different units
     //TODO: SetCenter to have large map and redraw every movement
     //TODO: Have movement be based on values
-    //TODO: Move faster over roads, and slower over water
+    //TODO: Move faster over roads, and slower over water - have an action point amount to spend, and a buffer towards moving into a terrain
     //TODO: Have enemy searching only look if within a likely radius
     //TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
     //TODO: Pillaging happening multiple times
@@ -15,7 +15,9 @@
 
     _c.build_units_from_list = function (game, list) {
         _.each(list || [], function (unit_info, id) {
-            game.entities.push(_c.create_unit(game, unit_info, id))
+            var unit = _c.create_unit(game, unit_info, id);
+            game.entities.push(unit);
+            _c.add_unit_ui_to_main_ui(game, unit);
         });
         return _c.entities(game);
     };
@@ -24,7 +26,6 @@
     };
 
     _c.create_unit = function (game, unit_info, id) {
-
         var location = _c.find_a_matching_tile(game, unit_info);
 
         var EntityType;
@@ -33,8 +34,43 @@
         } else {
             EntityType = OpForce;
         }
-        return new EntityType(game, location.x, location.y, id, unit_info);
+
+        //Generate the unit
+        var unit = new EntityType(game, location.x, location.y, id, unit_info);
+
+        //Add metadata from game_options.troop_types to each troop
+        if (!unit.data_expanded) {
+            unit.forces = [];
+            for (var key in unit._data.troops || []) {
+                var force = _c.hydrate_troop_metadata(game, key, unit._data.troops[key], unit._data.side);
+                unit.forces.push(force);
+            }
+            unit.data_expanded = true;
+        }
+
+        return unit;
     };
+    _c.hydrate_troop_metadata = function (game, troop, count, side) {
+        var troop_data = _.find(game.game_options.troop_types, function (tt) {
+            return tt.side == side && tt.name == troop
+        });
+        if (!troop_data) {
+            troop_data = _.find(game.game_options.troop_types, function (tt) {
+                return tt.side == 'all' && tt.name == troop
+            });
+        }
+        var troop_object = {};
+        if (!troop_data) {
+            console.error("troop_data not found for: " + troop);
+            troop_object = {name: troop, count: count, side: side};
+        } else {
+            troop_object = _.clone(troop_data);
+            troop_object.side = side;
+            troop_object.count = count;
+        }
+        return troop_object;
+    };
+
 
     _c.raze_or_loot = function (game, unit, cell) {
 
@@ -224,6 +260,7 @@
         this._symbol = unit.symbol || "@";
         this._data = unit;
         this._draw();
+        this.strategy = '';
     };
 
     Entity.prototype.describe = function () {
@@ -327,6 +364,8 @@
             _c.movement_strategies.wander(game, unit);
         }
 
+        //Redraw the data of the unit
+        _c.update_unit_ui(game, unit);
     };
 
 

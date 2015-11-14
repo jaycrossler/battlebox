@@ -746,6 +746,9 @@
         } else if (shape == 'septagon') {
             tiles = polygon_intersections(game, 7, points, starting_angle, center, center_px, radius_px)
 
+        } else if (shape == 'octagon') {
+            tiles = polygon_intersections(game, 8, points, starting_angle, center, center_px, radius_px)
+
 
         } else if (shape == 'rounded square') {
             for (var i = 0; i < points; i++) {

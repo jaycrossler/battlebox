@@ -43,57 +43,154 @@
         ],
 
         forces: [
-            {name: 'Attacker Main Army Force', side: 'Yellow', location: 'left', player: true,
+            {
+                name: 'Attacker Main Army Force', side: 'Yellow', location: 'left', player: true,
                 plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
-                troops: {soldiers: 520, cavalry: 230, siege: 50}},
-            {name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
+                troops: {soldiers: 520, cavalry: 230, siege: 50}
+            },
+            {
+                name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
                 plan: 'invade city', backup_strategy: 'run away', try_to_loot: true, try_to_pillage: true,
-                troops: {soldiers: 80, cavalry: 20, siege: 10}},
-            {name: 'Task Force Bravo', side: 'Yellow', symbol: '#B', location: 'left', player: true,
+                troops: {soldiers: 80, cavalry: 20, siege: 10}
+            },
+            {
+                name: 'Task Force Bravo', side: 'Yellow', symbol: '#B', location: 'left', player: true,
                 plan: 'invade city', backup_strategy: 'invade city', try_to_loot: true, try_to_pillage: true,
-                troops: {cavalry: 20}},
-            {name: 'Task Force Charlie', side: 'Yellow', symbol: '#C', location: 'left', player: true,
+                troops: {cavalry: 20}
+            },
+            {
+                name: 'Task Force Charlie', side: 'Yellow', symbol: '#C', location: 'left', player: true,
                 plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
-                troops: {cavalry: 20}},
+                troops: {cavalry: 20}
+            },
+            {
+                name: 'Task Force Delta', side: 'Yellow', symbol: '#D', location: 'left', player: true,
+                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
+                troops: {cavalry: 20}
+            },
+            {
+                name: 'Task Force Echo', side: 'Yellow', symbol: '#E', location: 'left', player: true,
+                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
+                troops: {cavalry: 20}
+            },
 
-            {name: 'Defender City Force', side: 'White', location: 'city',
-                plan: 'seek closest', backup_strategy: 'vigilant',
-                troops: {soldiers: 620, cavalry: 40, siege: 100}},
             {
-                name: 'Defender Bowmen 1', side: 'White', symbol: '2', location: 'city',
+                name: 'Defender City Force', side: 'White', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
-                troops: {soldiers: 20, siege: 20}},
+                troops: {soldiers: 620, cavalry: 40, siege: 100}
+            },
             {
-                name: 'Defender Bowmen 2', side: 'White', symbol: '3', location: 'city',
+                name: 'Defender Bowmen 1', side: 'White', symbol: '1', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
-                troops: {soldiers: 20, siege: 20}},
+                troops: {soldiers: 20, siege: 20}
+            },
             {
-                name: 'Defender Bowmen 3', side: 'White', symbol: '4', location: 'city',
+                name: 'Defender Bowmen 2', side: 'White', symbol: '2', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
-                troops: {soldiers: 20, siege: 20}},
+                troops: {soldiers: 20, siege: 20}
+            },
             {
-                name: 'Defender Bowmen 4', side: 'White', symbol: '1', location: 'city',
+                name: 'Defender Bowmen 3', side: 'White', symbol: '3', location: 'city',
+                plan: 'seek closest', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}
+            },
+            {
+                name: 'Defender Bowmen 4', side: 'White', symbol: '4', location: 'city',
+                plan: 'seek closest', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}
+            },
+            {
+                name: 'Defender Bowmen 5', side: 'White', symbol: '5', location: 'city',
+                plan: 'seek closest', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}
+            },
+            {
+                name: 'Defender Bowmen 6', side: 'White', symbol: '6', location: 'city',
+                plan: 'seek closest', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}
+            },
+            {
+                name: 'Defender Bowmen 7', side: 'White', symbol: '7', location: 'city',
+                plan: 'seek closest', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}
+            },
+            {
+                name: 'Defender Bowmen 8', side: 'White', symbol: '8', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
 
-            {name: 'Defender Catapults', side: 'White', symbol: 'B', location: 'city',
+
+            {
+                name: 'Defender Catapults', side: 'White', symbol: 'B', location: 'city',
                 plan: 'run away', backup_strategy: 'vigilant',
-                troops: {soldiers: 20, siege: 40}},
+                troops: {soldiers: 20, siege: 40}
+            },
 
 
-            {name: 'Sleeping Dragon', side: 'Red', symbol: '}{', location: 'impassible', not_part_of_victory: true,
-                plan: 'wander', backup_strategy: 'wait', size: 3, move_through_impassibles: true, try_to_loot: true, try_to_pillage: true,
-                troops: {adult_dragon: 1}}
+            {
+                name: 'Sleeping Dragon',
+                side: 'Red',
+                symbol: '}{',
+                location: 'impassible',
+                not_part_of_victory: true,
+                plan: 'wander',
+                backup_strategy: 'wait',
+                size: 3,
+                move_through_impassibles: true,
+                try_to_loot: true,
+                try_to_pillage: true,
+                troops: {adult_dragon: 1}
+            }
 
         ],
 
         //TODO: Use these in strength calculations
         troop_types: [
-            {name: 'soldiers', side: 'Yellow', range: 1, speed: 40, strength: 1, defense: 2, weapon: 'sword', armor: 'armor', carrying: 5},
-            {name: 'soldiers', side: 'all', range: 1, speed: 30, strength: 1.2, defense: 1.8, weapon: 'rapiers', armor: 'armor', carrying: 5},
-            {name: 'cavalry', side: 'all', range: 1, speed: 70, strength: 1.5, defense: 1.5, weapon: 'rapier', armor: 'shields', carrying: 2},
-            {name: 'siege', title: 'siege units', side: 'all', range: 2, speed: 10, strength: 5, defense: .5, weapon: 'catapults', carrying: 1},
+            {
+                name: 'soldiers',
+                side: 'Yellow',
+                range: 1,
+                speed: 40,
+                strength: 1,
+                defense: 2,
+                weapon: 'sword',
+                armor: 'armor',
+                carrying: 5
+            },
+            {
+                name: 'soldiers',
+                side: 'all',
+                range: 1,
+                speed: 30,
+                strength: 1.2,
+                defense: 1.8,
+                weapon: 'rapiers',
+                armor: 'armor',
+                carrying: 5
+            },
+            {
+                name: 'cavalry',
+                side: 'all',
+                range: 1,
+                speed: 70,
+                strength: 1.5,
+                defense: 1.5,
+                weapon: 'rapier',
+                armor: 'shields',
+                carrying: 2
+            },
+            {
+                name: 'siege',
+                title: 'siege units',
+                side: 'all',
+                range: 2,
+                speed: 10,
+                strength: 5,
+                defense: .5,
+                weapon: 'catapults',
+                carrying: 1
+            },
             {
                 name: 'adult_dragon',
                 side: 'all',
@@ -108,10 +205,11 @@
         ],
 
         buildings: [
-            {name: 'Large City', title: 'Anchorage', type: 'city2', location: 'center',
-                tightness:1, population: 20000,
-                fortifications: [
-                ]},
+            {
+                name: 'Large City', title: 'Anchorage', type: 'city2', location: 'center',
+                tightness: 1, population: 20000,
+                fortifications: []
+            },
             {name: 'Grain Storage', type: 'storage', resources: {food: 10000, gold: 2, herbs: 100}, location: 'random'},
             {name: 'Metal Storage', type: 'storage', resources: {metal: 1000, gold: 2, ore: 1000}, location: 'random'},
             {name: 'Cave Entrance', type: 'dungeon', requires: {mountains: true}, location: 'impassible'}

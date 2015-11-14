@@ -127,6 +127,8 @@
         var y = unit.y + dir[1];
         var x = unit.x + dir[0];
 
+        unit.strategy = 'Wander';
+
         var msg = unit.describe() + ' ';
         var moves = _c.try_to_move_to_and_draw(game, unit, x, y);
         if (moves) {
@@ -137,12 +139,16 @@
     };
 
     _c.movement_strategies.wait = function (game, unit) {
+        unit.strategy = "Wait for enemy to be near";
+
         _c.log_message_to_user(game, unit.describe() + " stays vigilant and doesn't move", 0);
     };
 
     _c.movement_strategies.seek = function (game, unit, target_status, options) {
         var x = target_status.target ? target_status.target.getX() : -1;
         var y = target_status.target ? target_status.target.getY() : -1;
+
+        unit.strategy = "Seek target";
 
         if (!_c.tile_is_traversable(game, x, y)) {
             if (options.backup_strategy == 'vigilant') {
@@ -200,6 +206,8 @@
     _c.movement_strategies.head_towards = function (game, unit, location, options) {
         var path;
 
+        unit.strategy = "Head to " + location.location.x + ", " + location.location.y;
+
         var to_loc = location && (location.location) && (location.location.x !== undefined) && (location.location.y !== undefined);
         if (!to_loc) {
             options = {side: 'enemy', filter: 'closest', range: 100, plan: 'seek closest', backup_strategy: unit._data.backup_strategy};
@@ -241,6 +249,8 @@
     _c.movement_strategies.avoid = function (game, unit, target_status, options) {
         var x = target_status.target ? target_status.target.getX() : -1;
         var y = target_status.target ? target_status.target.getY() : -1;
+        unit.strategy = "Avoiding enemy";
+
         if (!_c.tile_is_traversable(game, x, y)) {
             if (options.backup_strategy == 'vigilant') {
                 _c.movement_strategies.vigilant(game, unit);

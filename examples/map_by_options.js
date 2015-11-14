@@ -78,7 +78,7 @@ $(function () {
             game_options.buildings[0].fortifications.push({
                 count: 260,
                 shape: 'pentagon',
-                radius: 18,
+                radius: 17,
                 towers: 10,
                 starting_angle: .2
             });
@@ -87,13 +87,29 @@ $(function () {
             game_options.buildings[0].fortifications.push({
                 count: 380,
                 shape: 'hexagon',
-                radius: 26,
+                radius: 23,
                 towers: 30,
                 starting_angle: 0
             });
         }
-
-
+        if (forts >= 5) {
+            game_options.buildings[0].fortifications.push({
+                count: 500,
+                shape: 'septagon',
+                radius: 28,
+                towers: 100,
+                starting_angle: 0
+            });
+        }
+        if (forts >= 6) {
+            game_options.buildings[0].fortifications.push({
+                count: 800,
+                shape: 'octagon',
+                radius: 32,
+                towers: 100,
+                starting_angle: 0
+            });
+        }
     }
 
     battlebox = new Battlebox({rand_seed:land_seed || 42, fight_seed: fight_seed});

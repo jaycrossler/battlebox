@@ -55,6 +55,9 @@
         $pointers.info_box = $('<div>')
             .appendTo($pointers.canvas_holder);
 
+        $pointers.unit_holder = $('#unit_list');
+
+
         //Build the map
         ROT.RNG.setSeed(game.data.rand_seed);
         _c.generate_base_map(game);
@@ -103,7 +106,6 @@
                 _c.add_main_city_population(game,1000);
             })
             .appendTo($pointers.canvas_holder);
-
 
         return container_canvas;
     };
@@ -378,6 +380,36 @@
         }
         $pointers.info_box
             .html(out);
-    }
+    };
+
+    _c.add_unit_ui_to_main_ui = function (game, unit) {
+        var unit_name = _.str.titleize(unit._data.title || unit._data.name);
+
+        unit.$trump = $('<div>')
+            .text(unit_name)
+            .addClass('unit_trump')
+            .css({backgroundColor: unit._data.side})
+            .appendTo($pointers.unit_holder);
+    };
+
+    _c.update_unit_ui = function (game, unit) {
+        var unit_name = _.str.titleize(unit._data.title || unit._data.name);
+        var text = unit_name + "<hr/>";
+        text += unit.strategy + "<hr/>";
+
+        if (unit.is_dead) {
+            text += "<span style='color:red'>Dead on " + battlebox.data.tick_count + "</span><br/>";
+        }
+
+        _.each(unit.forces, function (force) {
+            text += "<li>" + force.count + " " + _.str.titleize(Helpers.pluralize(force.name)) + "</li>";
+        });
+
+
+        unit.$trump
+            .html(text);
+    };
+
+
 
 })(Battlebox);

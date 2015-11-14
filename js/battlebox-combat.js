@@ -93,27 +93,6 @@
                 }
             }
         }
-
-    };
-    _c.battle.hydrate_metadata = function (game, troop, count, side) {
-        var troop_data = _.find(game.game_options.troop_types, function (tt) {
-            return tt.side == side && tt.name == troop
-        });
-        if (!troop_data) {
-            troop_data = _.find(game.game_options.troop_types, function (tt) {
-                return tt.side == 'all' && tt.name == troop
-            });
-        }
-        var troop_object = {};
-        if (!troop_data) {
-            console.error("troop_data not found for: " + troop);
-            troop_object = {name: troop, count: count, side: side};
-        } else {
-            troop_object = _.clone(troop_data);
-            troop_object.side = side;
-            troop_object.count = count;
-        }
-        return troop_object;
     };
 
     _c.entity_attacks_entity = function (game, attacker, defender, callback) {
@@ -126,27 +105,6 @@
 
         var d_name = defender._data.name || "Defender";
         var b_side = defender._data.side || "Side 2";
-
-
-        //Add metadata from game_options.troop_types to each troop
-        //TODO: Move this all to unit setup on provisioning
-        if (!attacker.data_expanded) {
-            attacker.forces = [];
-            for (var key in attacker._data.troops) {
-                var force = _c.battle.hydrate_metadata(game, key, attacker._data.troops[key], attacker._data.side);
-                attacker.forces.push(force);
-            }
-            attacker.data_expanded = true;
-        }
-        if (!defender.data_expanded) {
-            defender.forces = [];
-            for (var key in defender._data.troops) {
-                var force = _c.battle.hydrate_metadata(game, key, defender._data.troops[key], defender._data.side);
-                defender.forces.push(force);
-            }
-            defender.data_expanded = true;
-        }
-
 
         //Count before fight
         var a_count = 0;
