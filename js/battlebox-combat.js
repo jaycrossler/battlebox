@@ -41,9 +41,16 @@
                     var enemy_side = force.mode == 'attacking' ? defender.forces : attacker.forces;
                     if (enemy_side.length) {
 
-                        //TODO: Have defense force use defenses of current tile
                         var target_force = _c.randOption(force.mode == 'attacking' ? defender.forces : attacker.forces);
-                        var to_hit_chance = force.strength / target_force.defense;
+                        var defender_defense_val = target_force.defense || 1;
+                        if (target_force.protected_by_walls) {
+                            defender_defense_val += (defender_defense_val * target_force.protected_by_walls * .5);
+                        }
+                        if (target_force.in_towers) {
+                            defender_defense_val += (defender_defense_val * target_force.in_towers * .2);
+                        }
+
+                        var to_hit_chance = force.strength / defender_defense_val;
 
                         var enemy_killed = (to_hit_chance >= 1) ? true : (_c.random() <= to_hit_chance);
                         if (enemy_killed) {
@@ -65,7 +72,12 @@
 
                             //------------------------------------------------
                             //See if enemy gets returning free hit against attacker - 20% of normal attack chance
-                            var return_hit_chance = (.2 * target_force.defense) / force.strength;
+                            var attacker_defense_val = force.defense || 1;
+                            if (force.protected_by_walls) {
+                                attacker_defense_val += (attacker_defense_val * force.protected_by_walls * .5);
+                            }
+
+                            var return_hit_chance = (.2 * target_force.strength) / attacker_defense_val;
                             if (_c.random() <= return_hit_chance) {
 
                                 //------------------------------------------------

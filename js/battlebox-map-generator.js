@@ -44,14 +44,14 @@
         var cell = _c.tile(game, x, y);
         if (cell) {
             info = _.clone(cell);
-        }
 
-        _.each(_c.entities(game), function (entity, id) {
-            if (entity.x == x && entity.y == y && entity._draw) {
-                info.forces = info.forces || [];
-                info.forces.push({id: id, data: entity.forces});
-            }
-        });
+            _.each(_c.entities(game), function (entity, id) {
+                if (entity.x == x && entity.y == y && entity._draw) {
+                    info.forces = info.forces || [];
+                    info.forces.push({id: id, data: entity.forces});
+                }
+            });
+        }
         return info;
     };
 
@@ -86,8 +86,8 @@
      * @param {object} game class data
      * @param {int} x
      * @param {int} y
-     * @param {boolean} move_through_impassibles return true even if the sell is impassible
-     * @param {boolean} only_impassible return true only if the cell is impassible
+     * @param {boolean} [move_through_impassibles] return true even if the sell is impassible
+     * @param {boolean} [only_impassible] return true only if the cell is impassible
      * @returns {boolean} valid if cell is valid and passable
      */
     _c.tile_is_traversable = function (game, x, y, move_through_impassibles, only_impassible) {
@@ -385,7 +385,7 @@
      * Returns whether a tile has a specific addition (either a simple text feature like 'field', or a complex object feature like {name:'road', symbol:'-'}
      * @param {object} cell - tile to look at
      * @param {string} feature - a feature class, like 'field', or 'road'
-     * @param {boolean} return_count - return just a count of features instead of feature details
+     * @param {boolean} [return_count=false] - return just a count of features instead of feature details
      * @returns {object} null if no object, or the first feature info (string or object) if it was found, or count of objects if return_count specified
      */
     _c.tile_has = function (cell, feature, return_count) {
@@ -439,7 +439,7 @@
      * @param {object} game
      * @param {object} tile_from
      * @param {object} tile_to (returns 3 neighbors of this tile)
-     * @returns {Array} neighbor_cells
+     * @returns {Array.<object>} neighbor_cells
      */
     _c.opposite_tiles_from_tile_to_tile = function (game, tile_from, tile_to) {
         var neighbor_cells = [];
@@ -466,7 +466,7 @@
     };
     //-------------------------------------------------
     /**
-     * Builds all the tiles for the base game map from the gaem data settings passed in. Constructs game.cells for use in game
+     * Builds all the tiles for the base game map from the game data settings passed in. Constructs game.cells for use in game
      * @param {object} game Overall game information
      */
     _c.generate_base_map = function (game) {
@@ -559,6 +559,7 @@
                         shape: fort.shape,
                         radius: fort.radius,
                         towers: fort.towers,
+                        side: building_layer.side,
                         starting_angle: fort.starting_angle
                     };
                     _c.generators.walls(game, location, wall_info);
@@ -810,6 +811,7 @@
             if (cell && !cell.impassible) {
                 cell.additions = cell.additions || [];
                 cell.additions.push('wall');
+                cell.side = wall_info.side;
 
                 //(i * ((wall_info.towers || 0) / wall_info.count)) % (wall_info.towers || 1) == 0;
                 var tower_count = Math.round(i * ((wall_info.towers || 0) / wall_info.count));
@@ -861,6 +863,8 @@
         city_cells.push(center);
 
 
+        //TODO: Work from previous population to new population
+
         //Pre-roll all random rolls so that they will always build in the same pattern
         var rolls = [];
         for (var i = 0; i < building_tile_tries; i++) {
@@ -908,6 +912,7 @@
                 cell.population = cell.population || 0;
                 cell.population += building_tile_tries / 4 + (rolls[i][3] * building_tile_radius_x);
                 cell.population = Math.ceil(Math.max(0, cell.population));
+                cell.side = city_info.side;
                 game.cells[x][y] = cell;
 
                 if (_.indexOf(city_cells, cell) == -1) city_cells.push(cell);
@@ -920,6 +925,8 @@
                     neighbor.population = neighbor.population || 0;
                     neighbor.population += building_tile_tries / (road_neighbors.length * 1.8);
                     neighbor.population = Math.ceil(Math.max(0, neighbor.population));
+                    neighbor.side = city_info.side;
+
                     game.cells[neighbor.x][neighbor.y] = neighbor;
 
                     if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
@@ -942,6 +949,7 @@
                     title: city_info.title,
                     population: cell_population,
                     type: 'city',
+                    side: city_info.side,
                     x: x,
                     y: y
                 };
@@ -967,6 +975,7 @@
             } else {
                 cell.population = cell_population;
                 game.cells[x][y].population = cell_population;
+                game.cells[x][y].side = city_info.side;
             }
         }
 
@@ -999,12 +1008,14 @@
 
                         neighbor.population = neighbor.population || 0;
                         neighbor.population += Math.round(population_to_give_each_neighbor);
-                        game.cells[neighbor.x][neighbor.y] = neighbor;
+                        neighbor.side = city_info.side;
 
+                        game.cells[neighbor.x][neighbor.y] = neighbor;
                         if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
                     });
                     cell.additions = removeArrayItemNTimes(cell.additions, 'farm', neighbors.length * farms_to_give_each_neighbor);
                     cell.population -= Math.round(population_to_give_each_neighbor * neighbors.length);
+                    cell.side = city_info.side;
                     game.cells[cell.x][cell.y] = cell;
                 }
             }
@@ -1352,8 +1363,6 @@
                 })
             }
         }
-
-        //TODO: Add city walls
 
         return city_cells;
     };

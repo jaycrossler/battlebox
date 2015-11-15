@@ -10,16 +10,16 @@
         var cell = _c.tile(game, x, y);
         var weight = 0;
 
-        if (cell.name == 'plains') weight += 2;
-        if (cell.name == 'mountains') weight += 6;
-        if (cell.name == 'forest') weight += 3;
-        if (cell.density == 'medium') weight += 2;
-        if (cell.density == 'large') weight += 4;
-        if (cell.name == 'lake') weight += 4;
-        if (_c.tile_has(cell, 'path')) weight -= 1;
-        if (_c.tile_has(cell, 'road')) weight -= 2;
-        if (_c.tile_has(cell, 'rail')) weight -= 4;
-        if (_c.tile_has(cell, 'river')) weight += 2;
+        if (cell.name == 'plains') weight += 4;
+        if (cell.name == 'mountains') weight += 12;
+        if (cell.name == 'forest') weight += 6;
+        if (cell.density == 'medium') weight += 4;
+        if (cell.density == 'large') weight += 8;
+        if (cell.name == 'lake') weight += 8;
+        if (_c.tile_has(cell, 'path')) weight -= 2;
+        if (_c.tile_has(cell, 'road')) weight -= 4;
+        if (_c.tile_has(cell, 'rail')) weight -= 8;
+        if (_c.tile_has(cell, 'river')) weight += 4;
 
         return Math.max(0, weight);
     };
@@ -207,6 +207,28 @@
         var path;
 
         unit.strategy = "Head to " + location.location.x + ", " + location.location.y;
+
+        var stop_here = false;
+        if (options.stop_if_cell_has) {
+            var cell = _c.tile(game, unit.x, unit.y);
+            _.each(options.stop_if_cell_has, function (condition) {
+                if (_c.tile_has(cell, condition)) {
+                    stop_here = true;
+                }
+            });
+            if (stop_here) {
+                if (options.backup_strategy == 'vigilant') {
+                    _c.movement_strategies.vigilant(game, unit);
+                    return;
+                } else if (options.backup_strategy == 'wait') {
+                    _c.movement_strategies.wait(game, unit);
+                    return;
+                } else { //wander
+                    _c.movement_strategies.wander(game, unit, options);
+                    return;
+                }
+            }
+        }
 
         var to_loc = location && (location.location) && (location.location.x !== undefined) && (location.location.y !== undefined);
         if (!to_loc) {

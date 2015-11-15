@@ -4,14 +4,33 @@
 
     var controlled_entity_id = 0;
 
+    //---------------
+    //Combat Rules:
+    //---------------
+    // Units attack in order of speed, even when multiple forces are in the same unit
+    // Each person in unit attacks, with chance of hitting a single foe being attacker.strength/defender.defense
+    // If defender is killed, they have a 20% chance of hitting back at an attacker (defender.strength/attacker.defense)
+    // When killed, units drop loot on the square - next unit by picks it up
+    // When pillaging, burns and displaces population, but much more loot
+    // When moving into a tile with an enemy, automatically attack them
+    // Multiple walls/towers have additional defense on home units, wall += .5 of att, tower += .2 of attack
+    // Only defenders benefit from being on a wall (increase defense .5) or tower (increase defense .2)
+    // TODO: Units move based on the speed of the slowest living unit in their force
+    // TODO: Towers increase defender's vision * 1.5, range +1 if range > 1
+    // TODO: Units have a carrying capacity for the amount of loot they can carry
+    // TODO: Units consume food over time, and replenish food by pillaging, looting, or foraging
+    // TODO: Attackers with range > 1 can attack enemies in nearby squares by using some action points
+    // TODO: When looting or pillaging land, small chance of new defenders spawning a defense force
+    // TODO: Have a goal-oriented AI that uses the information they know about
+    // TODO: Have units communicate with each other, sending enemy positions or storage locations, or what else?
+    // TODO: Move faster over roads, and slower over water - have an action point amount to spend, and a buffer towards moving into a terrain
+    // TODO: When defeating all enemies, give n extra turns to finish pillaging
+
+    //TODO: Have a location searching function (like troop searching) that takes into account vision and filters
     //TODO: Have icons for different units
     //TODO: SetCenter to have large map and redraw every movement
-    //TODO: Have movement be based on values
-    //TODO: Move faster over roads, and slower over water - have an action point amount to spend, and a buffer towards moving into a terrain
-    //TODO: Have enemy searching only look if within a likely radius
+    //TODO: Have enemy searching only look if within a likely radius to speed up processing
     //TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
-    //TODO: Pillaging happening multiple times
-    //TODO: On win, give n extra turns to finish pillaging
 
     _c.build_units_from_list = function (game, list) {
         _.each(list || [], function (unit_info, id) {
@@ -171,6 +190,15 @@
                     }
                 }
 
+                var num_walls = 0, num_towers = 0;
+                if (unit._side == cell.side) {
+                    //The unit is on home territory
+                    num_walls = _c.tile_has(cell, 'wall', true);
+                    num_towers = _c.tile_has(cell, 'tower', true);
+                }
+                unit.protected_by_walls = num_walls;
+                unit.in_towers = num_towers;
+
                 _c.draw_tile(game, previous_x, previous_y);
                 unit._draw();
             }
@@ -300,7 +328,7 @@
         } else {
             use_y = y;
         }
-        _c.draw_tile(this._game, use_x, use_y, this._symbol || "@", "#000", this._data.color || this._data.side);
+        _c.draw_tile(this._game, use_x, use_y, this._symbol || "@", this._data.color || "#000", this._data.side);
     };
     Entity.prototype.getX = function () {
         return this.x;
@@ -329,17 +357,35 @@
         var options, target_status;
 
         if (plan == 'seek closest') {
-            options = {side: 'enemy', filter: 'closest', range: 20, plan: plan, backup_strategy: unit._data.backup_strategy};
+            options = {
+                side: 'enemy',
+                filter: 'closest',
+                range: 20,
+                plan: plan,
+                backup_strategy: unit._data.backup_strategy
+            };
             target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options);
 
         } else if (plan == 'vigilant') {
-            options = {side: 'enemy', filter: 'closest', range: 3, plan: plan, backup_strategy: unit._data.backup_strategy};
+            options = {
+                side: 'enemy',
+                filter: 'closest',
+                range: 3,
+                plan: plan,
+                backup_strategy: unit._data.backup_strategy
+            };
             target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options);
 
         } else if (plan == 'seek weakest') {
-            options = {side: 'enemy', filter: 'weakest', range: 20, plan: plan, backup_strategy: unit._data.backup_strategy};
+            options = {
+                side: 'enemy',
+                filter: 'weakest',
+                range: 20,
+                plan: plan,
+                backup_strategy: unit._data.backup_strategy
+            };
             target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options);
 
@@ -353,8 +399,29 @@
             var location = _.find(game.data.buildings, function (b) {
                 return b.type == 'city' || b.type == 'city2'
             });
-            options = {side: 'enemy', filter: 'closest', range: 12, plan: plan, backup_strategy: unit._data.backup_strategy};
+            options = {
+                side: 'enemy',
+                filter: 'closest',
+                range: 12,
+                plan: plan,
+                backup_strategy: unit._data.backup_strategy
+            };
             _c.movement_strategies.head_towards(game, unit, location, options);
+
+        } else if (plan == 'defend city') {
+            var location = _.find(game.data.buildings, function (b) {
+                return b.type == 'city' || b.type == 'city2'
+            });
+            options = {
+                side: 'enemy',
+                filter: 'closest',
+                range: 8,
+                stop_if_cell_has: ['tower', 'wall'],
+                plan: plan,
+                backup_strategy: unit._data.backup_strategy
+            };
+            _c.movement_strategies.head_towards(game, unit, location, options);
+
 
         } else if (plan == 'wait') {
             _c.movement_strategies.wait(game, unit);

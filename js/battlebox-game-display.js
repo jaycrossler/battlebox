@@ -370,6 +370,72 @@
         }
     };
 
+    _c.game_over = function (game, side_wins) {
+        game.engine.lock();
+        if (!side_wins) {
+            //TODO: Find the winning side based on amount of city destroyed and number of troops
+            side_wins = "No one";
+        }
+
+        var msg = "Game Over!  " + side_wins + ' wins!';
+
+        msg += " (" + game.data.tick_count + " rounds)";
+
+        //Find ending loot retrieved via living armies
+        var loot = {};
+        _.each(game.entities, function (unit) {
+            if (unit && unit._data && unit._data.player) {
+                if (unit.loot) {
+                    for (var key in unit.loot) {
+                        loot[key] = loot[key] || 0;
+                        loot[key] += unit.loot[key];
+                    }
+                }
+            }
+        });
+        var loot_msg = [];
+        for (var key in loot) {
+            loot_msg.push(Helpers.abbreviateNumber(loot[key]) + " " + Helpers.pluralize(key))
+        }
+
+
+        //Calculate % of cities left
+        var city_msg = [];
+        var tiles_total = 0;
+        var tiles_ruined = 0;
+        var population_displaced = 0;
+
+        _.each(game.data.buildings, function (city) {
+            if (city.type == 'city' || city.type == 'city2') {
+                _.each(city.tiles || [], function (tile) {
+                    tiles_total++;
+
+                    var tile_orig = game.cells[tile.x][tile.y]
+                    if (_c.tile_has(tile_orig, 'pillaged') || _c.tile_has(tile_orig, 'looted')) {
+                        tiles_ruined++;
+                        population_displaced += tile_orig.population;
+                    }
+                });
+                var pct = Math.round((tiles_ruined / tiles_total) * 100);
+                var msg_c = pct + "% of " + (city.title || city.name) + " destroyed, ";
+                msg_c += Helpers.abbreviateNumber(population_displaced) + " population displaced";
+                city_msg.push(msg_c);
+            }
+        });
+
+        if (city_msg.length) {
+            msg += "<hr/><b>Cities:</b><br/> " + city_msg.join("<br/>");
+        }
+        if (loot_msg.length) {
+            msg += "<hr/><b>Surviving invaders looted:</b><br/>" + loot_msg.join(", ");
+        }
+
+        _c.log_message_to_user(game, msg, 4, (side_wins == "No one" ? 'gray' : side_wins));
+
+        if (game.game_options.game_over_function) {
+            game.game_options.game_over_function(game);
+        }
+    };
 
     _c.show_info = function (info) {
         var out;
@@ -394,7 +460,7 @@
 
     _c.update_unit_ui = function (game, unit) {
         var unit_name = _.str.titleize(unit._data.title || unit._data.name);
-        var text = unit_name + "<hr/>";
+        var text = "<b>" + unit_name + "</b><hr/>";
         text += unit.strategy + "<hr/>";
 
         if (unit.is_dead) {
@@ -402,9 +468,32 @@
         }
 
         _.each(unit.forces, function (force) {
-            text += "<li>" + force.count + " " + _.str.titleize(Helpers.pluralize(force.name)) + "</li>";
+            var count = force.count;
+            var orig = unit._data.troops[force.name];
+            var name = _.str.titleize(Helpers.pluralize(force.title || force.name));
+            if (orig && (count < orig)) {
+                count = "<span style='color:red'>" + count + "</span>/" + orig;
+            }
+            text += "<li>" + count + " " + name + "</li>";
         });
 
+        if (unit.protected_by_walls) {
+            text += "<b style='color:green'>Protected by wall</b><br/>";
+        }
+        if (unit.in_towers) {
+            text += "<b style='color:green'>In tower</b><br/>";
+        }
+
+        var loot_arr = [];
+        for (var key in unit.loot) {
+            var msg = unit.loot[key] + ' ' + Helpers.pluralize(key);
+            loot_arr.push (msg);
+        }
+        if (unit.loot && loot_arr.length == 0 && unit.is_dead) {
+            text += "<b>Loot Dropped on death</b>";
+        } else if (loot_arr.length) {
+            text += "<b>Loot: " + loot_arr.join(", ") + "</b>";
+        }
 
         unit.$trump
             .html(text);

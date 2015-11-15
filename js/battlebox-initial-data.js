@@ -81,49 +81,49 @@
             },
             {
                 name: 'Defender Bowmen 1', side: 'White', symbol: '1', location: 'city',
-                plan: 'seek closest', backup_strategy: 'vigilant',
+                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 2', side: 'White', symbol: '2', location: 'city',
-                plan: 'seek closest', backup_strategy: 'vigilant',
+                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 3', side: 'White', symbol: '3', location: 'city',
-                plan: 'seek closest', backup_strategy: 'vigilant',
+                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 4', side: 'White', symbol: '4', location: 'city',
-                plan: 'seek closest', backup_strategy: 'vigilant',
+                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 5', side: 'White', symbol: '5', location: 'city',
-                plan: 'seek closest', backup_strategy: 'vigilant',
+                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 6', side: 'White', symbol: '6', location: 'city',
-                plan: 'seek closest', backup_strategy: 'vigilant',
+                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 7', side: 'White', symbol: '7', location: 'city',
-                plan: 'seek closest', backup_strategy: 'vigilant',
+                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 8', side: 'White', symbol: '8', location: 'city',
-                plan: 'seek closest', backup_strategy: 'vigilant',
+                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
 
 
             {
                 name: 'Defender Catapults', side: 'White', symbol: 'B', location: 'city',
-                plan: 'run away', backup_strategy: 'vigilant',
+                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 40}
             },
 
@@ -207,7 +207,7 @@
         buildings: [
             {
                 name: 'Large City', title: 'Anchorage', type: 'city2', location: 'center',
-                tightness: 1, population: 20000,
+                tightness: 1, population: 20000, side: 'White',
                 fortifications: []
             },
             {name: 'Grain Storage', type: 'storage', resources: {food: 10000, gold: 2, herbs: 100}, location: 'random'},

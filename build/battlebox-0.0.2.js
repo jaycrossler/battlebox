@@ -1,6 +1,6 @@
 /*
 ------------------------------------------------------------------------------------
--- battlebox.js - v0.0.2 - Built on 2015-11-13 by Jay Crossler using Grunt.js
+-- battlebox.js - v0.0.2 - Built on 2015-11-15 by Jay Crossler using Grunt.js
 ------------------------------------------------------------------------------------
 -- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara 
 -- Packaged with color.js - Copyright (c) 2008-2013, Andrew Brehaut, Tim Baumann,  
@@ -528,7 +528,7 @@ Helpers.randomLetters = function (n) {
 };
 Helpers.pluralize = function (str) {
     var uncountable_words = [
-        'equipment', 'information', 'rice', 'money', 'species', 'series', 'gold',
+        'equipment', 'information', 'rice', 'money', 'species', 'series', 'gold', 'cavalry',
         'fish', 'sheep', 'moose', 'deer', 'news', 'food', 'wood', 'ore', 'piety', 'land'
     ];
     var plural_rules = [
@@ -1247,9 +1247,16 @@ Battlebox.initializeOptions = function (option_type, options) {
                     var enemy_side = force.mode == 'attacking' ? defender.forces : attacker.forces;
                     if (enemy_side.length) {
 
-                        //TODO: Have defense force use defenses of current tile
                         var target_force = _c.randOption(force.mode == 'attacking' ? defender.forces : attacker.forces);
-                        var to_hit_chance = force.strength / target_force.defense;
+                        var defender_defense_val = target_force.defense || 1;
+                        if (target_force.protected_by_walls) {
+                            defender_defense_val += (defender_defense_val * target_force.protected_by_walls *.5);
+                        }
+                        if (target_force.in_towers) {
+                            defender_defense_val += (defender_defense_val * target_force.in_towers *.2);
+                        }
+
+                        var to_hit_chance = force.strength / defender_defense_val;
 
                         var enemy_killed = (to_hit_chance >= 1) ? true : (_c.random() <= to_hit_chance);
                         if (enemy_killed) {
@@ -1271,7 +1278,12 @@ Battlebox.initializeOptions = function (option_type, options) {
 
                             //------------------------------------------------
                             //See if enemy gets returning free hit against attacker - 20% of normal attack chance
-                            var return_hit_chance = (.2 * target_force.defense) / force.strength;
+                            var attacker_defense_val = force.defense || 1;
+                            if (force.protected_by_walls) {
+                                attacker_defense_val += (attacker_defense_val * force.protected_by_walls *.5);
+                            }
+
+                            var return_hit_chance = (.2 * target_force.strength) / attacker_defense_val;
                             if (_c.random() <= return_hit_chance) {
 
                                 //------------------------------------------------
@@ -1299,27 +1311,6 @@ Battlebox.initializeOptions = function (option_type, options) {
                 }
             }
         }
-
-    };
-    _c.battle.hydrate_metadata = function (game, troop, count, side) {
-        var troop_data = _.find(game.game_options.troop_types, function (tt) {
-            return tt.side == side && tt.name == troop
-        });
-        if (!troop_data) {
-            troop_data = _.find(game.game_options.troop_types, function (tt) {
-                return tt.side == 'all' && tt.name == troop
-            });
-        }
-        var troop_object = {};
-        if (!troop_data) {
-            console.error("troop_data not found for: " + troop);
-            troop_object = {name: troop, count: count, side: side};
-        } else {
-            troop_object = _.clone(troop_data);
-            troop_object.side = side;
-            troop_object.count = count;
-        }
-        return troop_object;
     };
 
     _c.entity_attacks_entity = function (game, attacker, defender, callback) {
@@ -1332,27 +1323,6 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         var d_name = defender._data.name || "Defender";
         var b_side = defender._data.side || "Side 2";
-
-
-        //Add metadata from game_options.troop_types to each troop
-        //TODO: Move this all to unit setup on provisioning
-        if (!attacker.data_expanded) {
-            attacker.forces = [];
-            for (var key in attacker._data.troops) {
-                var force = _c.battle.hydrate_metadata(game, key, attacker._data.troops[key], attacker._data.side);
-                attacker.forces.push(force);
-            }
-            attacker.data_expanded = true;
-        }
-        if (!defender.data_expanded) {
-            defender.forces = [];
-            for (var key in defender._data.troops) {
-                var force = _c.battle.hydrate_metadata(game, key, defender._data.troops[key], defender._data.side);
-                defender.forces.push(force);
-            }
-            defender.data_expanded = true;
-        }
-
 
         //Count before fight
         var a_count = 0;
@@ -1494,6 +1464,9 @@ Battlebox.initializeOptions = function (option_type, options) {
         $pointers.info_box = $('<div>')
             .appendTo($pointers.canvas_holder);
 
+        $pointers.unit_holder = $('#unit_list');
+
+
         //Build the map
         ROT.RNG.setSeed(game.data.rand_seed);
         _c.generate_base_map(game);
@@ -1542,7 +1515,6 @@ Battlebox.initializeOptions = function (option_type, options) {
                 _c.add_main_city_population(game,1000);
             })
             .appendTo($pointers.canvas_holder);
-
 
         return container_canvas;
     };
@@ -1807,6 +1779,72 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
     };
 
+    _c.game_over = function (game, side_wins) {
+        game.engine.lock();
+        if (!side_wins) {
+            //TODO: Find the winning side based on amount of city destroyed and number of troops
+            side_wins = "No one";
+        }
+
+        var msg = "Game Over!  " + side_wins + ' wins!';
+
+        msg+= " ("+ game.data.tick_count + " rounds)";
+
+        //Find ending loot retrieved via living armies
+        var loot = {};
+        _.each(game.entities, function(unit){
+            if (unit && unit._data && unit._data.player) {
+                if (unit.loot) {
+                    for (var key in unit.loot) {
+                        loot[key] = loot[key] || 0;
+                        loot[key] += unit.loot[key];
+                    }
+                }
+            }
+        });
+        var loot_msg = [];
+        for (var key in loot) {
+            loot_msg.push(Helpers.abbreviateNumber(loot[key]) + " " + Helpers.pluralize(key))
+        }
+
+
+        //Calculate % of cities left
+        var city_msg = [];
+        var tiles_total = 0;
+        var tiles_ruined = 0;
+        var population_displaced = 0;
+
+        _.each(game.data.buildings, function(city){
+            if (city.type == 'city' || city.type == 'city2') {
+                _.each(city.tiles || [], function (tile) {
+                    tiles_total++;
+
+                    var tile_orig = game.cells[tile.x][tile.y]
+                    if (_c.tile_has(tile_orig, 'pillaged') || _c.tile_has(tile_orig, 'looted')) {
+                        tiles_ruined++;
+                        population_displaced += tile_orig.population;
+                    }
+                });
+                var pct = Math.round((tiles_ruined/tiles_total) * 100);
+                var msg_c = pct+"% of "+(city.title || city.name) +" destroyed, ";
+                msg_c += Helpers.abbreviateNumber(population_displaced) + " population displaced";
+                city_msg.push(msg_c);
+            }
+        });
+
+        if (city_msg.length) {
+            msg += "<hr/><b>Cities:</b><br/> " + city_msg.join("<br/>");
+        }
+        if (loot_msg.length) {
+            msg += "<hr/><b>Surviving invaders looted:</b><br/>" + loot_msg.join(", ");
+        }
+
+        _c.log_message_to_user(game, msg, 4, (side_wins == "No one" ? 'gray' : side_wins));
+
+        if (game.game_options.game_over_function) {
+            game.game_options.game_over_function(game);
+        }
+    };
 
     _c.show_info = function (info) {
         var out;
@@ -1817,7 +1855,60 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
         $pointers.info_box
             .html(out);
-    }
+    };
+
+    _c.add_unit_ui_to_main_ui = function (game, unit) {
+        var unit_name = _.str.titleize(unit._data.title || unit._data.name);
+
+        unit.$trump = $('<div>')
+            .text(unit_name)
+            .addClass('unit_trump')
+            .css({backgroundColor: unit._data.side})
+            .appendTo($pointers.unit_holder);
+    };
+
+    _c.update_unit_ui = function (game, unit) {
+        var unit_name = _.str.titleize(unit._data.title || unit._data.name);
+        var text = "<b>" + unit_name + "</b><hr/>";
+        text += unit.strategy + "<hr/>";
+
+        if (unit.is_dead) {
+            text += "<span style='color:red'>Dead on " + battlebox.data.tick_count + "</span><br/>";
+        }
+
+        _.each(unit.forces, function (force) {
+            var count = force.count;
+            var orig = unit._data.troops[force.name];
+            var name  = _.str.titleize(Helpers.pluralize(force.title || force.name));
+            if (orig && (count < orig)) {
+                count = "<span style='color:red'>" + count + "</span>/" + orig;
+            }
+            text += "<li>" + count + " " + name + "</li>";
+        });
+
+        if (unit.protected_by_walls) {
+            text += "<b style='color:green'>Protected by wall</b><br/>";
+        }
+        if (unit.in_towers) {
+            text += "<b style='color:green'>In tower</b><br/>";
+        }
+
+        var loot_arr = [];
+        for (var key in unit.loot) {
+            var msg = unit.loot[key] + ' ' + Helpers.pluralize(key);
+            loot_arr.push (msg);
+        }
+        if (unit.loot && loot_arr.length == 0 && unit.is_dead) {
+            text += "<b>Loot Dropped on death</b>";
+        } else if (loot_arr.length) {
+            text += "<b>Loot: " + loot_arr.join(", ") + "</b>";
+        }
+
+        unit.$trump
+            .html(text);
+    };
+
+
 
 })(Battlebox);
 (function (Battlebox) {
@@ -1903,74 +1994,6 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
 
 
-    _c.game_over = function (game, side_wins) {
-        game.engine.lock();
-        if (!side_wins) {
-            //TODO: Find the winning side based on amount of city destroyed and number of troops
-            side_wins = "No one";
-        }
-
-        var msg = "Game Over!  " + side_wins + ' wins!';
-
-        msg+= " ("+ game.data.tick_count + " rounds)";
-
-        //Find ending loot retrieved via living armies
-        var loot = {};
-        _.each(game.entities, function(unit){
-            if (unit && unit._data && unit._data.player) {
-                if (unit.loot) {
-                    for (var key in unit.loot) {
-                        loot[key] = loot[key] || 0;
-                        loot[key] += unit.loot[key];
-                    }
-                }
-            }
-        });
-        var loot_msg = [];
-        for (var key in loot) {
-            loot_msg.push(Helpers.abbreviateNumber(loot[key]) + " " + Helpers.pluralize(key))
-        }
-
-
-        //Calculate % of cities left
-        var city_msg = [];
-        var tiles_total = 0;
-        var tiles_ruined = 0;
-        var population_displaced = 0;
-
-        _.each(game.data.buildings, function(city){
-            if (city.type == 'city' || city.type == 'city2') {
-                _.each(city.tiles || [], function (tile) {
-                    tiles_total++;
-
-                    var tile_orig = game.cells[tile.x][tile.y]
-                    if (_c.tile_has(tile_orig, 'pillaged') || _c.tile_has(tile_orig, 'looted')) {
-                        tiles_ruined++;
-                        population_displaced += tile_orig.population;
-                    }
-                });
-                var pct = Math.round((tiles_ruined/tiles_total) * 100);
-                var msg_c = pct+"% of "+(city.title || city.name) +" destroyed, ";
-                msg_c += Helpers.abbreviateNumber(population_displaced) + " population displaced";
-                city_msg.push(msg_c);
-            }
-        });
-
-        if (city_msg.length) {
-            msg += "<hr/><b>Cities:</b><br/> " + city_msg.join("<br/>");
-        }
-        if (loot_msg.length) {
-            msg += "<hr/><b>Loot:</b><br/>" + loot_msg.join(", ");
-        }
-
-        _c.log_message_to_user(game, msg, 4, (side_wins == "No one" ? 'gray' : side_wins));
-
-        if (game.game_options.game_over_function) {
-            game.game_options.game_over_function(game);
-        }
-    }
-
-
 })(Battlebox);
 (function (Battlebox) {
 
@@ -2017,60 +2040,173 @@ Battlebox.initializeOptions = function (option_type, options) {
         ],
 
         forces: [
-            {name: 'Attacker Main Army Force', side: 'Yellow', location: 'left', player: true,
+            {
+                name: 'Attacker Main Army Force', side: 'Yellow', location: 'left', player: true,
                 plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
-                troops: {soldiers: 520, cavalry: 230, siege: 50}},
-            {name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'run away',  try_to_loot: true, try_to_pillage: true,
-                troops: {soldiers: 80, cavalry: 20, siege: 10}},
-            {name: 'Task Force Bravo', side: 'Yellow', symbol: '#B', location: 'left', player: true,
+                troops: {soldiers: 520, cavalry: 230, siege: 50}
+            },
+            {
+                name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
+                plan: 'invade city', backup_strategy: 'run away', try_to_loot: true, try_to_pillage: true,
+                troops: {soldiers: 80, cavalry: 20, siege: 10}
+            },
+            {
+                name: 'Task Force Bravo', side: 'Yellow', symbol: '#B', location: 'left', player: true,
                 plan: 'invade city', backup_strategy: 'invade city', try_to_loot: true, try_to_pillage: true,
-                troops: {cavalry: 20}},
-            {name: 'Task Force Charlie', side: 'Yellow', symbol: '#C', location: 'left', player: true,
+                troops: {cavalry: 20}
+            },
+            {
+                name: 'Task Force Charlie', side: 'Yellow', symbol: '#C', location: 'left', player: true,
                 plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
-                troops: {cavalry: 20}},
+                troops: {cavalry: 20}
+            },
+            {
+                name: 'Task Force Delta', side: 'Yellow', symbol: '#D', location: 'left', player: true,
+                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
+                troops: {cavalry: 20}
+            },
+            {
+                name: 'Task Force Echo', side: 'Yellow', symbol: '#E', location: 'left', player: true,
+                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
+                troops: {cavalry: 20}
+            },
 
-            {name: 'Defender City Force', side: 'White', location: 'city',
+            {
+                name: 'Defender City Force', side: 'White', location: 'city',
                 plan: 'seek closest', backup_strategy: 'vigilant',
-                troops: {soldiers: 620, cavalry: 40, siege: 100}},
-            {name: 'Defender Bowmen 1', side: 'White', symbol: '2', location: 'city',
-                plan: 'seek closest', backup_strategy: 'vigilant',
-                troops: {soldiers: 20, siege: 20}},
-            {name: 'Defender Bowmen 2', side: 'White', symbol: '3', location: 'city',
-                plan: 'seek closest', backup_strategy: 'vigilant',
-                troops: {soldiers: 20, siege: 20}},
-            {name: 'Defender Bowmen 3', side: 'White', symbol: '4', location: 'city',
-                plan: 'seek closest', backup_strategy: 'vigilant',
-                troops: {soldiers: 20, siege: 20}},
-            {name: 'Defender Bowmen 4', side: 'White', symbol: '1', location: 'city',
-                plan: 'seek closest', backup_strategy: 'vigilant',
-                troops: {soldiers: 20, siege: 20}},
+                troops: {soldiers: 620, cavalry: 40, siege: 100}
+            },
+            {
+                name: 'Defender Bowmen 1', side: 'White', symbol: '1', location: 'city',
+                plan: 'defend city', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}
+            },
+            {
+                name: 'Defender Bowmen 2', side: 'White', symbol: '2', location: 'city',
+                plan: 'defend city', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}
+            },
+            {
+                name: 'Defender Bowmen 3', side: 'White', symbol: '3', location: 'city',
+                plan: 'defend city', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}
+            },
+            {
+                name: 'Defender Bowmen 4', side: 'White', symbol: '4', location: 'city',
+                plan: 'defend city', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}
+            },
+            {
+                name: 'Defender Bowmen 5', side: 'White', symbol: '5', location: 'city',
+                plan: 'defend city', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}
+            },
+            {
+                name: 'Defender Bowmen 6', side: 'White', symbol: '6', location: 'city',
+                plan: 'defend city', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}
+            },
+            {
+                name: 'Defender Bowmen 7', side: 'White', symbol: '7', location: 'city',
+                plan: 'defend city', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}
+            },
+            {
+                name: 'Defender Bowmen 8', side: 'White', symbol: '8', location: 'city',
+                plan: 'defend city', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 20}
+            },
 
-            {name: 'Defender Catapults', side: 'White', symbol: 'B', location: 'city',
-                plan: 'run away', backup_strategy: 'vigilant',
-                troops: {soldiers: 20, siege: 40}},
+
+            {
+                name: 'Defender Catapults', side: 'White', symbol: 'B', location: 'city',
+                plan: 'defend city', backup_strategy: 'vigilant',
+                troops: {soldiers: 20, siege: 40}
+            },
 
 
-            {name: 'Sleeping Dragon', side: 'Red', symbol: '}{', location: 'impassible', not_part_of_victory: true,
-                plan: 'wander', backup_strategy: 'wait', size: 3, move_through_impassibles: true, try_to_loot: true, try_to_pillage: true,
-                troops: {adult_dragon: 1}}
+            {
+                name: 'Sleeping Dragon',
+                side: 'Red',
+                symbol: '}{',
+                location: 'impassible',
+                not_part_of_victory: true,
+                plan: 'wander',
+                backup_strategy: 'wait',
+                size: 3,
+                move_through_impassibles: true,
+                try_to_loot: true,
+                try_to_pillage: true,
+                troops: {adult_dragon: 1}
+            }
 
         ],
 
         //TODO: Use these in strength calculations
         troop_types: [
-            {name: 'soldiers', side: 'Yellow', range: 1, speed: 40, strength: 1, defense: 2, weapon: 'sword', armor: 'armor', carrying: 5},
-            {name: 'soldiers', side: 'all', range: 1, speed: 30, strength: 1.2, defense: 1.8, weapon: 'rapiers', armor: 'armor', carrying: 5},
-            {name: 'cavalry', side: 'all', range: 1, speed: 70, strength: 1.5, defense: 1.5, weapon: 'rapier', armor: 'shields', carrying: 2},
-            {name: 'siege', title: 'siege units', side: 'all', range: 2, speed: 10, strength: 5, defense: .5, weapon: 'catapults', carrying: 1},
-            {name: 'adult_dragon', side: 'all', range: 2, speed: 120, strength: 150, defense: 300, weapon: 'fire breath', armor: 'impenetrable scales', carrying: 2000}
+            {
+                name: 'soldiers',
+                side: 'Yellow',
+                range: 1,
+                speed: 40,
+                strength: 1,
+                defense: 2,
+                weapon: 'sword',
+                armor: 'armor',
+                carrying: 5
+            },
+            {
+                name: 'soldiers',
+                side: 'all',
+                range: 1,
+                speed: 30,
+                strength: 1.2,
+                defense: 1.8,
+                weapon: 'rapiers',
+                armor: 'armor',
+                carrying: 5
+            },
+            {
+                name: 'cavalry',
+                side: 'all',
+                range: 1,
+                speed: 70,
+                strength: 1.5,
+                defense: 1.5,
+                weapon: 'rapier',
+                armor: 'shields',
+                carrying: 2
+            },
+            {
+                name: 'siege',
+                title: 'siege units',
+                side: 'all',
+                range: 2,
+                speed: 10,
+                strength: 5,
+                defense: .5,
+                weapon: 'catapults',
+                carrying: 1
+            },
+            {
+                name: 'adult_dragon',
+                side: 'all',
+                range: 2,
+                speed: 120,
+                strength: 150,
+                defense: 300,
+                weapon: 'fire breath',
+                armor: 'impenetrable scales',
+                carrying: 2000
+            }
         ],
 
         buildings: [
-            {name: 'Large City', title: 'Anchorage', type: 'city2', location: 'center',
-                tightness:1, population: 20000,
-                fortifications: [
-                ]},
+            {
+                name: 'Large City', title: 'Anchorage', type: 'city2', location: 'center',
+                tightness: 1, population: 20000, side: 'White',
+                fortifications: []
+            },
             {name: 'Grain Storage', type: 'storage', resources: {food: 10000, gold: 2, herbs: 100}, location: 'random'},
             {name: 'Metal Storage', type: 'storage', resources: {metal: 1000, gold: 2, ore: 1000}, location: 'random'},
             {name: 'Cave Entrance', type: 'dungeon', requires: {mountains: true}, location: 'impassible'}
@@ -2327,14 +2463,14 @@ Battlebox.initializeOptions = function (option_type, options) {
         var cell = _c.tile(game, x, y);
         if (cell) {
             info = _.clone(cell);
-        }
 
-        _.each(_c.entities(game), function (entity, id) {
-            if (entity.x == x && entity.y == y && entity._draw) {
-                info.forces = info.forces || [];
-                info.forces.push({id: id, data: entity.forces});
-            }
-        });
+            _.each(_c.entities(game), function (entity, id) {
+                if (entity.x == x && entity.y == y && entity._draw) {
+                    info.forces = info.forces || [];
+                    info.forces.push({id: id, data: entity.forces});
+                }
+            });
+        }
         return info;
     };
 
@@ -2369,8 +2505,8 @@ Battlebox.initializeOptions = function (option_type, options) {
      * @param {object} game class data
      * @param {int} x
      * @param {int} y
-     * @param {boolean} move_through_impassibles return true even if the sell is impassible
-     * @param {boolean} only_impassible return true only if the cell is impassible
+     * @param {boolean} [move_through_impassibles] return true even if the sell is impassible
+     * @param {boolean} [only_impassible] return true only if the cell is impassible
      * @returns {boolean} valid if cell is valid and passable
      */
     _c.tile_is_traversable = function (game, x, y, move_through_impassibles, only_impassible) {
@@ -2668,7 +2804,7 @@ Battlebox.initializeOptions = function (option_type, options) {
      * Returns whether a tile has a specific addition (either a simple text feature like 'field', or a complex object feature like {name:'road', symbol:'-'}
      * @param {object} cell - tile to look at
      * @param {string} feature - a feature class, like 'field', or 'road'
-     * @param {boolean} return_count - return just a count of features instead of feature details
+     * @param {boolean} [return_count=false] - return just a count of features instead of feature details
      * @returns {object} null if no object, or the first feature info (string or object) if it was found, or count of objects if return_count specified
      */
     _c.tile_has = function (cell, feature, return_count) {
@@ -2722,7 +2858,7 @@ Battlebox.initializeOptions = function (option_type, options) {
      * @param {object} game
      * @param {object} tile_from
      * @param {object} tile_to (returns 3 neighbors of this tile)
-     * @returns {Array} neighbor_cells
+     * @returns {Array.<object>} neighbor_cells
      */
     _c.opposite_tiles_from_tile_to_tile = function (game, tile_from, tile_to) {
         var neighbor_cells = [];
@@ -2749,7 +2885,7 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
     //-------------------------------------------------
     /**
-     * Builds all the tiles for the base game map from the gaem data settings passed in. Constructs game.cells for use in game
+     * Builds all the tiles for the base game map from the game data settings passed in. Constructs game.cells for use in game
      * @param {object} game Overall game information
      */
     _c.generate_base_map = function (game) {
@@ -2842,6 +2978,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                         shape: fort.shape,
                         radius: fort.radius,
                         towers: fort.towers,
+                        side: building_layer.side,
                         starting_angle: fort.starting_angle
                     };
                     _c.generators.walls(game, location, wall_info);
@@ -3029,6 +3166,9 @@ Battlebox.initializeOptions = function (option_type, options) {
         } else if (shape == 'septagon') {
             tiles = polygon_intersections(game, 7, points, starting_angle, center, center_px, radius_px)
 
+        } else if (shape == 'octagon') {
+            tiles = polygon_intersections(game, 8, points, starting_angle, center, center_px, radius_px)
+
 
         } else if (shape == 'rounded square') {
             for (var i = 0; i < points; i++) {
@@ -3090,6 +3230,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             if (cell && !cell.impassible) {
                 cell.additions = cell.additions || [];
                 cell.additions.push('wall');
+                cell.side = wall_info.side;
 
                 //(i * ((wall_info.towers || 0) / wall_info.count)) % (wall_info.towers || 1) == 0;
                 var tower_count = Math.round(i * ((wall_info.towers || 0) / wall_info.count));
@@ -3141,6 +3282,8 @@ Battlebox.initializeOptions = function (option_type, options) {
         city_cells.push(center);
 
 
+        //TODO: Work from previous population to new population
+
         //Pre-roll all random rolls so that they will always build in the same pattern
         var rolls = [];
         for (var i = 0; i < building_tile_tries; i++) {
@@ -3188,6 +3331,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 cell.population = cell.population || 0;
                 cell.population += building_tile_tries / 4 + (rolls[i][3] * building_tile_radius_x);
                 cell.population = Math.ceil(Math.max(0, cell.population));
+                cell.side = city_info.side;
                 game.cells[x][y] = cell;
 
                 if (_.indexOf(city_cells, cell) == -1) city_cells.push(cell);
@@ -3200,6 +3344,8 @@ Battlebox.initializeOptions = function (option_type, options) {
                     neighbor.population = neighbor.population || 0;
                     neighbor.population += building_tile_tries / (road_neighbors.length * 1.8);
                     neighbor.population = Math.ceil(Math.max(0, neighbor.population));
+                    neighbor.side = city_info.side;
+
                     game.cells[neighbor.x][neighbor.y] = neighbor;
 
                     if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
@@ -3222,6 +3368,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                     title: city_info.title,
                     population: cell_population,
                     type: 'city',
+                    side: city_info.side,
                     x: x,
                     y: y
                 };
@@ -3247,6 +3394,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             } else {
                 cell.population = cell_population;
                 game.cells[x][y].population = cell_population;
+                game.cells[x][y].side = city_info.side;
             }
         }
 
@@ -3279,12 +3427,14 @@ Battlebox.initializeOptions = function (option_type, options) {
 
                         neighbor.population = neighbor.population || 0;
                         neighbor.population += Math.round(population_to_give_each_neighbor);
-                        game.cells[neighbor.x][neighbor.y] = neighbor;
+                        neighbor.side = city_info.side;
 
+                        game.cells[neighbor.x][neighbor.y] = neighbor;
                         if (_.indexOf(city_cells, neighbor) == -1) city_cells.push(neighbor);
                     });
                     cell.additions = removeArrayItemNTimes(cell.additions, 'farm', neighbors.length * farms_to_give_each_neighbor);
                     cell.population -= Math.round(population_to_give_each_neighbor * neighbors.length);
+                    cell.side = city_info.side;
                     game.cells[cell.x][cell.y] = cell;
                 }
             }
@@ -3633,8 +3783,6 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
         }
 
-        //TODO: Add city walls
-
         return city_cells;
     };
 
@@ -3652,16 +3800,16 @@ Battlebox.initializeOptions = function (option_type, options) {
         var cell = _c.tile(game, x, y);
         var weight = 0;
 
-        if (cell.name == 'plains') weight += 2;
-        if (cell.name == 'mountains') weight += 6;
-        if (cell.name == 'forest') weight += 3;
-        if (cell.density == 'medium') weight += 2;
-        if (cell.density == 'large') weight += 4;
-        if (cell.name == 'lake') weight += 4;
-        if (_c.tile_has(cell, 'path')) weight -= 1;
-        if (_c.tile_has(cell, 'road')) weight -= 2;
-        if (_c.tile_has(cell, 'rail')) weight -= 4;
-        if (_c.tile_has(cell, 'river')) weight += 2;
+        if (cell.name == 'plains') weight += 4;
+        if (cell.name == 'mountains') weight += 12;
+        if (cell.name == 'forest') weight += 6;
+        if (cell.density == 'medium') weight += 4;
+        if (cell.density == 'large') weight += 8;
+        if (cell.name == 'lake') weight += 8;
+        if (_c.tile_has(cell, 'path')) weight -= 2;
+        if (_c.tile_has(cell, 'road')) weight -= 4;
+        if (_c.tile_has(cell, 'rail')) weight -= 8;
+        if (_c.tile_has(cell, 'river')) weight += 4;
 
         return Math.max(0, weight);
     };
@@ -3769,6 +3917,8 @@ Battlebox.initializeOptions = function (option_type, options) {
         var y = unit.y + dir[1];
         var x = unit.x + dir[0];
 
+        unit.strategy = 'Wander';
+
         var msg = unit.describe() + ' ';
         var moves = _c.try_to_move_to_and_draw(game, unit, x, y);
         if (moves) {
@@ -3779,12 +3929,16 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
 
     _c.movement_strategies.wait = function (game, unit) {
+        unit.strategy = "Wait for enemy to be near";
+
         _c.log_message_to_user(game, unit.describe() + " stays vigilant and doesn't move", 0);
     };
 
     _c.movement_strategies.seek = function (game, unit, target_status, options) {
         var x = target_status.target ? target_status.target.getX() : -1;
         var y = target_status.target ? target_status.target.getY() : -1;
+
+        unit.strategy = "Seek target";
 
         if (!_c.tile_is_traversable(game, x, y)) {
             if (options.backup_strategy == 'vigilant') {
@@ -3842,6 +3996,30 @@ Battlebox.initializeOptions = function (option_type, options) {
     _c.movement_strategies.head_towards = function (game, unit, location, options) {
         var path;
 
+        unit.strategy = "Head to " + location.location.x + ", " + location.location.y;
+
+        var stop_here = false;
+        if (options.stop_if_cell_has) {
+            var cell = _c.tile(game, unit.x, unit.y);
+            _.each(options.stop_if_cell_has, function(condition){
+                if (_c.tile_has(cell, condition)) {
+                    stop_here = true;
+                }
+            });
+            if (stop_here) {
+                if (options.backup_strategy == 'vigilant') {
+                    _c.movement_strategies.vigilant(game, unit);
+                    return;
+                } else if (options.backup_strategy == 'wait') {
+                    _c.movement_strategies.wait(game, unit);
+                    return;
+                } else { //wander
+                    _c.movement_strategies.wander(game, unit, options);
+                    return;
+                }
+            }
+        }
+
         var to_loc = location && (location.location) && (location.location.x !== undefined) && (location.location.y !== undefined);
         if (!to_loc) {
             options = {side: 'enemy', filter: 'closest', range: 100, plan: 'seek closest', backup_strategy: unit._data.backup_strategy};
@@ -3883,6 +4061,8 @@ Battlebox.initializeOptions = function (option_type, options) {
     _c.movement_strategies.avoid = function (game, unit, target_status, options) {
         var x = target_status.target ? target_status.target.getX() : -1;
         var y = target_status.target ? target_status.target.getY() : -1;
+        unit.strategy = "Avoiding enemy";
+
         if (!_c.tile_is_traversable(game, x, y)) {
             if (options.backup_strategy == 'vigilant') {
                 _c.movement_strategies.vigilant(game, unit);
@@ -3937,18 +4117,38 @@ Battlebox.initializeOptions = function (option_type, options) {
 
     var controlled_entity_id = 0;
 
+    //---------------
+    //Combat Rules:
+    //---------------
+    // Units attack in order of speed, even when multiple forces are in the same unit
+    // Each person in unit attacks, with chance of hitting a single foe being attacker.strength/defender.defense
+    // If defender is killed, they have a 20% chance of hitting back at an attacker (defender.strength/attacker.defense)
+    // When killed, units drop loot on the square - next unit by picks it up
+    // When pillaging, burns and displaces population, but much more loot
+    // When moving into a tile with an enemy, automatically attack them
+    // Multiple walls/towers have additional defense on home units, wall += .5 of att, tower += .2 of attack
+    // Only defenders benefit from being on a wall (increase defense .5) or tower (increase defense .2)
+    // TODO: Units move based on the speed of the slowest living unit in their force
+    // TODO: Towers increase defender's vision * 1.5, range +1 if range > 1
+    // TODO: Units have a carrying capacity for the amount of loot they can carry
+    // TODO: Units consume food over time, and replenish food by pillaging, looting, or foraging
+    // TODO: Attackers with range > 1 can attack enemies in nearby squares by using some action points
+    // TODO: When looting or pillaging land, small chance of new defenders spawning a defense force
+    // TODO: Have a goal-oriented AI that uses the information they know about
+    // TODO: Have units communicate with each other, sending enemy positions or storage locations, or what else?
+    // TODO: Move faster over roads, and slower over water - have an action point amount to spend, and a buffer towards moving into a terrain
+    // TODO: When defeating all enemies, give n extra turns to finish pillaging
+
     //TODO: Have icons for different units
     //TODO: SetCenter to have large map and redraw every movement
-    //TODO: Have movement be based on values
-    //TODO: Move faster over roads, and slower over water
-    //TODO: Have enemy searching only look if within a likely radius
+    //TODO: Have enemy searching only look if within a likely radius to speed up processing
     //TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
-    //TODO: Pillaging happening multiple times
-    //TODO: On win, give n extra turns to finish pillaging
 
     _c.build_units_from_list = function (game, list) {
         _.each(list || [], function (unit_info, id) {
-            game.entities.push(_c.create_unit(game, unit_info, id))
+            var unit = _c.create_unit(game, unit_info, id);
+            game.entities.push(unit);
+            _c.add_unit_ui_to_main_ui(game, unit);
         });
         return _c.entities(game);
     };
@@ -3957,7 +4157,6 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
 
     _c.create_unit = function (game, unit_info, id) {
-
         var location = _c.find_a_matching_tile(game, unit_info);
 
         var EntityType;
@@ -3966,8 +4165,43 @@ Battlebox.initializeOptions = function (option_type, options) {
         } else {
             EntityType = OpForce;
         }
-        return new EntityType(game, location.x, location.y, id, unit_info);
+
+        //Generate the unit
+        var unit = new EntityType(game, location.x, location.y, id, unit_info);
+
+        //Add metadata from game_options.troop_types to each troop
+        if (!unit.data_expanded) {
+            unit.forces = [];
+            for (var key in unit._data.troops || []) {
+                var force = _c.hydrate_troop_metadata(game, key, unit._data.troops[key], unit._data.side);
+                unit.forces.push(force);
+            }
+            unit.data_expanded = true;
+        }
+
+        return unit;
     };
+    _c.hydrate_troop_metadata = function (game, troop, count, side) {
+        var troop_data = _.find(game.game_options.troop_types, function (tt) {
+            return tt.side == side && tt.name == troop
+        });
+        if (!troop_data) {
+            troop_data = _.find(game.game_options.troop_types, function (tt) {
+                return tt.side == 'all' && tt.name == troop
+            });
+        }
+        var troop_object = {};
+        if (!troop_data) {
+            console.error("troop_data not found for: " + troop);
+            troop_object = {name: troop, count: count, side: side};
+        } else {
+            troop_object = _.clone(troop_data);
+            troop_object.side = side;
+            troop_object.count = count;
+        }
+        return troop_object;
+    };
+
 
     _c.raze_or_loot = function (game, unit, cell) {
 
@@ -4068,6 +4302,15 @@ Battlebox.initializeOptions = function (option_type, options) {
                     }
                 }
 
+                var num_walls = 0, num_towers = 0;
+                if (unit._side == cell.side) {
+                    //The unit is on home territory
+                    num_walls = _c.tile_has(cell, 'wall', true);
+                    num_towers = _c.tile_has(cell, 'tower', true);
+                }
+                unit.protected_by_walls = num_walls;
+                unit.in_towers = num_towers;
+
                 _c.draw_tile(game, previous_x, previous_y);
                 unit._draw();
             }
@@ -4157,6 +4400,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         this._symbol = unit.symbol || "@";
         this._data = unit;
         this._draw();
+        this.strategy = '';
     };
 
     Entity.prototype.describe = function () {
@@ -4196,7 +4440,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         } else {
             use_y = y;
         }
-        _c.draw_tile(this._game, use_x, use_y, this._symbol || "@", "#000", this._data.color || this._data.side);
+        _c.draw_tile(this._game, use_x, use_y, this._symbol || "@", this._data.color || "#000", this._data.side);
     };
     Entity.prototype.getX = function () {
         return this.x;
@@ -4225,17 +4469,35 @@ Battlebox.initializeOptions = function (option_type, options) {
         var options, target_status;
 
         if (plan == 'seek closest') {
-            options = {side: 'enemy', filter: 'closest', range: 20, plan: plan, backup_strategy: unit._data.backup_strategy};
+            options = {
+                side: 'enemy',
+                filter: 'closest',
+                range: 20,
+                plan: plan,
+                backup_strategy: unit._data.backup_strategy
+            };
             target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options);
 
         } else if (plan == 'vigilant') {
-            options = {side: 'enemy', filter: 'closest', range: 3, plan: plan, backup_strategy: unit._data.backup_strategy};
+            options = {
+                side: 'enemy',
+                filter: 'closest',
+                range: 3,
+                plan: plan,
+                backup_strategy: unit._data.backup_strategy
+            };
             target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options);
 
         } else if (plan == 'seek weakest') {
-            options = {side: 'enemy', filter: 'weakest', range: 20, plan: plan, backup_strategy: unit._data.backup_strategy};
+            options = {
+                side: 'enemy',
+                filter: 'weakest',
+                range: 20,
+                plan: plan,
+                backup_strategy: unit._data.backup_strategy
+            };
             target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options);
 
@@ -4249,8 +4511,29 @@ Battlebox.initializeOptions = function (option_type, options) {
             var location = _.find(game.data.buildings, function (b) {
                 return b.type == 'city' || b.type == 'city2'
             });
-            options = {side: 'enemy', filter: 'closest', range: 12, plan: plan, backup_strategy: unit._data.backup_strategy};
+            options = {
+                side: 'enemy',
+                filter: 'closest',
+                range: 12,
+                plan: plan,
+                backup_strategy: unit._data.backup_strategy
+            };
             _c.movement_strategies.head_towards(game, unit, location, options);
+
+        } else if (plan == 'defend city') {
+            var location = _.find(game.data.buildings, function (b) {
+                return b.type == 'city' || b.type == 'city2'
+            });
+            options = {
+                side: 'enemy',
+                filter: 'closest',
+                range: 8,
+                stop_if_cell_has: ['tower', 'wall'],
+                plan: plan,
+                backup_strategy: unit._data.backup_strategy
+            };
+            _c.movement_strategies.head_towards(game, unit, location, options);
+
 
         } else if (plan == 'wait') {
             _c.movement_strategies.wait(game, unit);
@@ -4260,6 +4543,8 @@ Battlebox.initializeOptions = function (option_type, options) {
             _c.movement_strategies.wander(game, unit);
         }
 
+        //Redraw the data of the unit
+        _c.update_unit_ui(game, unit);
     };
 
 
