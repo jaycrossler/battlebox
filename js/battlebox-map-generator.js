@@ -9,11 +9,8 @@
     //TODO: Pass in a color set to try out different images/rendering techniques
     //TODO: Use hex images for terrain
     //TODO: Use colored large circle characters for forces, not full hex colors
-    //TODO: Work on wall shape rotation
-    //TODO: Wall shapes (especially squares) are not all spaced evenly
-    //TODO: Find out why pre-rolling placement numbers isn't turning out almost exactly the same between builds
+    //TODO: Find out why pre-rolling placement numbers isn't turning out almost exactly the same between builds. Fixed now?
     //TODO: Adding population doesnt add new roads if they should
-    //TODO: Walls currently going over river - is that good?
 
     _c.tile = function (game, x, y) {
         var cell;
@@ -56,29 +53,52 @@
     };
 
     /**
-     * Returns the 6 surrounding hexes around a tile
+     * Returns the 6 surrounding hexes around a tile (or more if bigger rings)
      * @param {object} game class data
      * @param {int} x
      * @param {int} y
+     * @param {int} [rings=1] number of rings away from x,y that should be included
      * @returns {Array.<Object>} cells and entity data
      */
-    _c.surrounding_tiles = function (game, x, y) {
+    _c.surrounding_tiles = function (game, x_start, y_start, rings) {
         var cells = [];
+        rings = rings || 1;
 
-        var cell = _c.tile(game, x, y);
-        if (!cell) {
-            return cells;
-        }
-        _.each(ROT.DIRS[6], function (mods) {
-            var new_x = x + mods[0];
-            var new_y = y + mods[1];
-            var new_cell = _c.tile(game, new_x, new_y);
+        function add(x_offset, y_offset) {
+            var new_cell = _c.tile(game, x_offset, y_offset);
             if (new_cell) {
                 if (new_cell) cells.push(new_cell);
             }
-        });
+        }
 
+        var x = x_start;
+        var y = y_start;
+
+        //Hexagon spiral algorithm, modified from
+        for (var n = 1; n <= rings; ++n) {
+            x += 2;
+            add(x, y);
+            for (var i = 0; i < n - 1; ++i) add(++x, ++y); // move down right. Note N-1
+            for (var i = 0; i < n; ++i) add(--x, ++y); // move down left
+            for (var i = 0; i < n; ++i) {
+                x -= 2;
+                add(x, y);
+            } // move left
+            for (var i = 0; i < n; ++i) add(--x, --y); // move up left
+            for (var i = 0; i < n; ++i) add(++x, --y); // move up right
+            for (var i = 0; i < n; ++i) {
+                x += 2;
+                add(x, y);
+            }  // move right
+        }
         return cells;
+
+        //    [-1, -1] up left
+        //    [ 1, -1] up right
+        //    [ 2,  0] right
+        //    [ 1,  1] down right
+        //    [-1,  1] down left
+        //    [-2,  0] left
     };
 
     /**
@@ -107,6 +127,29 @@
 
         }
         return valid_num
+    };
+
+    /**
+     * Find a tile that matches parameters passed in by options
+     * @param {object} game class data
+     * @param {object} options {range: 4, location:{x:1,y2}, or 'center' or 'e' or 'impassible' or 'road' or 'top', etc...
+     * @returns {object} tile hex cell that matches location result, or null if one wasn't found
+     */
+    _c.find_tile_by_filters = function (game, options) {
+        var range = options.range || 4;
+
+        var tile = null;
+
+        var loc = options.location;
+        if (_.isString(loc)) {
+            loc = _c.find_a_matching_tile(game, options);
+        }
+
+        var targets = [];
+
+        //TODO: Fill in searching routine
+
+        return tile;
     };
 
     /**
@@ -884,7 +927,7 @@
                 var road_segment = road_tiles[road_index];
 
                 //Assign population to all non-road/river/lake cells
-                var road_neighbors = _c.surrounding_tiles(game, road_segment.x, road_segment.y);
+                var road_neighbors = _c.surrounding_tiles(game, road_segment.x, road_segment.y, 2);
                 road_neighbors = _.filter(road_neighbors, function (r) {
                     return (!_c.tile_has(r, 'road') && !_c.tile_has(r, 'river') && (r.name != 'lake'));
                 });
@@ -917,8 +960,8 @@
 
                 if (_.indexOf(city_cells, cell) == -1) city_cells.push(cell);
 
-                var neighbors = _c.surrounding_tiles(game, x, y);
-                neighbors = _.filter(road_neighbors, function (r) {
+                var neighbors = _c.surrounding_tiles(game, x, y, 1);
+                neighbors = _.filter(neighbors, function (r) {
                     return (!_c.tile_has(r, 'road') && !_c.tile_has(r, 'river') && (r.name != 'lake'));
                 });
                 _.each(neighbors, function (neighbor) {

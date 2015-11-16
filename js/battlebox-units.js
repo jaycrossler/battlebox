@@ -8,6 +8,8 @@
     //Combat Rules:
     //---------------
     // Units attack in order of speed, even when multiple forces are in the same unit
+    // Each unit can be comprised of many forces (200 soldiers, 50 cavalry, etc)
+    // Units pull metadata from a 'dictionary' that looks up what that side's values are
     // Each person in unit attacks, with chance of hitting a single foe being attacker.strength/defender.defense
     // If defender is killed, they have a 20% chance of hitting back at an attacker (defender.strength/attacker.defense)
     // When killed, units drop loot on the square - next unit by picks it up
@@ -15,16 +17,23 @@
     // When moving into a tile with an enemy, automatically attack them
     // Multiple walls/towers have additional defense on home units, wall += .5 of att, tower += .2 of attack
     // Only defenders benefit from being on a wall (increase defense .5) or tower (increase defense .2)
+    // Units can be entered as an array in addition to an object - to keep complex hero or unit details
     // TODO: Units move based on the speed of the slowest living unit in their force
-    // TODO: Towers increase defender's vision * 1.5, range +1 if range > 1
     // TODO: Units have a carrying capacity for the amount of loot they can carry
     // TODO: Units consume food over time, and replenish food by pillaging, looting, or foraging
+    // TODO: Towers increase defender's vision * 1.5, range +1 if range > 1
     // TODO: Attackers with range > 1 can attack enemies in nearby squares by using some action points
     // TODO: When looting or pillaging land, small chance of new defenders spawning a defense force
     // TODO: Have a goal-oriented AI that uses the information they know about
     // TODO: Have units communicate with each other, sending enemy positions or storage locations, or what else?
     // TODO: Move faster over roads, and slower over water - have an action point amount to spend, and a buffer towards moving into a terrain
     // TODO: When defeating all enemies, give n extra turns to finish pillaging
+    // TODO: Each unit type and side can have face_options that combine to create avatars
+    // TODO: Each unit has commanders in it that learn and grow, and keep array items
+    // TODO: Specify a number of copies of a certain unit
+    // TODO: Specify details like 'brutality' that define how to treat pillaging and prisoners
+    // TODO: Have attacker starting side be random
+    // TODO: Have unit morale based on skill of commander - every losing fight might decrease morale, every lopsided victory, pillaging, finding treasure
 
     //TODO: Have a location searching function (like troop searching) that takes into account vision and filters
     //TODO: Have icons for different units
@@ -54,15 +63,28 @@
             EntityType = OpForce;
         }
 
+        var side = unit_info.side || 'Neutral';
+        var side_data = _.find(game.game_options.sides, function (tt) {
+            return tt.side_data && (tt.side == side)
+        });
+        var unit_data = $.extend({}, side_data, unit_info);
+
         //Generate the unit
-        var unit = new EntityType(game, location.x, location.y, id, unit_info);
+        var unit = new EntityType(game, location.x, location.y, id, unit_data);
 
         //Add metadata from game_options.troop_types to each troop
         if (!unit.data_expanded) {
             unit.forces = [];
-            for (var key in unit._data.troops || []) {
-                var force = _c.hydrate_troop_metadata(game, key, unit._data.troops[key], unit._data.side);
-                unit.forces.push(force);
+            if (_.isArray(unit._data.troops)) {
+                _.each(unit._data.troops, function (troops) {
+                    var force = _c.hydrate_troop_metadata(game, troops, troops.count, unit._data.side);
+                    unit.forces.push(force);
+                });
+            } else if (_.isObject(unit._data.troops)) {
+                for (var key in unit._data.troops || []) {
+                    var force = _c.hydrate_troop_metadata(game, key, unit._data.troops[key], unit._data.side);
+                    unit.forces.push(force);
+                }
             }
             unit.data_expanded = true;
         }
@@ -70,37 +92,42 @@
         return unit;
     };
     _c.hydrate_troop_metadata = function (game, troop, count, side) {
-        var troop_data = _.find(game.game_options.troop_types, function (tt) {
-            return tt.side == side && tt.name == troop
-        });
-        if (!troop_data) {
-            troop_data = _.find(game.game_options.troop_types, function (tt) {
-                return tt.side == 'all' && tt.name == troop
-            });
+        var forces_data = game.game_options.forces_data || [];
+        var troop_previous_data = {}
+
+        var troop_name = troop;
+        if (_.isObject(troop)) {
+            troop_name = troop.name;
+            troop_previous_data = troop;
         }
-        var troop_object = {};
-        if (!troop_data) {
-            console.error("troop_data not found for: " + troop);
+
+        var troop_type_data = _.find(forces_data, function (tt) {
+                return tt.side == 'all' && tt.name == troop_name
+            }) || {};
+        var troop_detail_data = _.find(forces_data, function (tt) {
+                return tt.side == side && tt.name == troop_name
+            }) || {};
+        var troop_object = $.extend({}, troop_type_data, troop_detail_data, troop_previous_data);
+
+        if (!troop_object) {
+            console.error("troop_data not found for: " + troop_name);
             troop_object = {name: troop, count: count, side: side};
         } else {
-            troop_object = _.clone(troop_data);
-            troop_object.side = side;
-            troop_object.count = count;
+            troop_object.count = count || 1;
         }
         return troop_object;
     };
 
 
     _c.raze_or_loot = function (game, unit, cell) {
-
         cell.additions = cell.additions || [];
         unit.loot = unit.loot || {};
 
         var num_farms = _c.tile_has(cell, 'farm', true);
 
         if (unit._data.try_to_pillage) {
-            //TODO: Unit gains health?
-            //TODO: Takes time?
+            //TODO: Unit gains health or morale?
+            //TODO: consumes action points
 
             if (num_farms && !_c.tile_has(cell, 'pillaged')) {
                 unit.loot.food = unit.loot.food || 0;
@@ -128,7 +155,6 @@
 
         }
         if (unit._data.try_to_loot && (_c.tile_has(cell, 'storage') || cell.loot)) {
-
             unit.loot = unit.loot || {};
             for (var key in cell.loot) {
                 unit.loot[key] = unit.loot[key] || 0;
@@ -227,7 +253,6 @@
 
             game.scheduler.remove(game.entities[entity_id]);
             game.entities = _.reject(game.entities, unit);
-            //TODO: Collapse entities
 
             _c.draw_tile(game, x, y);
         }

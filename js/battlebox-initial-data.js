@@ -26,6 +26,25 @@
         render_style: 'outdoors', //TODO
         height: 'mountainous', //TODO
 
+        sides: [
+            {
+                side: 'Yellow',
+                side_data: true,
+                player: true,
+                race: 'Human',
+                face_options: {rand_seed: 42, race: 'Human'},
+                plan: 'invade city',
+                backup_strategy: 'vigilant',
+                morale: 10,
+                try_to_loot: true,
+                try_to_pillage: true
+            },
+            {
+                side: 'White', side_data: true, home_city: 'Anchorage', face_options: {race: 'Elf'},
+                plan: 'defend city', backup_strategy: 'vigilant', morale: 15
+            }
+        ],
+
         terrain_options: [
             {name: 'plains', ground: true, draw_type: 'flat', color: ["#d0efc6", "#cfefc6", "#d1eec6"], symbol: ''},
             {name: 'mountains', density: 'medium', smoothness: 3, not_center: true, color: ['#b1c3c3', '#b3c4c4', '#8b999c'], impassible: true, symbol: ' '},
@@ -45,89 +64,76 @@
         forces: [
             {
                 name: 'Attacker Main Army Force', side: 'Yellow', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
                 troops: {soldiers: 520, cavalry: 230, siege: 50}
             },
             {
                 name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'run away', try_to_loot: true, try_to_pillage: true,
-                troops: {soldiers: 80, cavalry: 20, siege: 10}
+                leader: {name: 'General Vesuvius', face_options: {race: 'Demon', age: 120}},
+                troops: [
+                    {name: 'soldiers', count: 80, experience: 'veteran', victories: 12},
+                    {name: 'cavalry', count: 20, experience: 'veteran', victories: 13},
+                    {name: 'siege', count: 10, experience: 'master', victories: 23}
+                ]
             },
             {
                 name: 'Task Force Bravo', side: 'Yellow', symbol: '#B', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'invade city', try_to_loot: true, try_to_pillage: true,
                 troops: {cavalry: 20}
             },
             {
                 name: 'Task Force Charlie', side: 'Yellow', symbol: '#C', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
                 troops: {cavalry: 20}
             },
             {
                 name: 'Task Force Delta', side: 'Yellow', symbol: '#D', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
                 troops: {cavalry: 20}
             },
             {
                 name: 'Task Force Echo', side: 'Yellow', symbol: '#E', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
                 troops: {cavalry: 20}
             },
-
+            //------------------------------
             {
                 name: 'Defender City Force', side: 'White', location: 'city',
-                plan: 'seek closest', backup_strategy: 'vigilant',
+                plan: 'seek closest',
                 troops: {soldiers: 620, cavalry: 40, siege: 100}
             },
             {
                 name: 'Defender Bowmen 1', side: 'White', symbol: '1', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 2', side: 'White', symbol: '2', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 3', side: 'White', symbol: '3', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 4', side: 'White', symbol: '4', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 5', side: 'White', symbol: '5', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 6', side: 'White', symbol: '6', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 7', side: 'White', symbol: '7', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 8', side: 'White', symbol: '8', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
-
-
             {
                 name: 'Defender Catapults', side: 'White', symbol: 'B', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 40}
             },
-
-
+            //----------------------------
             {
                 name: 'Sleeping Dragon',
                 side: 'Red',
@@ -142,29 +148,33 @@
                 try_to_pillage: true,
                 troops: {adult_dragon: 1}
             }
-
         ],
 
-        //TODO: Use these in strength calculations
-        troop_types: [
+        forces_data: [
             {
                 name: 'soldiers',
                 side: 'Yellow',
-                range: 1,
                 speed: 40,
-                strength: 1,
-                defense: 2,
-                weapon: 'sword',
-                armor: 'armor',
-                carrying: 5
+                strength: 1.2,
+                defense: 1.8,
+                weapon: 'sword',  //TODO: Use in messages
+                communication_speed: 1,
+                goals: {
+                    loot: 4,
+                    weak_enemies: 6,
+                    all_enemies: 7,
+                    live: 5,
+                    explore: 1
+                }
             },
             {
                 name: 'soldiers',
                 side: 'all',
                 range: 1,
+                vision: 4,
                 speed: 30,
-                strength: 1.2,
-                defense: 1.8,
+                strength: 1,
+                defense: 2,
                 weapon: 'rapiers',
                 armor: 'armor',
                 carrying: 5
@@ -173,7 +183,9 @@
                 name: 'cavalry',
                 side: 'all',
                 range: 1,
+                vision: 4,
                 speed: 70,
+                initiative: 80,  //Note: Initiative can be different than speed
                 strength: 1.5,
                 defense: 1.5,
                 weapon: 'rapier',
@@ -185,6 +197,7 @@
                 title: 'siege units',
                 side: 'all',
                 range: 2,
+                vision: 5,
                 speed: 10,
                 strength: 5,
                 defense: .5,
@@ -195,6 +208,7 @@
                 name: 'adult_dragon',
                 side: 'all',
                 range: 2,
+                vision: 7,
                 speed: 120,
                 strength: 150,
                 defense: 300,

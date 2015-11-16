@@ -27,7 +27,9 @@
         //Sort from fastest to slowest
         var all_forces = [].concat(attacker.forces, defender.forces);
         all_forces.sort(function (a, b) {
-            return (a.speed || 40) < (b.speed || 40)
+            var a_initiative = a.initiative || a.speed || 40;
+            var b_initiative = b.initiative || b.speed || 40;
+            return (a_initiative < b_initiative);
         });
 
         //For each group of forces
