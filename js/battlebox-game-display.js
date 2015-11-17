@@ -4,7 +4,7 @@
 
     //TODO: Pass in a length of rounds before game is over
 
-    _c.add_main_city_population = function(game, population) {
+    _c.add_main_city_population = function (game, population) {
         game.data.buildings[0].population += population;
         for (var y = 0; y < _c.rows(game); y++) {
             for (var x = y % 2; x < _c.cols(game); x += 2) {
@@ -93,17 +93,17 @@
             })
             .appendTo($pointers.canvas_holder);
 
-        $pointers.play_pause_button = $('<button>')
+        $('<button>')
             .text('Add 100 people')
             .on('click', function () {
-                _c.add_main_city_population(game,100);
+                _c.add_main_city_population(game, 100);
             })
             .appendTo($pointers.canvas_holder);
 
-        $pointers.play_pause_button = $('<button>')
+        $('<button>')
             .text('Add 1000 people')
             .on('click', function () {
-                _c.add_main_city_population(game,1000);
+                _c.add_main_city_population(game, 1000);
             })
             .appendTo($pointers.canvas_holder);
 
@@ -130,7 +130,7 @@
         //Cell is used to get color and symbol
 
         var draw_basic_cell = false;
-        if (!color) {
+        if (!color && !bg_color) {
             draw_basic_cell = true;
         }
 
@@ -139,11 +139,14 @@
             cell = cell[y];
         }
         if (!cell) {
-//            console.error('Tried to draw invalid tile:' + x + ":" + y);
+            //console.error('Tried to draw invalid tile:' + x + ":" + y);
+            debugger;
             return;
         }
 
-        if (draw_basic_cell) {
+        if (!draw_basic_cell) {
+            bg = bg_color;
+        } else {
             //No information was passed in, assume it's the default cell draw without player in it
             if (cell.type == 'city') {
                 bg_color = '#DE8275';
@@ -171,124 +174,124 @@
                 }
             });
             if (was_drawn) return;
-        }
 
-        var river_info = _c.tile_has(cell, 'river');
-        if (draw_basic_cell && cell.name == 'lake') {
-            text = cell.symbol || text;
-            if (!bg_color) {
-                var depth = cell.data.depth || 1;
-                bg_color = net.brehaut.Color(cell.color || '#04e').darkenByRatio(depth * .2);
-                //, color:['#06f','#08b','#05e']
+            var river_info = _c.tile_has(cell, 'river');
+            if (cell.name == 'lake') {
+                text = cell.symbol || text;
+                if (!bg_color) {
+                    var depth = cell.data.depth || 1;
+                    bg_color = net.brehaut.Color(cell.color || '#04e').darkenByRatio(depth * .2);
+                    //, color:['#06f','#08b','#05e']
+                }
+            } else if (river_info) {
+                text = text || river_info.symbol;
+
+                //Depth from 1-3 gets more blue
+                if (!bg_color) {
+                    var depth = river_info.depth || 1;
+                    bg_color = net.brehaut.Color('#03f').darkenByRatio(depth * .2);
+                    //, color:['#06f','#08b','#05e']
+                }
             }
-        } else if (draw_basic_cell && river_info) {
-            text = text ||river_info.symbol;
 
-            //Depth from 1-3 gets more blue
-            if (!bg_color) {
-                var depth = river_info.depth || 1;
-                bg_color = net.brehaut.Color('#03f').darkenByRatio(depth * .2);
-                //, color:['#06f','#08b','#05e']
+            var population_darken_amount = 0;
+            if (cell.population) {
+                color = Helpers.blendColors('black', 'red', cell.population / 300);
+                if (cell.population > 1000) {
+                    color = 'orange';
+                    text = '█';
+                    population_darken_amount = .6;
+                } else if (cell.population > 500) {
+                    color = 'orange';
+                    text = '▓';
+                    population_darken_amount = .5;
+                } else if (cell.population > 300) {
+                    text = '▓';
+                    population_darken_amount = .4;
+                } else if (cell.population > 150) {
+                    text = '▄';
+                    population_darken_amount = .3;
+                } else if (cell.population > 50) {
+                    text = '▒';
+                    population_darken_amount = .2;
+                } else if (cell.population > 10) {
+                    text = '░';
+                    population_darken_amount = .1;
+                }
             }
-        }
 
-        var population_darken_amount = 0;
-        if (cell.population) {
-            color = Helpers.blendColors('black', 'red', cell.population/300);
-            if (cell.population > 1000) {
-                color = 'orange';
-                text = '█';
-                population_darken_amount = .6;
-            } else if (cell.population > 500) {
-                color = 'orange';
-                text = '▓';
-                population_darken_amount = .5;
-            } else if (cell.population > 300) {
-                text = '▓';
-                population_darken_amount = .4;
-            } else if (cell.population > 150) {
-                text = '▄';
-                population_darken_amount = .3;
-            } else if (cell.population > 50) {
-                text = '▒';
-                population_darken_amount = .2;
-            } else if (cell.population > 10) {
-                text = '░';
-                population_darken_amount = .1;
+            if (text === undefined) {
+                text = cell ? cell.symbol || " " : " "
             }
-        }
-
-        if (text === undefined) {
-            text = cell ? cell.symbol || " " : " "
-        }
-        var bg = bg_color;
-        if (!bg) {
-            if (cell) {
-                bg = cell.color || '#000';
-            } else if (text == " ") {
-                bg = ["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"].random();
-            } else {
-                bg = "#000";
+            var bg = bg_color;
+            if (!bg) {
+                if (cell) {
+                    bg = cell.color || '#000';
+                } else if (text == " ") {
+                    bg = ["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"].random();
+                } else {
+                    bg = "#000";
+                }
             }
-        }
 
-        if (!color && _c.tile_has(cell, 'unit corpse')) {
-            text = "x";
-        }
+            if (!color && _c.tile_has(cell, 'unit corpse')) {
+                text = "x";
+            }
 
 
-        var bridge = false, gate=false;
-        var path_info = _c.tile_has(cell, 'path');
-        if (draw_basic_cell && path_info) {
-            text = path_info.symbol || "";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('#A2BB9B'), .7).toString();
-            if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
-            if (_c.tile_has(cell, 'wall') || _c.tile_has(cell, 'tower')) gate = true;
-        }
-        var road_info = _c.tile_has(cell, 'road');
-        if (draw_basic_cell && road_info) {
-            text = road_info.symbol || ":";
+            var bridge = false, gate = false;
+            var path_info = _c.tile_has(cell, 'path');
+            if (draw_basic_cell && path_info) {
+                text = path_info.symbol || "";
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('#A2BB9B'), .7).toString();
+                if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
+                if (_c.tile_has(cell, 'wall') || _c.tile_has(cell, 'tower')) gate = true;
+            }
+            var road_info = _c.tile_has(cell, 'road');
+            if (draw_basic_cell && road_info) {
+                text = road_info.symbol || ":";
 
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('#DF8274'), .8).toString();
-            color = "#000";
-            if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
-            if (_c.tile_has(cell, 'wall') || _c.tile_has(cell, 'tower')) gate = true;
-        }
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('#DF8274'), .8).toString();
+                color = "#000";
+                if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
+                if (_c.tile_has(cell, 'wall') || _c.tile_has(cell, 'tower')) gate = true;
+            }
 
-        if (draw_basic_cell && _c.tile_has(cell, 'storage')) {
-            text = "o";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('yellow'), .1).toString();
-        }
-        if (draw_basic_cell && _c.tile_has(cell, 'looted')) {
-            text = ".";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .8).toString();
-        }
-        if (draw_basic_cell && _c.tile_has(cell, 'pillaged')) {
-            text = "'";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('red'), .8).toString();
-        }
-        if (_c.tile_has(cell, 'looted') && _c.tile_has(cell, 'pillaged')) {
-            text = ";";
-        }
-        if (bridge) {
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), .8).toString();
-            text = "=";
-            color = "#fff";
-        }
-        if (gate) {
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .8).toString();
-            text = "O";
-            color = "#fff";
-        }
-        if (_c.tile_has(cell, 'tower')) {
-            text = "╠╣";
-        }
-        if (_c.tile_has(cell, 'river') && _c.tile_has(cell, 'wall')) {
-            text = "{}";
-        }
+            if (draw_basic_cell && _c.tile_has(cell, 'storage')) {
+                text = "o";
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('yellow'), .1).toString();
+            }
+            if (draw_basic_cell && _c.tile_has(cell, 'looted')) {
+                text = ".";
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .8).toString();
+            }
+            if (draw_basic_cell && _c.tile_has(cell, 'pillaged')) {
+                text = "'";
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('red'), .8).toString();
+            }
+            if (_c.tile_has(cell, 'looted') && _c.tile_has(cell, 'pillaged')) {
+                text = ";";
+            }
+            if (bridge) {
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), .8).toString();
+                text = "=";
+                color = "#fff";
+            }
+            if (gate) {
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .8).toString();
+                text = "O";
+                color = "#fff";
+            }
+            if (_c.tile_has(cell, 'tower')) {
+                text = "╠╣";
+            }
+            if (_c.tile_has(cell, 'river') && _c.tile_has(cell, 'wall')) {
+                text = "{}";
+            }
 
-        if (population_darken_amount) {
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), population_darken_amount).toString();
+            if (population_darken_amount) {
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), population_darken_amount).toString();
+            }
         }
 
         _.each(game.game_options.hex_drawing_callbacks, function (callback) {
@@ -497,8 +500,12 @@
 
         unit.$trump
             .html(text);
-    };
 
+        if (unit.is_dead) {
+            unit.$trump
+                .css({backgroundColor: 'black', color: 'red'});
+        }
+    };
 
 
 })(Battlebox);

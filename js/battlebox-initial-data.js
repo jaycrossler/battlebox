@@ -8,7 +8,7 @@
     var _game_options = {
         rand_seed: 0,
         tick_time: 1000,
-        game_over_time: 1000,
+        game_over_time: 600,
 
         arrays_to_map_to_objects: ''.split(','),
         arrays_to_map_to_arrays: 'terrain_options,water_options,forces,buildings'.split(','),
@@ -28,26 +28,31 @@
 
         sides: [
             {
-                side: 'Yellow',
-                side_data: true,
-                player: true,
-                race: 'Human',
-                face_options: {rand_seed: 42, race: 'Human'},
-                plan: 'invade city',
-                backup_strategy: 'vigilant',
-                morale: 10,
-                try_to_loot: true,
-                try_to_pillage: true
+                side: 'Yellow', player: true, plan: 'invade city', backup_strategy: 'vigilant',
+                face_options: {rand_seed: 42, race: 'Human'}, //TODO
+                morale: 10,  //TODO
+                communication_speed: 1, //TODO
+                try_to_loot: true, try_to_pillage: true,
+                goals: {weak_enemies: 7, loot: 3, all_enemies: 4, city: 2, friendly_units: 2, farm: 1}
             },
             {
-                side: 'White', side_data: true, home_city: 'Anchorage', face_options: {race: 'Elf'},
-                plan: 'defend city', backup_strategy: 'vigilant', morale: 15
+                side: 'White', home_city: 'Anchorage', face_options: {race: 'Elf'},
+                plan: 'defend city', backup_strategy: 'vigilant', morale: 15,
+                goals: {weak_enemies: 7, towers: 6, walls: 5, all_enemies: 4, city: 3}
             }
         ],
 
         terrain_options: [
             {name: 'plains', ground: true, draw_type: 'flat', color: ["#d0efc6", "#cfefc6", "#d1eec6"], symbol: ''},
-            {name: 'mountains', density: 'medium', smoothness: 3, not_center: true, color: ['#b1c3c3', '#b3c4c4', '#8b999c'], impassible: true, symbol: ' '},
+            {
+                name: 'mountains',
+                density: 'medium',
+                smoothness: 3,
+                not_center: true,
+                color: ['#b1c3c3', '#b3c4c4', '#8b999c'],
+                impassable: true,
+                symbol: ' '
+            },
             {name: 'forest', density: 'sparse', not_center: true, color: ['#85a982', '#7B947A', '#83A283'], data: {movement: 'slow'}, symbol: ' '}
         ],
 
@@ -64,11 +69,13 @@
         forces: [
             {
                 name: 'Attacker Main Army Force', side: 'Yellow', location: 'left', player: true,
+                goals: {weak_enemies: 6, loot: 4, all_enemies: 7, explore: 2, city: 3},
                 troops: {soldiers: 520, cavalry: 230, siege: 50}
             },
             {
                 name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
                 leader: {name: 'General Vesuvius', face_options: {race: 'Demon', age: 120}},
+                goals: {weak_enemies: 7, loot: 4, all_enemies: 5, explore: 2, city: 3},
                 troops: [
                     {name: 'soldiers', count: 80, experience: 'veteran', victories: 12},
                     {name: 'cavalry', count: 20, experience: 'veteran', victories: 13},
@@ -137,13 +144,13 @@
             {
                 name: 'Sleeping Dragon',
                 side: 'Red',
-                symbol: '}{',
-                location: 'impassible',
+                symbol: '}O{',
+                location: 'impassable',
                 not_part_of_victory: true,
                 plan: 'wander',
                 backup_strategy: 'wait',
                 size: 3,
-                move_through_impassibles: true,
+                move_through_impassable: true,
                 try_to_loot: true,
                 try_to_pillage: true,
                 troops: {adult_dragon: 1}
@@ -157,25 +164,25 @@
                 speed: 40,
                 strength: 1.2,
                 defense: 1.8,
-                weapon: 'sword',  //TODO: Use in messages
-                communication_speed: 1,
-                goals: {
-                    loot: 4,
-                    weak_enemies: 6,
-                    all_enemies: 7,
-                    live: 5,
-                    explore: 1
-                }
+                weapon: 'rapier'  //TODO: Use in messages
+            },
+            {
+                name: 'soldiers',
+                side: 'White',
+                speed: 30,
+                strength: 1,
+                defense: 2,
+                weapon: 'halberds'
             },
             {
                 name: 'soldiers',
                 side: 'all',
                 range: 1,
-                vision: 4,
+                vision: 5,
                 speed: 30,
                 strength: 1,
                 defense: 2,
-                weapon: 'rapiers',
+                weapon: 'sword',
                 armor: 'armor',
                 carrying: 5
             },
@@ -183,7 +190,7 @@
                 name: 'cavalry',
                 side: 'all',
                 range: 1,
-                vision: 4,
+                vision: 6,
                 speed: 70,
                 initiative: 80,  //Note: Initiative can be different than speed
                 strength: 1.5,
@@ -197,9 +204,10 @@
                 title: 'siege units',
                 side: 'all',
                 range: 2,
-                vision: 5,
-                speed: 10,
-                strength: 5,
+                vision: 7,
+                speed: 25,
+                ranged_strength: 5,
+                strength: .5,
                 defense: .5,
                 weapon: 'catapults',
                 carrying: 1
@@ -211,6 +219,7 @@
                 vision: 7,
                 speed: 120,
                 strength: 150,
+                ranged_strength: 50,
                 defense: 300,
                 weapon: 'fire breath',
                 armor: 'impenetrable scales',
@@ -226,7 +235,7 @@
             },
             {name: 'Grain Storage', type: 'storage', resources: {food: 10000, gold: 2, herbs: 100}, location: 'random'},
             {name: 'Metal Storage', type: 'storage', resources: {metal: 1000, gold: 2, ore: 1000}, location: 'random'},
-            {name: 'Cave Entrance', type: 'dungeon', requires: {mountains: true}, location: 'impassible'}
+            {name: 'Cave Entrance', type: 'dungeon', requires: {mountains: true}, location: 'impassable'}
         ],
 
         variables: [

@@ -18,13 +18,16 @@
     // Multiple walls/towers have additional defense on home units, wall += .5 of att, tower += .2 of attack
     // Only defenders benefit from being on a wall (increase defense .5) or tower (increase defense .2)
     // Units can be entered as an array in addition to an object - to keep complex hero or unit details
-    // TODO: Units move based on the speed of the slowest living unit in their force
+    // Units move based on the speed of the slowest living unit in their force
+
+    // IN PROGRESS: Have a goal-oriented AI that uses the information they know about
+    // TODO: Gets stuck if 0 result - in weird loop with 8, should have memory of previous spots to promote exploring
+
     // TODO: Units have a carrying capacity for the amount of loot they can carry
     // TODO: Units consume food over time, and replenish food by pillaging, looting, or foraging
     // TODO: Towers increase defender's vision * 1.5, range +1 if range > 1
     // TODO: Attackers with range > 1 can attack enemies in nearby squares by using some action points
     // TODO: When looting or pillaging land, small chance of new defenders spawning a defense force
-    // TODO: Have a goal-oriented AI that uses the information they know about
     // TODO: Have units communicate with each other, sending enemy positions or storage locations, or what else?
     // TODO: Move faster over roads, and slower over water - have an action point amount to spend, and a buffer towards moving into a terrain
     // TODO: When defeating all enemies, give n extra turns to finish pillaging
@@ -35,10 +38,8 @@
     // TODO: Have attacker starting side be random
     // TODO: Have unit morale based on skill of commander - every losing fight might decrease morale, every lopsided victory, pillaging, finding treasure
 
-    //TODO: Have a location searching function (like troop searching) that takes into account vision and filters
     //TODO: Have icons for different units
     //TODO: SetCenter to have large map and redraw every movement
-    //TODO: Have enemy searching only look if within a likely radius to speed up processing
     //TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
 
     _c.build_units_from_list = function (game, list) {
@@ -65,8 +66,8 @@
 
         var side = unit_info.side || 'Neutral';
         var side_data = _.find(game.game_options.sides, function (tt) {
-            return tt.side_data && (tt.side == side)
-        });
+                return (tt.side == side)
+            }) || {};
         var unit_data = $.extend({}, side_data, unit_info);
 
         //Generate the unit
@@ -86,6 +87,20 @@
                     unit.forces.push(force);
                 }
             }
+
+            //Vision is from the unit with the highest vision
+            //Speed is from teh unit with the lowest speed
+            var lowest_speed = 100;
+            var highest_vision = 0;
+            _.each(unit.forces, function (force) {
+                if (force.speed < lowest_speed) lowest_speed = force.speed;
+
+                var sight = force.vision || force.range;
+                if (sight > highest_vision) highest_vision = sight;
+            });
+            unit.speed = lowest_speed;
+            unit.vision = highest_vision;
+
             unit.data_expanded = true;
         }
 
@@ -93,7 +108,7 @@
     };
     _c.hydrate_troop_metadata = function (game, troop, count, side) {
         var forces_data = game.game_options.forces_data || [];
-        var troop_previous_data = {}
+        var troop_previous_data = {};
 
         var troop_name = troop;
         if (_.isObject(troop)) {
@@ -168,7 +183,6 @@
                 unit.loot.herbs = unit.loot.herbs || 0;
                 unit.loot.food += (25 * num_farms);
                 unit.loot.herbs += (6 * num_farms);
-                cell.additions.push('looted');
 
             } else if (cell.type == 'city' && !_c.tile_has(cell, 'looted')) {
                 unit.loot.food = unit.loot.food || 0;
@@ -179,27 +193,28 @@
                 unit.loot.wood += 5;
                 unit.loot.metal += 5;
                 unit.loot.skins += 5;
-                cell.additions.push('looted');
 
                 if ((cell.population > 3000) && (_c.random() > .9)) {
                     unit.loot.gold = unit.loot.gold || 0;
                     unit.loot.gold += 1;
                 }
-
+            }
+            if (!_c.tile_has(cell, 'looted')) {
+                cell.additions.push('looted');
             }
         }
 
     };
 
     _c.try_to_move_to_and_draw = function (game, unit, x, y) {
-        var can_move_to = _c.tile_is_traversable(game, x, y, unit._data.move_through_impassibles);
+        var can_move_to = _c.tile_is_traversable(game, x, y, unit._data.move_through_impassable);
         if (can_move_to) {
             var is_unit_there = _c.find_unit_by_filters(game, unit, {location: {x: x, y: y}});
-            if (is_unit_there && is_unit_there.target) {
-                if (is_unit_there.side != unit.side) {
-                    can_move_to = _c.entity_attacks_entity(game, unit, is_unit_there, _c.log_message_to_user);
+            if (is_unit_there && is_unit_there.target && is_unit_there.target.data && is_unit_there.target.data.side) {
+                if (is_unit_there.target.data.side != unit.data.side) {
+                    can_move_to = _c.entity_attacks_entity(game, unit, is_unit_there.target, _c.log_message_to_user);
                 } else {
-                    //TODO: What to do if on same sides? Merge forces?
+                    //TODO: What to do if on same sides? Exchange information?
                 }
             }
 
@@ -258,6 +273,87 @@
         }
     };
 
+    /**
+     * Find tile that best meets goal values of unit
+     * @param {object} game class data
+     * @param {object} unit unit that is looking for cells to move to
+     * @returns {object} tile hex cell that best matches goals
+     */
+    _c.find_tile_by_unit_goals = function (game, unit) {
+        var range = unit.vision || unit.range || 3;
+        unit._data.goals = unit._data.goals || {};
+
+        //TODO: Add in knowledge - where is a town or storage area or friendly unit
+
+        var current_cell = _c.tile(game, unit.x, unit.y);
+
+        if (unit._data.goals.weak_enemies || unit._data.goals.all_enemies) {
+            var options = {
+                side: 'enemy',
+                range: range,
+                return_multiple: true
+            };
+            var close_enemies = _c.find_unit_by_filters(game, unit, options);
+        }
+
+        var neighbors = _c.surrounding_tiles(game, unit.x, unit.y, range);
+        var weighted_neighbors = [];
+        _.each(neighbors, function (neighbor) {
+            var points = 0;
+
+            var is_pillaged_or_looted = _c.tile_has(neighbor, 'pillaged') || _c.tile_has(neighbor, 'looted');
+            var num_towers = (_c.tile_has(neighbor, 'tower')) ? 1 : 0;
+            var num_walls = Math.max(2, _c.tile_has(neighbor, 'tower', true));
+            var loot = (_.isObject(neighbor.loot) && !is_pillaged_or_looted) ? 1 : 0;
+            var is_city = (neighbor.type == 'city' && !is_pillaged_or_looted) ? 1 : 0;
+            var is_farm = (_c.tile_has(neighbor, 'farm') && !is_pillaged_or_looted) ? 1 : 0;
+
+            points += (num_towers * (unit._data.goals.towers || 0));
+            points += (num_walls * (unit._data.goals.walls || 0));
+            points += (loot * (unit._data.goals.loot || 0));
+            points += (is_city * (unit._data.goals.city || 0));
+            points += (is_farm * (unit._data.goals.farm || 0));
+
+            //TODO - friendly_units, weak_enemies
+
+            if (close_enemies.target.length && (unit._data.goals.weak_enemies || unit._data.goals.all_enemies)) {
+                var enemies_here = _.filter(close_enemies.target, function (enemy) {
+                    return (enemy.x == neighbor.x) && (enemy.y == neighbor.y);
+                });
+                points += (enemies_here.length * Math.max(unit._data.goals.all_enemies, 2));
+                //TODO: How to incorporate weakness of enemy? Have a running power total?
+            }
+
+            weighted_neighbors.push({x: neighbor.x, y: neighbor.y, weight: points});
+        });
+
+        weighted_neighbors.sort(function (a, b) {
+            //TODO: Incorporate distance
+            return a.weight - b.weight;
+        });
+
+        //TODO: Send message to others that there are important points or that a point is being taken care of?
+
+        var best_cell = false;
+        if (weighted_neighbors) {
+            best_cell = _.last(weighted_neighbors);
+            if (!best_cell.weight) {
+                best_cell = false;
+            }
+            if ((best_cell.x == current_cell.x) && (best_cell.y == current_cell.y)) {
+                best_cell = false;
+            }
+        }
+
+        var enemy_here = _.find(close_enemies.target, function (enemy) {
+            //TODO: Either find by weakest or strongest by options
+            return (enemy.x == unit.x) && (enemy.y == unit.y);
+        });
+
+        //Closest cell with most points
+        return {tile: best_cell, enemy: enemy_here};
+    };
+
     //--------------------
     var TimeKeeper = function (game) {
         this._game = game;
@@ -266,14 +362,14 @@
         return "Screen";
     };
     TimeKeeper.prototype.getSpeed = function () {
-        return 100;
+        return 80;
     };
     TimeKeeper.prototype.act = function () {
         var time_keeper = this;
         var game = time_keeper._game;
 
         game.data.tick_count++;
-//        console.log('Game Tick: ' + game.data.tick_count);
+        console.log('Game Tick: ' + game.data.tick_count);
 
         if ((game.game_options.game_over_time !== undefined) && (game.data.tick_count > game.game_options.game_over_time)) {
             _c.game_over(game);
@@ -321,7 +417,7 @@
     };
 
     Entity.prototype.getSpeed = function () {
-        return this._data.speed || 40;
+        return this.speed || this._data.speed || 40;
     };
 
     Entity.prototype.setPosition = function (x, y) {
@@ -367,7 +463,7 @@
         var cell = game.cells[x];
         if (cell) {
             cell = cell[y];
-            if (cell && !cell.impassible) {
+            if (cell && !cell.impassable) {
                 result = true;
             }
         }
@@ -391,6 +487,16 @@
             };
             target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options);
+
+        } else if (plan == 'goal based') {
+            var best_location = _c.find_tile_by_unit_goals(game, unit);
+
+            if (best_location.enemy) {
+                _c.entity_attacks_entity(game, unit, best_location.enemy, _c.log_message_to_user);
+            } else {
+                options = {plan: plan, backup_strategy: unit._data.backup_strategy};
+                _c.movement_strategies.seek(game, unit, best_location.tile, options);
+            }
 
         } else if (plan == 'vigilant') {
             options = {
@@ -428,6 +534,7 @@
                 side: 'enemy',
                 filter: 'closest',
                 range: 12,
+                when_arrive: 'goal based',
                 plan: plan,
                 backup_strategy: unit._data.backup_strategy
             };

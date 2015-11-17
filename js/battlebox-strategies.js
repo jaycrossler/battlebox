@@ -30,7 +30,7 @@
             var cell = game.cells[x];
             cell = (cell !== undefined) ? cell[y] : null;
 
-            return (cell && !cell.impassible);
+            return (cell && !cell.impassable);
         };
         var astar = new ROT.Path.AStar(to_x, to_y, passableCallback, {topology: 6});
         var path = [];
@@ -144,62 +144,60 @@
         _c.log_message_to_user(game, unit.describe() + " stays vigilant and doesn't move", 0);
     };
 
+    function backup_strategies(game, unit, options) {
+        if (options.backup_strategy == 'vigilant') {
+            return _c.movement_strategies.vigilant(game, unit);
+        } else if (options.backup_strategy == 'wait') {
+            return _c.movement_strategies.wait(game, unit);
+        } else { //wander
+            return _c.movement_strategies.wander(game, unit);
+        }
+    }
+
     _c.movement_strategies.seek = function (game, unit, target_status, options) {
-        var x = target_status.target ? target_status.target.getX() : -1;
-        var y = target_status.target ? target_status.target.getY() : -1;
+        var x = (target_status.x !== undefined) ? target_status.x : target_status.target ? target_status.target.getX() : -1;
+        var y = (target_status.y !== undefined) ? target_status.y : target_status.target ? target_status.target.getY() : -1;
+
+        var target_message = "";
+        if (target_status.target) {
+            target_message = target_status.target.describe();
+        } else {
+            target_message = x + ", " + y;
+        }
 
         unit.strategy = "Seek target";
 
         if (!_c.tile_is_traversable(game, x, y)) {
-            if (options.backup_strategy == 'vigilant') {
-                _c.movement_strategies.vigilant(game, unit);
-                return;
-            } else if (options.backup_strategy == 'wait') {
-                _c.movement_strategies.wait(game, unit);
-                return;
-            } else { //wander
-                _c.movement_strategies.wander(game, unit);
-                return;
-            }
+            return backup_strategies(game, unit, options);
         }
 
         var path = _c.path_from_to(game, unit.x, unit.y, x, y);
 
         //If too far, then just wander
         if (options.range && (path && path.length > options.range) || !path || (path && path.length == 0)) {
-            if (options.backup_strategy == 'vigilant') {
-                _c.movement_strategies.vigilant(game, unit);
-                return;
-            } else if (options.backup_strategy == 'wait') {
-                _c.movement_strategies.wait(game, unit);
-                return;
-            } else { //if (options.backup_strategy == 'wander') {
-                _c.movement_strategies.wander(game, unit);
-                return;
-            }
+            return backup_strategies(game, unit, options)
         }
 
         path.shift();
-        if (path.length <= 1) {
-            _c.log_message_to_user(game, unit.describe() + " attacks nearby target: " + target_status.target.describe(), 1);
-            _c.entity_attacks_entity(game, unit, target_status.target, _c.log_message_to_user);
+        if ((path.length <= 1) && target_status.target) {
+            //_c.log_message_to_user(game, unit.describe() + " attacks nearby target: " + target_message, 1);
+            var moves = _c.entity_attacks_entity(game, unit, target_status.target, _c.log_message_to_user);
+            if (moves) {
+                _c.try_to_move_to_and_draw(game, unit, target_status.target.x, target_status.target.y);
+            }
 
-        } else if (path.length > 1) {
+        } else if (path.length) {
             //Walk towards the enemy
             x = path[0][0];
             y = path[0][1];
             var moves = _c.try_to_move_to_and_draw(game, unit, x, y);
             if (moves) {
-                _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + target_status.target.describe(), 1);
+                _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + target_message, 1);
             } else {
-                if (options.backup_strategy == 'vigilant') {
-                    _c.movement_strategies.vigilant(game, unit);
-                } else if (options.backup_strategy == 'wait') {
-                    _c.movement_strategies.wait(game, unit);
-                } else { //if (options.backup_strategy == 'wander') {
-                    _c.movement_strategies.wander(game, unit);
-                }
+                return backup_strategies(game, unit, options);
             }
+        } else {
+            return backup_strategies(game, unit, options);
         }
     };
 
@@ -211,28 +209,30 @@
         var stop_here = false;
         if (options.stop_if_cell_has) {
             var cell = _c.tile(game, unit.x, unit.y);
-            _.each(options.stop_if_cell_has, function (condition) {
-                if (_c.tile_has(cell, condition)) {
-                    stop_here = true;
+            if (!cell) {
+                console.error ("unit " + unit._data.name + " is at invalid loc: " + unit.x + ", " + unit.y);
+            } else {
+                _.each(options.stop_if_cell_has, function (condition) {
+                    if (_c.tile_has(cell, condition)) {
+                        stop_here = true;
+                    }
+                });
+                if (stop_here) {
+                    return backup_strategies(game, unit, options);
                 }
-            });
-            if (stop_here) {
-                if (options.backup_strategy == 'vigilant') {
-                    _c.movement_strategies.vigilant(game, unit);
-                    return;
-                } else if (options.backup_strategy == 'wait') {
-                    _c.movement_strategies.wait(game, unit);
-                    return;
-                } else { //wander
-                    _c.movement_strategies.wander(game, unit, options);
-                    return;
-                }
+
             }
         }
 
         var to_loc = location && (location.location) && (location.location.x !== undefined) && (location.location.y !== undefined);
         if (!to_loc) {
-            options = {side: 'enemy', filter: 'closest', range: 100, plan: 'seek closest', backup_strategy: unit._data.backup_strategy};
+            options = {
+                side: 'enemy',
+                filter: 'closest',
+                range: 100,
+                plan: 'seek closest',
+                backup_strategy: unit._data.backup_strategy
+            };
             target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options);
             return;
@@ -243,13 +243,28 @@
         }
 
         var moves = false;
-        if (path.length <= 10) {
-            options = {side: 'enemy', filter: 'closest', range: 6, plan: 'invade city', backup_strategy: unit._data.backup_strategy};
-            var target_status = _c.find_unit_by_filters(game, unit, options);
-            _c.movement_strategies.seek(game, unit, target_status, options);
-            moves = true;
+        if (path.length <= (unit.vision || unit.range || 3)) {
+            if (options.when_arrive) {
+                //TODO: Skips one turn, fix. maybe call unit.execute_plan();
+                unit._data.plan = options.when_arrive;
+                moves = true;
+            } else {
+                options = {
+                    side: 'enemy',
+                    filter: 'closest',
+                    range: unit.vision || unit.range || 3,
+                    plan: 'invade city',
+                    backup_strategy: unit._data.backup_strategy
+                };
+                var target_status = _c.find_unit_by_filters(game, unit, options);
+                if (target_status && target_status.target) {
+                    return _c.movement_strategies.seek(game, unit, target_status, options);
+                } else {
+                    return backup_strategies(game, unit, options);
+                }
+            }
 
-        } else if (path.length > 10) {
+        } else if (path.length) {
             //Walk towards the enemy
             var x = path[0][0];
             var y = path[0][1];
@@ -258,13 +273,7 @@
         if (moves) {
             _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + (location.title || location.name), 1);
         } else {
-            if (options.backup_strategy == 'vigilant') {
-                _c.movement_strategies.vigilant(game, unit);
-            } else if (options.backup_strategy == 'wait') {
-                _c.movement_strategies.wait(game, unit);
-            } else { //wander
-                _c.movement_strategies.wander(game, unit, options);
-            }
+            return backup_strategies(game, unit, options);
         }
     };
 
@@ -274,16 +283,7 @@
         unit.strategy = "Avoiding enemy";
 
         if (!_c.tile_is_traversable(game, x, y)) {
-            if (options.backup_strategy == 'vigilant') {
-                _c.movement_strategies.vigilant(game, unit);
-                return;
-            } else if (options.backup_strategy == 'wait') {
-                _c.movement_strategies.wait(game, unit);
-                return;
-            } else { //wander
-                _c.movement_strategies.wander(game, unit, options);
-                return;
-            }
+            return backup_strategies(game, unit, options);
         }
 
         var path = _c.path_from_to(game, unit.x, unit.y, x, y);
@@ -309,13 +309,7 @@
             }
         }
         if (!moves) {
-            if (options.backup_strategy == 'vigilant') {
-                _c.movement_strategies.vigilant(game, unit);
-            } else if (options.backup_strategy == 'wait') {
-                _c.movement_strategies.wait(game, unit);
-            } else { //if (options.backup_strategy == 'wander') {
-                _c.movement_strategies.wander(game, unit);
-            }
+            return backup_strategies(game, unit, options);
         }
     };
 

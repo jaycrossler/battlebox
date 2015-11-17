@@ -106,20 +106,20 @@
      * @param {object} game class data
      * @param {int} x
      * @param {int} y
-     * @param {boolean} [move_through_impassibles] return true even if the sell is impassible
-     * @param {boolean} [only_impassible] return true only if the cell is impassible
+     * @param {boolean} [move_through_impassable] return true even if the sell is impassable
+     * @param {boolean} [only_impassable] return true only if the cell is impassable
      * @returns {boolean} valid if cell is valid and passable
      */
-    _c.tile_is_traversable = function (game, x, y, move_through_impassibles, only_impassible) {
+    _c.tile_is_traversable = function (game, x, y, move_through_impassable, only_impassable) {
         var valid_num = (x >= 0) && (y >= 0) && (x < _c.cols(game)) && (y < _c.rows(game));
         if (valid_num) {
             var cell = _c.tile(game, x, y);
             if (cell) {
-                if (!move_through_impassibles && cell.impassible) {
+                if (!move_through_impassable && cell.impassable) {
                     valid_num = false;
                 }
-                if (only_impassible) {
-                    valid_num = (cell.impassible);
+                if (only_impassable) {
+                    valid_num = (cell.impassable);
                 }
             } else {
                 valid_num = false;
@@ -132,11 +132,11 @@
     /**
      * Find a tile that matches parameters passed in by options
      * @param {object} game class data
-     * @param {object} options {range: 4, location:{x:1,y2}, or 'center' or 'e' or 'impassible' or 'road' or 'top', etc...
+     * @param {object} options {range: 4, location:{x:1,y2}, or 'center' or 'e' or 'impassable' or 'road' or 'top', etc...
      * @returns {object} tile hex cell that matches location result, or null if one wasn't found
      */
     _c.find_tile_by_filters = function (game, options) {
-        var range = options.range || 4;
+        var range = options.vision || options.range || 3;
 
         var tile = null;
 
@@ -145,9 +145,9 @@
             loc = _c.find_a_matching_tile(game, options);
         }
 
-        var targets = [];
+        var targets = _c.surrounding_tiles(game, loc.x, loc.y, range);
 
-        //TODO: Fill in searching routine
+        //TODO: Fill in searching routine, not yet used
 
         return tile;
     };
@@ -155,7 +155,7 @@
     /**
      * Find a tile that matches location parameters
      * @param {object} game class data
-     * @param {object} options {location:'center'} or 'e' or 'impassible' or 'right' or 'top', etc...
+     * @param {object} options {location:'center'} or 'e' or 'impassable' or 'right' or 'top', etc...
      * @returns {object} tile hex cell that matches location result, or random if one wasn't found
      */
     _c.find_a_matching_tile = function (game, options) {
@@ -183,7 +183,7 @@
 
                 x = Math.floor(x);
                 y = Math.floor(y);
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -211,7 +211,7 @@
                     y = _c.randInt(_c.rows(game));
                 }
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -226,7 +226,7 @@
                     y = _c.randInt(_c.rows(game));
                 }
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -236,7 +236,7 @@
                 x = options.x || _c.randOption(mid_left_range);
                 y = options.y || _c.randInt(_c.rows(game));
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -246,7 +246,7 @@
                 x = options.x || _c.randOption(mid_right_range);
                 y = options.y || _c.randInt(_c.rows(game));
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -256,7 +256,7 @@
                 x = options.x || _c.randInt(_c.cols(game));
                 y = options.y || _c.randOption(mid_top_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -266,7 +266,7 @@
                 x = options.x || _c.randInt(_c.cols(game));
                 y = options.y || _c.randOption(mid_bottom_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -276,7 +276,7 @@
                 x = options.x || _c.randOption(mid_left_range);
                 y = options.y || _c.randOption(center_top_bottom_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -286,7 +286,7 @@
                 x = options.x || _c.randOption(center_left_right_range);
                 y = options.y || _c.randOption(mid_bottom_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -296,7 +296,7 @@
                 x = options.x || _c.randOption(center_left_right_range);
                 y = options.y || _c.randOption(mid_top_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -306,7 +306,7 @@
                 x = options.x || _c.randOption(mid_right_range);
                 y = options.y || _c.randOption(center_top_bottom_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -316,7 +316,7 @@
                 x = options.x || _c.randOption(mid_left_range);
                 y = options.y || _c.randOption(mid_bottom_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -326,7 +326,7 @@
                 x = options.x || _c.randOption(mid_right_range);
                 y = options.y || _c.randOption(mid_bottom_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -336,7 +336,7 @@
                 x = options.x || _c.randOption(mid_left_range);
                 y = options.y || _c.randOption(mid_top_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -346,7 +346,7 @@
                 x = options.x || _c.randOption(mid_right_range);
                 y = options.y || _c.randOption(mid_top_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -360,7 +360,7 @@
                 }
                 y = _c.randOption([0, 1]);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -375,12 +375,12 @@
                 }
                 y = _c.randOption([bottom - 1, bottom - 2]);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
 
-        } else if (options.location == 'impassible') {
+        } else if (options.location == 'impassable') {
             for (i = 0; i < tries; i++) {
                 y = options.x || (_c.randInt(_c.rows(game)));
                 x = options.y || (y % 2) + (_c.randInt(_c.cols(game) / 2) * 2);
@@ -395,7 +395,7 @@
                 y = options.x || (_c.randInt(_c.rows(game)));
                 x = options.y || (y % 2) + (_c.randInt(_c.cols(game) / 2) * 2);
 
-                if (_c.tile_is_traversable(game, x, y) && _c.tile_has(game, x, y, options.location)) {
+                if (_c.tile_is_traversable(game, x, y) && _c.tile_has(_c.tile(game, x, y), options.location)) {
                     break;
                 }
             }
@@ -543,7 +543,7 @@
         for (var y = 0; y < _c.rows(game); y++) {
             for (var x = y % 2; x < _c.cols(game); x += 2) {
 
-                if (cells[x][y] && cells[x][y].impassible) {
+                if (cells[x][y] && cells[x][y].impassable) {
                     //Something in this cell that makes it not able to move upon
                 } else {
                     freeCells.push([x, y]);
@@ -585,7 +585,7 @@
             } else if (building_layer.type == 'storage') {
                 _c.generators.storage(game, location, building_layer);
             } else if (building_layer.type == 'dungeon') {
-                //TODO: Add    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
+                //TODO: Add    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassable'}
             }
             building_layer.location = location;
 
@@ -851,7 +851,7 @@
         var wall_tiles = _c.shape_to_tiles(game, location, wall_info.shape || 'circle', wall_info.count, wall_info.radius || 4, wall_info.starting_angle);
         var last_tower = -1;
         _.each(wall_tiles, function (cell, i) {
-            if (cell && !cell.impassible) {
+            if (cell && !cell.impassable) {
                 cell.additions = cell.additions || [];
                 cell.additions.push('wall');
                 cell.side = wall_info.side;
