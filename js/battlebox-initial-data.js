@@ -74,7 +74,7 @@
             },
             {
                 name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
-                leader: {name: 'General Vesuvius', face_options: {race: 'Demon', age: 120}},
+                leader: {name: 'General Vesuvius', face_options: {race: 'Demon', age: 120}}, //TODO
                 goals: {weak_enemies: 7, loot: 4, all_enemies: 5, explore: 2, city: 3},
                 troops: [
                     {name: 'soldiers', count: 80, experience: 'veteran', victories: 12},

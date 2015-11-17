@@ -1,6 +1,6 @@
 /*
 ------------------------------------------------------------------------------------
--- battlebox.js - v0.0.2 - Built on 2015-11-15 by Jay Crossler using Grunt.js
+-- battlebox.js - v0.0.2 - Built on 2015-11-16 by Jay Crossler using Grunt.js
 ------------------------------------------------------------------------------------
 -- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara 
 -- Packaged with color.js - Copyright (c) 2008-2013, Andrew Brehaut, Tim Baumann,  
@@ -1233,7 +1233,9 @@ Battlebox.initializeOptions = function (option_type, options) {
         //Sort from fastest to slowest
         var all_forces = [].concat(attacker.forces, defender.forces);
         all_forces.sort(function (a, b) {
-            return (a.speed || 40) < (b.speed || 40)
+            var a_initiative = a.initiative || a.speed || 40;
+            var b_initiative = b.initiative || b.speed || 40;
+            return (a_initiative < b_initiative);
         });
 
         //For each group of forces
@@ -1250,10 +1252,10 @@ Battlebox.initializeOptions = function (option_type, options) {
                         var target_force = _c.randOption(force.mode == 'attacking' ? defender.forces : attacker.forces);
                         var defender_defense_val = target_force.defense || 1;
                         if (target_force.protected_by_walls) {
-                            defender_defense_val += (defender_defense_val * target_force.protected_by_walls *.5);
+                            defender_defense_val += (defender_defense_val * target_force.protected_by_walls * .5);
                         }
                         if (target_force.in_towers) {
-                            defender_defense_val += (defender_defense_val * target_force.in_towers *.2);
+                            defender_defense_val += (defender_defense_val * target_force.in_towers * .2);
                         }
 
                         var to_hit_chance = force.strength / defender_defense_val;
@@ -1280,7 +1282,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                             //See if enemy gets returning free hit against attacker - 20% of normal attack chance
                             var attacker_defense_val = force.defense || 1;
                             if (force.protected_by_walls) {
-                                attacker_defense_val += (attacker_defense_val * force.protected_by_walls *.5);
+                                attacker_defense_val += (attacker_defense_val * force.protected_by_walls * .5);
                             }
 
                             var return_hit_chance = (.2 * target_force.strength) / attacker_defense_val;
@@ -1413,7 +1415,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
     //TODO: Pass in a length of rounds before game is over
 
-    _c.add_main_city_population = function(game, population) {
+    _c.add_main_city_population = function (game, population) {
         game.data.buildings[0].population += population;
         for (var y = 0; y < _c.rows(game); y++) {
             for (var x = y % 2; x < _c.cols(game); x += 2) {
@@ -1502,17 +1504,17 @@ Battlebox.initializeOptions = function (option_type, options) {
             })
             .appendTo($pointers.canvas_holder);
 
-        $pointers.play_pause_button = $('<button>')
+        $('<button>')
             .text('Add 100 people')
             .on('click', function () {
-                _c.add_main_city_population(game,100);
+                _c.add_main_city_population(game, 100);
             })
             .appendTo($pointers.canvas_holder);
 
-        $pointers.play_pause_button = $('<button>')
+        $('<button>')
             .text('Add 1000 people')
             .on('click', function () {
-                _c.add_main_city_population(game,1000);
+                _c.add_main_city_population(game, 1000);
             })
             .appendTo($pointers.canvas_holder);
 
@@ -1539,7 +1541,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         //Cell is used to get color and symbol
 
         var draw_basic_cell = false;
-        if (!color) {
+        if (!color && !bg_color) {
             draw_basic_cell = true;
         }
 
@@ -1548,11 +1550,14 @@ Battlebox.initializeOptions = function (option_type, options) {
             cell = cell[y];
         }
         if (!cell) {
-//            console.error('Tried to draw invalid tile:' + x + ":" + y);
+            //console.error('Tried to draw invalid tile:' + x + ":" + y);
+            debugger;
             return;
         }
 
-        if (draw_basic_cell) {
+        if (!draw_basic_cell) {
+            bg = bg_color;
+        } else {
             //No information was passed in, assume it's the default cell draw without player in it
             if (cell.type == 'city') {
                 bg_color = '#DE8275';
@@ -1580,124 +1585,124 @@ Battlebox.initializeOptions = function (option_type, options) {
                 }
             });
             if (was_drawn) return;
-        }
 
-        var river_info = _c.tile_has(cell, 'river');
-        if (draw_basic_cell && cell.name == 'lake') {
-            text = cell.symbol || text;
-            if (!bg_color) {
-                var depth = cell.data.depth || 1;
-                bg_color = net.brehaut.Color(cell.color || '#04e').darkenByRatio(depth * .2);
-                //, color:['#06f','#08b','#05e']
+            var river_info = _c.tile_has(cell, 'river');
+            if (cell.name == 'lake') {
+                text = cell.symbol || text;
+                if (!bg_color) {
+                    var depth = cell.data.depth || 1;
+                    bg_color = net.brehaut.Color(cell.color || '#04e').darkenByRatio(depth * .2);
+                    //, color:['#06f','#08b','#05e']
+                }
+            } else if (river_info) {
+                text = text || river_info.symbol;
+
+                //Depth from 1-3 gets more blue
+                if (!bg_color) {
+                    var depth = river_info.depth || 1;
+                    bg_color = net.brehaut.Color('#03f').darkenByRatio(depth * .2);
+                    //, color:['#06f','#08b','#05e']
+                }
             }
-        } else if (draw_basic_cell && river_info) {
-            text = text ||river_info.symbol;
 
-            //Depth from 1-3 gets more blue
-            if (!bg_color) {
-                var depth = river_info.depth || 1;
-                bg_color = net.brehaut.Color('#03f').darkenByRatio(depth * .2);
-                //, color:['#06f','#08b','#05e']
+            var population_darken_amount = 0;
+            if (cell.population) {
+                color = Helpers.blendColors('black', 'red', cell.population / 300);
+                if (cell.population > 1000) {
+                    color = 'orange';
+                    text = '█';
+                    population_darken_amount = .6;
+                } else if (cell.population > 500) {
+                    color = 'orange';
+                    text = '▓';
+                    population_darken_amount = .5;
+                } else if (cell.population > 300) {
+                    text = '▓';
+                    population_darken_amount = .4;
+                } else if (cell.population > 150) {
+                    text = '▄';
+                    population_darken_amount = .3;
+                } else if (cell.population > 50) {
+                    text = '▒';
+                    population_darken_amount = .2;
+                } else if (cell.population > 10) {
+                    text = '░';
+                    population_darken_amount = .1;
+                }
             }
-        }
 
-        var population_darken_amount = 0;
-        if (cell.population) {
-            color = Helpers.blendColors('black', 'red', cell.population/300);
-            if (cell.population > 1000) {
-                color = 'orange';
-                text = '█';
-                population_darken_amount = .6;
-            } else if (cell.population > 500) {
-                color = 'orange';
-                text = '▓';
-                population_darken_amount = .5;
-            } else if (cell.population > 300) {
-                text = '▓';
-                population_darken_amount = .4;
-            } else if (cell.population > 150) {
-                text = '▄';
-                population_darken_amount = .3;
-            } else if (cell.population > 50) {
-                text = '▒';
-                population_darken_amount = .2;
-            } else if (cell.population > 10) {
-                text = '░';
-                population_darken_amount = .1;
+            if (text === undefined) {
+                text = cell ? cell.symbol || " " : " "
             }
-        }
-
-        if (text === undefined) {
-            text = cell ? cell.symbol || " " : " "
-        }
-        var bg = bg_color;
-        if (!bg) {
-            if (cell) {
-                bg = cell.color || '#000';
-            } else if (text == " ") {
-                bg = ["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"].random();
-            } else {
-                bg = "#000";
+            var bg = bg_color;
+            if (!bg) {
+                if (cell) {
+                    bg = cell.color || '#000';
+                } else if (text == " ") {
+                    bg = ["#cfc", "#ccf0cc", "#dfd", "#ddf0dd"].random();
+                } else {
+                    bg = "#000";
+                }
             }
-        }
 
-        if (!color && _c.tile_has(cell, 'unit corpse')) {
-            text = "x";
-        }
+            if (!color && _c.tile_has(cell, 'unit corpse')) {
+                text = "x";
+            }
 
 
-        var bridge = false, gate=false;
-        var path_info = _c.tile_has(cell, 'path');
-        if (draw_basic_cell && path_info) {
-            text = path_info.symbol || "";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('#A2BB9B'), .7).toString();
-            if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
-            if (_c.tile_has(cell, 'wall') || _c.tile_has(cell, 'tower')) gate = true;
-        }
-        var road_info = _c.tile_has(cell, 'road');
-        if (draw_basic_cell && road_info) {
-            text = road_info.symbol || ":";
+            var bridge = false, gate = false;
+            var path_info = _c.tile_has(cell, 'path');
+            if (draw_basic_cell && path_info) {
+                text = path_info.symbol || "";
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('#A2BB9B'), .7).toString();
+                if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
+                if (_c.tile_has(cell, 'wall') || _c.tile_has(cell, 'tower')) gate = true;
+            }
+            var road_info = _c.tile_has(cell, 'road');
+            if (draw_basic_cell && road_info) {
+                text = road_info.symbol || ":";
 
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('#DF8274'), .8).toString();
-            color = "#000";
-            if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
-            if (_c.tile_has(cell, 'wall') || _c.tile_has(cell, 'tower')) gate = true;
-        }
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('#DF8274'), .8).toString();
+                color = "#000";
+                if (_c.tile_has(cell, 'river') || (cell.data && cell.data.water)) bridge = true;
+                if (_c.tile_has(cell, 'wall') || _c.tile_has(cell, 'tower')) gate = true;
+            }
 
-        if (draw_basic_cell && _c.tile_has(cell, 'storage')) {
-            text = "o";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('yellow'), .1).toString();
-        }
-        if (draw_basic_cell && _c.tile_has(cell, 'looted')) {
-            text = ".";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .8).toString();
-        }
-        if (draw_basic_cell && _c.tile_has(cell, 'pillaged')) {
-            text = "'";
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('red'), .8).toString();
-        }
-        if (_c.tile_has(cell, 'looted') && _c.tile_has(cell, 'pillaged')) {
-            text = ";";
-        }
-        if (bridge) {
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), .8).toString();
-            text = "=";
-            color = "#fff";
-        }
-        if (gate) {
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .8).toString();
-            text = "O";
-            color = "#fff";
-        }
-        if (_c.tile_has(cell, 'tower')) {
-            text = "╠╣";
-        }
-        if (_c.tile_has(cell, 'river') && _c.tile_has(cell, 'wall')) {
-            text = "{}";
-        }
+            if (draw_basic_cell && _c.tile_has(cell, 'storage')) {
+                text = "o";
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('yellow'), .1).toString();
+            }
+            if (draw_basic_cell && _c.tile_has(cell, 'looted')) {
+                text = ".";
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .8).toString();
+            }
+            if (draw_basic_cell && _c.tile_has(cell, 'pillaged')) {
+                text = "'";
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('red'), .8).toString();
+            }
+            if (_c.tile_has(cell, 'looted') && _c.tile_has(cell, 'pillaged')) {
+                text = ";";
+            }
+            if (bridge) {
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), .8).toString();
+                text = "=";
+                color = "#fff";
+            }
+            if (gate) {
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('black'), .8).toString();
+                text = "O";
+                color = "#fff";
+            }
+            if (_c.tile_has(cell, 'tower')) {
+                text = "╠╣";
+            }
+            if (_c.tile_has(cell, 'river') && _c.tile_has(cell, 'wall')) {
+                text = "{}";
+            }
 
-        if (population_darken_amount) {
-            bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), population_darken_amount).toString();
+            if (population_darken_amount) {
+                bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), population_darken_amount).toString();
+            }
         }
 
         _.each(game.game_options.hex_drawing_callbacks, function (callback) {
@@ -1788,11 +1793,11 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         var msg = "Game Over!  " + side_wins + ' wins!';
 
-        msg+= " ("+ game.data.tick_count + " rounds)";
+        msg += " (" + game.data.tick_count + " rounds)";
 
         //Find ending loot retrieved via living armies
         var loot = {};
-        _.each(game.entities, function(unit){
+        _.each(game.entities, function (unit) {
             if (unit && unit._data && unit._data.player) {
                 if (unit.loot) {
                     for (var key in unit.loot) {
@@ -1814,7 +1819,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         var tiles_ruined = 0;
         var population_displaced = 0;
 
-        _.each(game.data.buildings, function(city){
+        _.each(game.data.buildings, function (city) {
             if (city.type == 'city' || city.type == 'city2') {
                 _.each(city.tiles || [], function (tile) {
                     tiles_total++;
@@ -1825,8 +1830,8 @@ Battlebox.initializeOptions = function (option_type, options) {
                         population_displaced += tile_orig.population;
                     }
                 });
-                var pct = Math.round((tiles_ruined/tiles_total) * 100);
-                var msg_c = pct+"% of "+(city.title || city.name) +" destroyed, ";
+                var pct = Math.round((tiles_ruined / tiles_total) * 100);
+                var msg_c = pct + "% of " + (city.title || city.name) + " destroyed, ";
                 msg_c += Helpers.abbreviateNumber(population_displaced) + " population displaced";
                 city_msg.push(msg_c);
             }
@@ -1879,7 +1884,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         _.each(unit.forces, function (force) {
             var count = force.count;
             var orig = unit._data.troops[force.name];
-            var name  = _.str.titleize(Helpers.pluralize(force.title || force.name));
+            var name = _.str.titleize(Helpers.pluralize(force.title || force.name));
             if (orig && (count < orig)) {
                 count = "<span style='color:red'>" + count + "</span>/" + orig;
             }
@@ -1906,8 +1911,12 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         unit.$trump
             .html(text);
-    };
 
+        if (unit.is_dead) {
+            unit.$trump
+                .css({backgroundColor: 'black', color: 'red'});
+        }
+    };
 
 
 })(Battlebox);
@@ -2005,7 +2014,7 @@ Battlebox.initializeOptions = function (option_type, options) {
     var _game_options = {
         rand_seed: 0,
         tick_time: 1000,
-        game_over_time: 1000,
+        game_over_time: 600,
 
         arrays_to_map_to_objects: ''.split(','),
         arrays_to_map_to_arrays: 'terrain_options,water_options,forces,buildings'.split(','),
@@ -2023,9 +2032,33 @@ Battlebox.initializeOptions = function (option_type, options) {
         render_style: 'outdoors', //TODO
         height: 'mountainous', //TODO
 
+        sides: [
+            {
+                side: 'Yellow', player: true, plan: 'invade city', backup_strategy: 'vigilant',
+                face_options: {rand_seed: 42, race: 'Human'}, //TODO
+                morale: 10,  //TODO
+                communication_speed: 1, //TODO
+                try_to_loot: true, try_to_pillage: true,
+                goals: {weak_enemies: 7, loot: 3, all_enemies: 4, city: 2, friendly_units: 2, farm: 1}
+            },
+            {
+                side: 'White', home_city: 'Anchorage', face_options: {race: 'Elf'},
+                plan: 'defend city', backup_strategy: 'vigilant', morale: 15,
+                goals: {weak_enemies: 7, towers: 6, walls: 5, all_enemies: 4, city: 3}
+            }
+        ],
+
         terrain_options: [
             {name: 'plains', ground: true, draw_type: 'flat', color: ["#d0efc6", "#cfefc6", "#d1eec6"], symbol: ''},
-            {name: 'mountains', density: 'medium', smoothness: 3, not_center: true, color: ['#b1c3c3', '#b3c4c4', '#8b999c'], impassible: true, symbol: ' '},
+            {
+                name: 'mountains',
+                density: 'medium',
+                smoothness: 3,
+                not_center: true,
+                color: ['#b1c3c3', '#b3c4c4', '#8b999c'],
+                impassable: true,
+                symbol: ' '
+            },
             {name: 'forest', density: 'sparse', not_center: true, color: ['#85a982', '#7B947A', '#83A283'], data: {movement: 'slow'}, symbol: ' '}
         ],
 
@@ -2042,113 +2075,117 @@ Battlebox.initializeOptions = function (option_type, options) {
         forces: [
             {
                 name: 'Attacker Main Army Force', side: 'Yellow', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
+                goals: {weak_enemies: 6, loot: 4, all_enemies: 7, explore: 2, city: 3},
                 troops: {soldiers: 520, cavalry: 230, siege: 50}
             },
             {
                 name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'run away', try_to_loot: true, try_to_pillage: true,
-                troops: {soldiers: 80, cavalry: 20, siege: 10}
+                leader: {name: 'General Vesuvius', face_options: {race: 'Demon', age: 120}}, //TODO
+                goals: {weak_enemies: 7, loot: 4, all_enemies: 5, explore: 2, city: 3},
+                troops: [
+                    {name: 'soldiers', count: 80, experience: 'veteran', victories: 12},
+                    {name: 'cavalry', count: 20, experience: 'veteran', victories: 13},
+                    {name: 'siege', count: 10, experience: 'master', victories: 23}
+                ]
             },
             {
                 name: 'Task Force Bravo', side: 'Yellow', symbol: '#B', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'invade city', try_to_loot: true, try_to_pillage: true,
                 troops: {cavalry: 20}
             },
             {
                 name: 'Task Force Charlie', side: 'Yellow', symbol: '#C', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
                 troops: {cavalry: 20}
             },
             {
                 name: 'Task Force Delta', side: 'Yellow', symbol: '#D', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
                 troops: {cavalry: 20}
             },
             {
                 name: 'Task Force Echo', side: 'Yellow', symbol: '#E', location: 'left', player: true,
-                plan: 'invade city', backup_strategy: 'vigilant', try_to_loot: true, try_to_pillage: true,
                 troops: {cavalry: 20}
             },
-
+            //------------------------------
             {
                 name: 'Defender City Force', side: 'White', location: 'city',
-                plan: 'seek closest', backup_strategy: 'vigilant',
+                plan: 'seek closest',
                 troops: {soldiers: 620, cavalry: 40, siege: 100}
             },
             {
                 name: 'Defender Bowmen 1', side: 'White', symbol: '1', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 2', side: 'White', symbol: '2', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 3', side: 'White', symbol: '3', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 4', side: 'White', symbol: '4', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 5', side: 'White', symbol: '5', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 6', side: 'White', symbol: '6', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 7', side: 'White', symbol: '7', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
             {
                 name: 'Defender Bowmen 8', side: 'White', symbol: '8', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 20}
             },
-
-
             {
                 name: 'Defender Catapults', side: 'White', symbol: 'B', location: 'city',
-                plan: 'defend city', backup_strategy: 'vigilant',
                 troops: {soldiers: 20, siege: 40}
             },
-
-
+            //----------------------------
             {
                 name: 'Sleeping Dragon',
                 side: 'Red',
-                symbol: '}{',
-                location: 'impassible',
+                symbol: '}O{',
+                location: 'impassable',
                 not_part_of_victory: true,
                 plan: 'wander',
                 backup_strategy: 'wait',
                 size: 3,
-                move_through_impassibles: true,
+                move_through_impassable: true,
                 try_to_loot: true,
                 try_to_pillage: true,
                 troops: {adult_dragon: 1}
             }
-
         ],
 
-        //TODO: Use these in strength calculations
-        troop_types: [
+        forces_data: [
             {
                 name: 'soldiers',
                 side: 'Yellow',
-                range: 1,
                 speed: 40,
+                strength: 1.2,
+                defense: 1.8,
+                weapon: 'rapier'  //TODO: Use in messages
+            },
+            {
+                name: 'soldiers',
+                side: 'White',
+                speed: 30,
+                strength: 1,
+                defense: 2,
+                weapon: 'halberds'
+            },
+            {
+                name: 'soldiers',
+                side: 'all',
+                range: 1,
+                vision: 5,
+                speed: 30,
                 strength: 1,
                 defense: 2,
                 weapon: 'sword',
@@ -2156,21 +2193,12 @@ Battlebox.initializeOptions = function (option_type, options) {
                 carrying: 5
             },
             {
-                name: 'soldiers',
-                side: 'all',
-                range: 1,
-                speed: 30,
-                strength: 1.2,
-                defense: 1.8,
-                weapon: 'rapiers',
-                armor: 'armor',
-                carrying: 5
-            },
-            {
                 name: 'cavalry',
                 side: 'all',
                 range: 1,
+                vision: 6,
                 speed: 70,
+                initiative: 80,  //Note: Initiative can be different than speed
                 strength: 1.5,
                 defense: 1.5,
                 weapon: 'rapier',
@@ -2182,8 +2210,10 @@ Battlebox.initializeOptions = function (option_type, options) {
                 title: 'siege units',
                 side: 'all',
                 range: 2,
-                speed: 10,
-                strength: 5,
+                vision: 7,
+                speed: 25,
+                ranged_strength: 5,
+                strength: .5,
                 defense: .5,
                 weapon: 'catapults',
                 carrying: 1
@@ -2192,8 +2222,10 @@ Battlebox.initializeOptions = function (option_type, options) {
                 name: 'adult_dragon',
                 side: 'all',
                 range: 2,
+                vision: 7,
                 speed: 120,
                 strength: 150,
+                ranged_strength: 50,
                 defense: 300,
                 weapon: 'fire breath',
                 armor: 'impenetrable scales',
@@ -2209,7 +2241,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             },
             {name: 'Grain Storage', type: 'storage', resources: {food: 10000, gold: 2, herbs: 100}, location: 'random'},
             {name: 'Metal Storage', type: 'storage', resources: {metal: 1000, gold: 2, ore: 1000}, location: 'random'},
-            {name: 'Cave Entrance', type: 'dungeon', requires: {mountains: true}, location: 'impassible'}
+            {name: 'Cave Entrance', type: 'dungeon', requires: {mountains: true}, location: 'impassable'}
         ],
 
         variables: [
@@ -2428,11 +2460,8 @@ Battlebox.initializeOptions = function (option_type, options) {
     //TODO: Pass in a color set to try out different images/rendering techniques
     //TODO: Use hex images for terrain
     //TODO: Use colored large circle characters for forces, not full hex colors
-    //TODO: Work on wall shape rotation
-    //TODO: Wall shapes (especially squares) are not all spaced evenly
-    //TODO: Find out why pre-rolling placement numbers isn't turning out almost exactly the same between builds
+    //TODO: Find out why pre-rolling placement numbers isn't turning out almost exactly the same between builds. Fixed now?
     //TODO: Adding population doesnt add new roads if they should
-    //TODO: Walls currently going over river - is that good?
 
     _c.tile = function (game, x, y) {
         var cell;
@@ -2475,29 +2504,52 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
 
     /**
-     * Returns the 6 surrounding hexes around a tile
+     * Returns the 6 surrounding hexes around a tile (or more if bigger rings)
      * @param {object} game class data
      * @param {int} x
      * @param {int} y
+     * @param {int} [rings=1] number of rings away from x,y that should be included
      * @returns {Array.<Object>} cells and entity data
      */
-    _c.surrounding_tiles = function (game, x, y) {
+    _c.surrounding_tiles = function (game, x_start, y_start, rings) {
         var cells = [];
+        rings = rings || 1;
 
-        var cell = _c.tile(game, x, y);
-        if (!cell) {
-            return cells;
-        }
-        _.each(ROT.DIRS[6], function (mods) {
-            var new_x = x + mods[0];
-            var new_y = y + mods[1];
-            var new_cell = _c.tile(game, new_x, new_y);
+        function add(x_offset, y_offset) {
+            var new_cell = _c.tile(game, x_offset, y_offset);
             if (new_cell) {
                 if (new_cell) cells.push(new_cell);
             }
-        });
+        }
 
+        var x = x_start;
+        var y = y_start;
+
+        //Hexagon spiral algorithm, modified from
+        for (var n = 1; n <= rings; ++n) {
+            x += 2;
+            add(x, y);
+            for (var i = 0; i < n - 1; ++i) add(++x, ++y); // move down right. Note N-1
+            for (var i = 0; i < n; ++i) add(--x, ++y); // move down left
+            for (var i = 0; i < n; ++i) {
+                x -= 2;
+                add(x, y);
+            } // move left
+            for (var i = 0; i < n; ++i) add(--x, --y); // move up left
+            for (var i = 0; i < n; ++i) add(++x, --y); // move up right
+            for (var i = 0; i < n; ++i) {
+                x += 2;
+                add(x, y);
+            }  // move right
+        }
         return cells;
+
+        //    [-1, -1] up left
+        //    [ 1, -1] up right
+        //    [ 2,  0] right
+        //    [ 1,  1] down right
+        //    [-1,  1] down left
+        //    [-2,  0] left
     };
 
     /**
@@ -2505,20 +2557,20 @@ Battlebox.initializeOptions = function (option_type, options) {
      * @param {object} game class data
      * @param {int} x
      * @param {int} y
-     * @param {boolean} [move_through_impassibles] return true even if the sell is impassible
-     * @param {boolean} [only_impassible] return true only if the cell is impassible
+     * @param {boolean} [move_through_impassable] return true even if the sell is impassable
+     * @param {boolean} [only_impassable] return true only if the cell is impassable
      * @returns {boolean} valid if cell is valid and passable
      */
-    _c.tile_is_traversable = function (game, x, y, move_through_impassibles, only_impassible) {
+    _c.tile_is_traversable = function (game, x, y, move_through_impassable, only_impassable) {
         var valid_num = (x >= 0) && (y >= 0) && (x < _c.cols(game)) && (y < _c.rows(game));
         if (valid_num) {
             var cell = _c.tile(game, x, y);
             if (cell) {
-                if (!move_through_impassibles && cell.impassible) {
+                if (!move_through_impassable && cell.impassable) {
                     valid_num = false;
                 }
-                if (only_impassible) {
-                    valid_num = (cell.impassible);
+                if (only_impassable) {
+                    valid_num = (cell.impassable);
                 }
             } else {
                 valid_num = false;
@@ -2529,9 +2581,32 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
 
     /**
+     * Find a tile that matches parameters passed in by options
+     * @param {object} game class data
+     * @param {object} options {range: 4, location:{x:1,y2}, or 'center' or 'e' or 'impassable' or 'road' or 'top', etc...
+     * @returns {object} tile hex cell that matches location result, or null if one wasn't found
+     */
+    _c.find_tile_by_filters = function (game, options) {
+        var range = options.vision || options.range || 3;
+
+        var tile = null;
+
+        var loc = options.location;
+        if (_.isString(loc)) {
+            loc = _c.find_a_matching_tile(game, options);
+        }
+
+        var targets = _c.surrounding_tiles(game, loc.x, loc.y, range);
+
+        //TODO: Fill in searching routine, not yet used
+
+        return tile;
+    };
+
+    /**
      * Find a tile that matches location parameters
      * @param {object} game class data
-     * @param {object} options {location:'center'} or 'e' or 'impassible' or 'right' or 'top', etc...
+     * @param {object} options {location:'center'} or 'e' or 'impassable' or 'right' or 'top', etc...
      * @returns {object} tile hex cell that matches location result, or random if one wasn't found
      */
     _c.find_a_matching_tile = function (game, options) {
@@ -2559,7 +2634,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
                 x = Math.floor(x);
                 y = Math.floor(y);
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2587,7 +2662,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                     y = _c.randInt(_c.rows(game));
                 }
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2602,7 +2677,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                     y = _c.randInt(_c.rows(game));
                 }
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2612,7 +2687,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 x = options.x || _c.randOption(mid_left_range);
                 y = options.y || _c.randInt(_c.rows(game));
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2622,7 +2697,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 x = options.x || _c.randOption(mid_right_range);
                 y = options.y || _c.randInt(_c.rows(game));
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2632,7 +2707,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 x = options.x || _c.randInt(_c.cols(game));
                 y = options.y || _c.randOption(mid_top_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2642,7 +2717,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 x = options.x || _c.randInt(_c.cols(game));
                 y = options.y || _c.randOption(mid_bottom_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2652,7 +2727,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 x = options.x || _c.randOption(mid_left_range);
                 y = options.y || _c.randOption(center_top_bottom_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2662,7 +2737,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 x = options.x || _c.randOption(center_left_right_range);
                 y = options.y || _c.randOption(mid_bottom_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2672,7 +2747,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 x = options.x || _c.randOption(center_left_right_range);
                 y = options.y || _c.randOption(mid_top_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2682,7 +2757,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 x = options.x || _c.randOption(mid_right_range);
                 y = options.y || _c.randOption(center_top_bottom_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2692,7 +2767,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 x = options.x || _c.randOption(mid_left_range);
                 y = options.y || _c.randOption(mid_bottom_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2702,7 +2777,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 x = options.x || _c.randOption(mid_right_range);
                 y = options.y || _c.randOption(mid_bottom_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2712,7 +2787,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 x = options.x || _c.randOption(mid_left_range);
                 y = options.y || _c.randOption(mid_top_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2722,7 +2797,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 x = options.x || _c.randOption(mid_right_range);
                 y = options.y || _c.randOption(mid_top_range);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2736,7 +2811,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 }
                 y = _c.randOption([0, 1]);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
@@ -2751,12 +2826,12 @@ Battlebox.initializeOptions = function (option_type, options) {
                 }
                 y = _c.randOption([bottom - 1, bottom - 2]);
 
-                if (_c.tile_is_traversable(game, x, y, options.move_through_impassibles)) {
+                if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
                 }
             }
 
-        } else if (options.location == 'impassible') {
+        } else if (options.location == 'impassable') {
             for (i = 0; i < tries; i++) {
                 y = options.x || (_c.randInt(_c.rows(game)));
                 x = options.y || (y % 2) + (_c.randInt(_c.cols(game) / 2) * 2);
@@ -2771,7 +2846,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 y = options.x || (_c.randInt(_c.rows(game)));
                 x = options.y || (y % 2) + (_c.randInt(_c.cols(game) / 2) * 2);
 
-                if (_c.tile_is_traversable(game, x, y) && _c.tile_has(game, x, y, options.location)) {
+                if (_c.tile_is_traversable(game, x, y) && _c.tile_has(_c.tile(game, x, y), options.location)) {
                     break;
                 }
             }
@@ -2919,7 +2994,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         for (var y = 0; y < _c.rows(game); y++) {
             for (var x = y % 2; x < _c.cols(game); x += 2) {
 
-                if (cells[x][y] && cells[x][y].impassible) {
+                if (cells[x][y] && cells[x][y].impassable) {
                     //Something in this cell that makes it not able to move upon
                 } else {
                     freeCells.push([x, y]);
@@ -2961,7 +3036,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             } else if (building_layer.type == 'storage') {
                 _c.generators.storage(game, location, building_layer);
             } else if (building_layer.type == 'dungeon') {
-                //TODO: Add    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassible'}
+                //TODO: Add    {name:'Cave Entrance', type:'dungeon', requires:{mountains:true}, location:'impassable'}
             }
             building_layer.location = location;
 
@@ -3227,7 +3302,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         var wall_tiles = _c.shape_to_tiles(game, location, wall_info.shape || 'circle', wall_info.count, wall_info.radius || 4, wall_info.starting_angle);
         var last_tower = -1;
         _.each(wall_tiles, function (cell, i) {
-            if (cell && !cell.impassible) {
+            if (cell && !cell.impassable) {
                 cell.additions = cell.additions || [];
                 cell.additions.push('wall');
                 cell.side = wall_info.side;
@@ -3303,7 +3378,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 var road_segment = road_tiles[road_index];
 
                 //Assign population to all non-road/river/lake cells
-                var road_neighbors = _c.surrounding_tiles(game, road_segment.x, road_segment.y);
+                var road_neighbors = _c.surrounding_tiles(game, road_segment.x, road_segment.y, 2);
                 road_neighbors = _.filter(road_neighbors, function (r) {
                     return (!_c.tile_has(r, 'road') && !_c.tile_has(r, 'river') && (r.name != 'lake'));
                 });
@@ -3336,8 +3411,8 @@ Battlebox.initializeOptions = function (option_type, options) {
 
                 if (_.indexOf(city_cells, cell) == -1) city_cells.push(cell);
 
-                var neighbors = _c.surrounding_tiles(game, x, y);
-                neighbors = _.filter(road_neighbors, function (r) {
+                var neighbors = _c.surrounding_tiles(game, x, y, 1);
+                neighbors = _.filter(neighbors, function (r) {
                     return (!_c.tile_has(r, 'road') && !_c.tile_has(r, 'river') && (r.name != 'lake'));
                 });
                 _.each(neighbors, function (neighbor) {
@@ -3820,7 +3895,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             var cell = game.cells[x];
             cell = (cell !== undefined) ? cell[y] : null;
 
-            return (cell && !cell.impassible);
+            return (cell && !cell.impassable);
         };
         var astar = new ROT.Path.AStar(to_x, to_y, passableCallback, {topology: 6});
         var path = [];
@@ -3934,62 +4009,60 @@ Battlebox.initializeOptions = function (option_type, options) {
         _c.log_message_to_user(game, unit.describe() + " stays vigilant and doesn't move", 0);
     };
 
+    function backup_strategies(game, unit, options) {
+        if (options.backup_strategy == 'vigilant') {
+            return _c.movement_strategies.vigilant(game, unit);
+        } else if (options.backup_strategy == 'wait') {
+            return _c.movement_strategies.wait(game, unit);
+        } else { //wander
+            return _c.movement_strategies.wander(game, unit);
+        }
+    }
+
     _c.movement_strategies.seek = function (game, unit, target_status, options) {
-        var x = target_status.target ? target_status.target.getX() : -1;
-        var y = target_status.target ? target_status.target.getY() : -1;
+        var x = (target_status.x !== undefined) ? target_status.x : target_status.target ? target_status.target.getX() : -1;
+        var y = (target_status.y !== undefined) ? target_status.y : target_status.target ? target_status.target.getY() : -1;
+
+        var target_message = "";
+        if (target_status.target) {
+            target_message = target_status.target.describe();
+        } else {
+            target_message = x + ", " + y;
+        }
 
         unit.strategy = "Seek target";
 
         if (!_c.tile_is_traversable(game, x, y)) {
-            if (options.backup_strategy == 'vigilant') {
-                _c.movement_strategies.vigilant(game, unit);
-                return;
-            } else if (options.backup_strategy == 'wait') {
-                _c.movement_strategies.wait(game, unit);
-                return;
-            } else { //wander
-                _c.movement_strategies.wander(game, unit);
-                return;
-            }
+            return backup_strategies(game, unit, options);
         }
 
         var path = _c.path_from_to(game, unit.x, unit.y, x, y);
 
         //If too far, then just wander
         if (options.range && (path && path.length > options.range) || !path || (path && path.length == 0)) {
-            if (options.backup_strategy == 'vigilant') {
-                _c.movement_strategies.vigilant(game, unit);
-                return;
-            } else if (options.backup_strategy == 'wait') {
-                _c.movement_strategies.wait(game, unit);
-                return;
-            } else { //if (options.backup_strategy == 'wander') {
-                _c.movement_strategies.wander(game, unit);
-                return;
-            }
+            return backup_strategies(game, unit, options)
         }
 
         path.shift();
-        if (path.length <= 1) {
-            _c.log_message_to_user(game, unit.describe() + " attacks nearby target: " + target_status.target.describe(), 1);
-            _c.entity_attacks_entity(game, unit, target_status.target, _c.log_message_to_user);
+        if ((path.length <= 1) && target_status.target) {
+            //_c.log_message_to_user(game, unit.describe() + " attacks nearby target: " + target_message, 1);
+            var moves = _c.entity_attacks_entity(game, unit, target_status.target, _c.log_message_to_user);
+            if (moves) {
+                _c.try_to_move_to_and_draw(game, unit, target_status.target.x, target_status.target.y);
+            }
 
-        } else if (path.length > 1) {
+        } else if (path.length) {
             //Walk towards the enemy
             x = path[0][0];
             y = path[0][1];
             var moves = _c.try_to_move_to_and_draw(game, unit, x, y);
             if (moves) {
-                _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + target_status.target.describe(), 1);
+                _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + target_message, 1);
             } else {
-                if (options.backup_strategy == 'vigilant') {
-                    _c.movement_strategies.vigilant(game, unit);
-                } else if (options.backup_strategy == 'wait') {
-                    _c.movement_strategies.wait(game, unit);
-                } else { //if (options.backup_strategy == 'wander') {
-                    _c.movement_strategies.wander(game, unit);
-                }
+                return backup_strategies(game, unit, options);
             }
+        } else {
+            return backup_strategies(game, unit, options);
         }
     };
 
@@ -4001,28 +4074,30 @@ Battlebox.initializeOptions = function (option_type, options) {
         var stop_here = false;
         if (options.stop_if_cell_has) {
             var cell = _c.tile(game, unit.x, unit.y);
-            _.each(options.stop_if_cell_has, function(condition){
-                if (_c.tile_has(cell, condition)) {
-                    stop_here = true;
+            if (!cell) {
+                console.error ("unit " + unit._data.name + " is at invalid loc: " + unit.x + ", " + unit.y);
+            } else {
+                _.each(options.stop_if_cell_has, function (condition) {
+                    if (_c.tile_has(cell, condition)) {
+                        stop_here = true;
+                    }
+                });
+                if (stop_here) {
+                    return backup_strategies(game, unit, options);
                 }
-            });
-            if (stop_here) {
-                if (options.backup_strategy == 'vigilant') {
-                    _c.movement_strategies.vigilant(game, unit);
-                    return;
-                } else if (options.backup_strategy == 'wait') {
-                    _c.movement_strategies.wait(game, unit);
-                    return;
-                } else { //wander
-                    _c.movement_strategies.wander(game, unit, options);
-                    return;
-                }
+
             }
         }
 
         var to_loc = location && (location.location) && (location.location.x !== undefined) && (location.location.y !== undefined);
         if (!to_loc) {
-            options = {side: 'enemy', filter: 'closest', range: 100, plan: 'seek closest', backup_strategy: unit._data.backup_strategy};
+            options = {
+                side: 'enemy',
+                filter: 'closest',
+                range: 100,
+                plan: 'seek closest',
+                backup_strategy: unit._data.backup_strategy
+            };
             target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options);
             return;
@@ -4033,13 +4108,28 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
 
         var moves = false;
-        if (path.length <= 10) {
-            options = {side: 'enemy', filter: 'closest', range: 6, plan: 'invade city', backup_strategy: unit._data.backup_strategy};
-            var target_status = _c.find_unit_by_filters(game, unit, options);
-            _c.movement_strategies.seek(game, unit, target_status, options);
-            moves = true;
+        if (path.length <= (unit.vision || unit.range || 3)) {
+            if (options.when_arrive) {
+                //TODO: Skips one turn, fix. maybe call unit.execute_plan();
+                unit._data.plan = options.when_arrive;
+                moves = true;
+            } else {
+                options = {
+                    side: 'enemy',
+                    filter: 'closest',
+                    range: unit.vision || unit.range || 3,
+                    plan: 'invade city',
+                    backup_strategy: unit._data.backup_strategy
+                };
+                var target_status = _c.find_unit_by_filters(game, unit, options);
+                if (target_status && target_status.target) {
+                    return _c.movement_strategies.seek(game, unit, target_status, options);
+                } else {
+                    return backup_strategies(game, unit, options);
+                }
+            }
 
-        } else if (path.length > 10) {
+        } else if (path.length) {
             //Walk towards the enemy
             var x = path[0][0];
             var y = path[0][1];
@@ -4048,13 +4138,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         if (moves) {
             _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + (location.title || location.name), 1);
         } else {
-            if (options.backup_strategy == 'vigilant') {
-                _c.movement_strategies.vigilant(game, unit);
-            } else if (options.backup_strategy == 'wait') {
-                _c.movement_strategies.wait(game, unit);
-            } else { //wander
-                _c.movement_strategies.wander(game, unit, options);
-            }
+            return backup_strategies(game, unit, options);
         }
     };
 
@@ -4064,16 +4148,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         unit.strategy = "Avoiding enemy";
 
         if (!_c.tile_is_traversable(game, x, y)) {
-            if (options.backup_strategy == 'vigilant') {
-                _c.movement_strategies.vigilant(game, unit);
-                return;
-            } else if (options.backup_strategy == 'wait') {
-                _c.movement_strategies.wait(game, unit);
-                return;
-            } else { //wander
-                _c.movement_strategies.wander(game, unit, options);
-                return;
-            }
+            return backup_strategies(game, unit, options);
         }
 
         var path = _c.path_from_to(game, unit.x, unit.y, x, y);
@@ -4099,13 +4174,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
         }
         if (!moves) {
-            if (options.backup_strategy == 'vigilant') {
-                _c.movement_strategies.vigilant(game, unit);
-            } else if (options.backup_strategy == 'wait') {
-                _c.movement_strategies.wait(game, unit);
-            } else { //if (options.backup_strategy == 'wander') {
-                _c.movement_strategies.wander(game, unit);
-            }
+            return backup_strategies(game, unit, options);
         }
     };
 
@@ -4121,6 +4190,8 @@ Battlebox.initializeOptions = function (option_type, options) {
     //Combat Rules:
     //---------------
     // Units attack in order of speed, even when multiple forces are in the same unit
+    // Each unit can be comprised of many forces (200 soldiers, 50 cavalry, etc)
+    // Units pull metadata from a 'dictionary' that looks up what that side's values are
     // Each person in unit attacks, with chance of hitting a single foe being attacker.strength/defender.defense
     // If defender is killed, they have a 20% chance of hitting back at an attacker (defender.strength/attacker.defense)
     // When killed, units drop loot on the square - next unit by picks it up
@@ -4128,20 +4199,29 @@ Battlebox.initializeOptions = function (option_type, options) {
     // When moving into a tile with an enemy, automatically attack them
     // Multiple walls/towers have additional defense on home units, wall += .5 of att, tower += .2 of attack
     // Only defenders benefit from being on a wall (increase defense .5) or tower (increase defense .2)
-    // TODO: Units move based on the speed of the slowest living unit in their force
-    // TODO: Towers increase defender's vision * 1.5, range +1 if range > 1
+    // Units can be entered as an array in addition to an object - to keep complex hero or unit details
+    // Units move based on the speed of the slowest living unit in their force
+
+    // IN PROGRESS: Have a goal-oriented AI that uses the information they know about
+    // TODO: Gets stuck if 0 result - in weird loop with 8, should have memory of previous spots to promote exploring
+
     // TODO: Units have a carrying capacity for the amount of loot they can carry
     // TODO: Units consume food over time, and replenish food by pillaging, looting, or foraging
+    // TODO: Towers increase defender's vision * 1.5, range +1 if range > 1
     // TODO: Attackers with range > 1 can attack enemies in nearby squares by using some action points
     // TODO: When looting or pillaging land, small chance of new defenders spawning a defense force
-    // TODO: Have a goal-oriented AI that uses the information they know about
     // TODO: Have units communicate with each other, sending enemy positions or storage locations, or what else?
     // TODO: Move faster over roads, and slower over water - have an action point amount to spend, and a buffer towards moving into a terrain
     // TODO: When defeating all enemies, give n extra turns to finish pillaging
+    // TODO: Each unit type and side can have face_options that combine to create avatars
+    // TODO: Each unit has commanders in it that learn and grow, and keep array items
+    // TODO: Specify a number of copies of a certain unit
+    // TODO: Specify details like 'brutality' that define how to treat pillaging and prisoners
+    // TODO: Have attacker starting side be random
+    // TODO: Have unit morale based on skill of commander - every losing fight might decrease morale, every lopsided victory, pillaging, finding treasure
 
     //TODO: Have icons for different units
     //TODO: SetCenter to have large map and redraw every movement
-    //TODO: Have enemy searching only look if within a likely radius to speed up processing
     //TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
 
     _c.build_units_from_list = function (game, list) {
@@ -4166,53 +4246,85 @@ Battlebox.initializeOptions = function (option_type, options) {
             EntityType = OpForce;
         }
 
+        var side = unit_info.side || 'Neutral';
+        var side_data = _.find(game.game_options.sides, function (tt) {
+                return (tt.side == side)
+            }) || {};
+        var unit_data = $.extend({}, side_data, unit_info);
+
         //Generate the unit
-        var unit = new EntityType(game, location.x, location.y, id, unit_info);
+        var unit = new EntityType(game, location.x, location.y, id, unit_data);
 
         //Add metadata from game_options.troop_types to each troop
         if (!unit.data_expanded) {
             unit.forces = [];
-            for (var key in unit._data.troops || []) {
-                var force = _c.hydrate_troop_metadata(game, key, unit._data.troops[key], unit._data.side);
-                unit.forces.push(force);
+            if (_.isArray(unit._data.troops)) {
+                _.each(unit._data.troops, function (troops) {
+                    var force = _c.hydrate_troop_metadata(game, troops, troops.count, unit._data.side);
+                    unit.forces.push(force);
+                });
+            } else if (_.isObject(unit._data.troops)) {
+                for (var key in unit._data.troops || []) {
+                    var force = _c.hydrate_troop_metadata(game, key, unit._data.troops[key], unit._data.side);
+                    unit.forces.push(force);
+                }
             }
+
+            //Vision is from the unit with the highest vision
+            //Speed is from teh unit with the lowest speed
+            var lowest_speed = 100;
+            var highest_vision = 0;
+            _.each(unit.forces, function (force) {
+                if (force.speed < lowest_speed) lowest_speed = force.speed;
+
+                var sight = force.vision || force.range;
+                if (sight > highest_vision) highest_vision = sight;
+            });
+            unit.speed = lowest_speed;
+            unit.vision = highest_vision;
+
             unit.data_expanded = true;
         }
 
         return unit;
     };
     _c.hydrate_troop_metadata = function (game, troop, count, side) {
-        var troop_data = _.find(game.game_options.troop_types, function (tt) {
-            return tt.side == side && tt.name == troop
-        });
-        if (!troop_data) {
-            troop_data = _.find(game.game_options.troop_types, function (tt) {
-                return tt.side == 'all' && tt.name == troop
-            });
+        var forces_data = game.game_options.forces_data || [];
+        var troop_previous_data = {};
+
+        var troop_name = troop;
+        if (_.isObject(troop)) {
+            troop_name = troop.name;
+            troop_previous_data = troop;
         }
-        var troop_object = {};
-        if (!troop_data) {
-            console.error("troop_data not found for: " + troop);
+
+        var troop_type_data = _.find(forces_data, function (tt) {
+                return tt.side == 'all' && tt.name == troop_name
+            }) || {};
+        var troop_detail_data = _.find(forces_data, function (tt) {
+                return tt.side == side && tt.name == troop_name
+            }) || {};
+        var troop_object = $.extend({}, troop_type_data, troop_detail_data, troop_previous_data);
+
+        if (!troop_object) {
+            console.error("troop_data not found for: " + troop_name);
             troop_object = {name: troop, count: count, side: side};
         } else {
-            troop_object = _.clone(troop_data);
-            troop_object.side = side;
-            troop_object.count = count;
+            troop_object.count = count || 1;
         }
         return troop_object;
     };
 
 
     _c.raze_or_loot = function (game, unit, cell) {
-
         cell.additions = cell.additions || [];
         unit.loot = unit.loot || {};
 
         var num_farms = _c.tile_has(cell, 'farm', true);
 
         if (unit._data.try_to_pillage) {
-            //TODO: Unit gains health?
-            //TODO: Takes time?
+            //TODO: Unit gains health or morale?
+            //TODO: consumes action points
 
             if (num_farms && !_c.tile_has(cell, 'pillaged')) {
                 unit.loot.food = unit.loot.food || 0;
@@ -4240,7 +4352,6 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         }
         if (unit._data.try_to_loot && (_c.tile_has(cell, 'storage') || cell.loot)) {
-
             unit.loot = unit.loot || {};
             for (var key in cell.loot) {
                 unit.loot[key] = unit.loot[key] || 0;
@@ -4254,7 +4365,6 @@ Battlebox.initializeOptions = function (option_type, options) {
                 unit.loot.herbs = unit.loot.herbs || 0;
                 unit.loot.food += (25 * num_farms);
                 unit.loot.herbs += (6 * num_farms);
-                cell.additions.push('looted');
 
             } else if (cell.type == 'city' && !_c.tile_has(cell, 'looted')) {
                 unit.loot.food = unit.loot.food || 0;
@@ -4265,27 +4375,28 @@ Battlebox.initializeOptions = function (option_type, options) {
                 unit.loot.wood += 5;
                 unit.loot.metal += 5;
                 unit.loot.skins += 5;
-                cell.additions.push('looted');
 
                 if ((cell.population > 3000) && (_c.random() > .9)) {
                     unit.loot.gold = unit.loot.gold || 0;
                     unit.loot.gold += 1;
                 }
-
+            }
+            if (!_c.tile_has(cell, 'looted')) {
+                cell.additions.push('looted');
             }
         }
 
     };
 
     _c.try_to_move_to_and_draw = function (game, unit, x, y) {
-        var can_move_to = _c.tile_is_traversable(game, x, y, unit._data.move_through_impassibles);
+        var can_move_to = _c.tile_is_traversable(game, x, y, unit._data.move_through_impassable);
         if (can_move_to) {
             var is_unit_there = _c.find_unit_by_filters(game, unit, {location: {x: x, y: y}});
-            if (is_unit_there && is_unit_there.target) {
-                if (is_unit_there.side != unit.side) {
-                    can_move_to = _c.entity_attacks_entity(game, unit, is_unit_there, _c.log_message_to_user);
+            if (is_unit_there && is_unit_there.target && is_unit_there.target.data && is_unit_there.target.data.side) {
+                if (is_unit_there.target.data.side != unit.data.side) {
+                    can_move_to = _c.entity_attacks_entity(game, unit, is_unit_there.target, _c.log_message_to_user);
                 } else {
-                    //TODO: What to do if on same sides? Merge forces?
+                    //TODO: What to do if on same sides? Exchange information?
                 }
             }
 
@@ -4339,10 +4450,91 @@ Battlebox.initializeOptions = function (option_type, options) {
 
             game.scheduler.remove(game.entities[entity_id]);
             game.entities = _.reject(game.entities, unit);
-            //TODO: Collapse entities
 
             _c.draw_tile(game, x, y);
         }
+    };
+
+    /**
+     * Find tile that best meets goal values of unit
+     * @param {object} game class data
+     * @param {object} unit unit that is looking for cells to move to
+     * @returns {object} tile hex cell that best matches goals
+     */
+    _c.find_tile_by_unit_goals = function (game, unit) {
+        var range = unit.vision || unit.range || 3;
+        unit._data.goals = unit._data.goals || {};
+
+        //TODO: Add in knowledge - where is a town or storage area or friendly unit
+        //TODO: Consider current cell if need to stay here for tower/wall
+
+        var current_cell = _c.tile(game, unit.x, unit.y);
+
+        if (unit._data.goals.weak_enemies || unit._data.goals.all_enemies) {
+            var options = {
+                side: 'enemy',
+                range: range,
+                return_multiple: true
+            };
+            var close_enemies = _c.find_unit_by_filters(game, unit, options);
+        }
+
+        var neighbors = _c.surrounding_tiles(game, unit.x, unit.y, range);
+        var weighted_neighbors = [];
+        _.each(neighbors, function (neighbor) {
+            var points = 0;
+
+            var is_pillaged_or_looted = _c.tile_has(neighbor, 'pillaged') || _c.tile_has(neighbor, 'looted');
+            var num_towers = (_c.tile_has(neighbor, 'tower')) ? 1 : 0;
+            var num_walls = Math.max(2, _c.tile_has(neighbor, 'tower', true));
+            var loot = (_.isObject(neighbor.loot) && !is_pillaged_or_looted) ? 1 : 0;
+            var is_city = (neighbor.type == 'city' && !is_pillaged_or_looted) ? 1 : 0;
+            var is_farm = (_c.tile_has(neighbor, 'farm') && !is_pillaged_or_looted) ? 1 : 0;
+
+            points += (num_towers * (unit._data.goals.towers || 0));
+            points += (num_walls * (unit._data.goals.walls || 0));
+            points += (loot * (unit._data.goals.loot || 0));
+            points += (is_city * (unit._data.goals.city || 0));
+            points += (is_farm * (unit._data.goals.farm || 0));
+
+            //TODO - friendly_units, weak_enemies
+
+            if (close_enemies.target.length && (unit._data.goals.weak_enemies || unit._data.goals.all_enemies)) {
+                var enemies_here = _.filter(close_enemies.target, function (enemy) {
+                    return (enemy.x == neighbor.x) && (enemy.y == neighbor.y);
+                });
+                points += (enemies_here.length * Math.max(unit._data.goals.all_enemies, 2));
+                //TODO: How to incorporate weakness of enemy? Have a running power total?
+            }
+
+            weighted_neighbors.push({x: neighbor.x, y: neighbor.y, weight: points});
+        });
+
+        weighted_neighbors.sort(function (a, b) {
+            //TODO: Incorporate distance
+            return a.weight - b.weight;
+        });
+
+        //TODO: Send message to others that there are important points or that a point is being taken care of?
+
+        var best_cell = false;
+        if (weighted_neighbors) {
+            best_cell = _.last(weighted_neighbors);
+            if (!best_cell.weight) {
+                best_cell = false;
+            }
+            if ((best_cell.x == current_cell.x) && (best_cell.y == current_cell.y)) {
+                best_cell = false;
+            }
+        }
+
+        var enemy_here = _.find(close_enemies.target, function (enemy) {
+            //TODO: Either find by weakest or strongest by options
+            return (enemy.x == unit.x) && (enemy.y == unit.y);
+        });
+
+        //Closest cell with most points
+        return {tile: best_cell, enemy: enemy_here};
     };
 
     //--------------------
@@ -4353,14 +4545,14 @@ Battlebox.initializeOptions = function (option_type, options) {
         return "Screen";
     };
     TimeKeeper.prototype.getSpeed = function () {
-        return 100;
+        return 80;
     };
     TimeKeeper.prototype.act = function () {
         var time_keeper = this;
         var game = time_keeper._game;
 
         game.data.tick_count++;
-//        console.log('Game Tick: ' + game.data.tick_count);
+        console.log('Game Tick: ' + game.data.tick_count);
 
         if ((game.game_options.game_over_time !== undefined) && (game.data.tick_count > game.game_options.game_over_time)) {
             _c.game_over(game);
@@ -4408,7 +4600,7 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
 
     Entity.prototype.getSpeed = function () {
-        return this._data.speed || 40;
+        return this.speed || this._data.speed || 40;
     };
 
     Entity.prototype.setPosition = function (x, y) {
@@ -4454,7 +4646,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         var cell = game.cells[x];
         if (cell) {
             cell = cell[y];
-            if (cell && !cell.impassible) {
+            if (cell && !cell.impassable) {
                 result = true;
             }
         }
@@ -4478,6 +4670,16 @@ Battlebox.initializeOptions = function (option_type, options) {
             };
             target_status = _c.find_unit_by_filters(game, unit, options);
             _c.movement_strategies.seek(game, unit, target_status, options);
+
+        } else if (plan == 'goal based') {
+            var best_location = _c.find_tile_by_unit_goals(game, unit);
+
+            if (best_location.enemy) {
+                _c.entity_attacks_entity(game, unit, best_location.enemy, _c.log_message_to_user);
+            } else {
+                options = {plan: plan, backup_strategy: unit._data.backup_strategy};
+                _c.movement_strategies.seek(game, unit, best_location.tile, options);
+            }
 
         } else if (plan == 'vigilant') {
             options = {
@@ -4515,6 +4717,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 side: 'enemy',
                 filter: 'closest',
                 range: 12,
+                when_arrive: 'goal based',
                 plan: plan,
                 backup_strategy: unit._data.backup_strategy
             };

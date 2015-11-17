@@ -284,6 +284,7 @@
         unit._data.goals = unit._data.goals || {};
 
         //TODO: Add in knowledge - where is a town or storage area or friendly unit
+        //TODO: Consider current cell if need to stay here for tower/wall
 
         var current_cell = _c.tile(game, unit.x, unit.y);
 
