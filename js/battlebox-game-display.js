@@ -28,8 +28,7 @@
     };
 
     _c.update_ui_display = function (game) {
-
-
+        $pointers.turn_counter.text("Turn: " + game.data.tick_count);
     };
 
     _c.draw_initial_display = function (game, options) {
@@ -107,6 +106,10 @@
             })
             .appendTo($pointers.canvas_holder);
 
+        $pointers.turn_counter = $('<span>')
+            .text('Turn: 0')
+            .appendTo($pointers.canvas_holder);
+
         return container_canvas;
     };
 
@@ -140,7 +143,6 @@
         }
         if (!cell) {
             //console.error('Tried to draw invalid tile:' + x + ":" + y);
-            debugger;
             return;
         }
 
@@ -469,6 +471,7 @@
         if (unit.is_dead) {
             text += "<span style='color:red'>Dead on " + battlebox.data.tick_count + "</span><br/>";
         }
+        text += "At: " + unit.x + ", " + unit.y + " <br/>";
 
         _.each(unit.forces, function (force) {
             var count = force.count;
@@ -503,7 +506,7 @@
 
         if (unit.is_dead) {
             unit.$trump
-                .css({backgroundColor: 'black', color: 'red'});
+                .css({backgroundColor: 'lightgray', color: 'red'});
         }
     };
 

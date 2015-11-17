@@ -130,7 +130,7 @@
         unit.strategy = 'Wander';
 
         var msg = unit.describe() + ' ';
-        var moves = _c.try_to_move_to_and_draw(game, unit, x, y);
+        var moves = unit.try_to_move_to_and_draw(x, y);
         if (moves) {
             _c.log_message_to_user(game, msg + "wanders a space", 1);
         } else {
@@ -183,19 +183,84 @@
             //_c.log_message_to_user(game, unit.describe() + " attacks nearby target: " + target_message, 1);
             var moves = _c.entity_attacks_entity(game, unit, target_status.target, _c.log_message_to_user);
             if (moves) {
-                _c.try_to_move_to_and_draw(game, unit, target_status.target.x, target_status.target.y);
+                unit.try_to_move_to_and_draw(target_status.target.x, target_status.target.y);
             }
 
         } else if (path.length) {
             //Walk towards the enemy
             x = path[0][0];
             y = path[0][1];
-            var moves = _c.try_to_move_to_and_draw(game, unit, x, y);
+            var moves = unit.try_to_move_to_and_draw(x, y);
             if (moves) {
                 _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + target_message, 1);
             } else {
                 return backup_strategies(game, unit, options);
             }
+        } else {
+            return backup_strategies(game, unit, options);
+        }
+    };
+
+    _c.movement_strategies.head_towards_2 = function (game, unit, location, options) {
+        var path;
+
+        unit.strategy = "Head to " + location.location.x + ", " + location.location.y;
+
+        var stop_here = false;
+        if (options.stop_if_cell_has) {
+            var cell = _c.tile(game, unit.x, unit.y);
+            if (!cell) {
+                console.error ("unit " + unit._data.name + " is at invalid loc: " + unit.x + ", " + unit.y);
+            } else {
+                _.each(options.stop_if_cell_has, function (condition) {
+                    if (_c.tile_has(cell, condition)) {
+                        stop_here = true;
+                    }
+                });
+                if (stop_here) {
+                    return backup_strategies(game, unit, options);
+                }
+            }
+        }
+
+        var to_loc = location && (location.location) && (location.location.x !== undefined) && (location.location.y !== undefined);
+
+        var options_scan = {
+            side: 'enemy',
+            filter: 'closest',
+            range: unit.vision || unit.range || 3,
+            plan: 'seek closest',
+            backup_strategy: unit._data.backup_strategy
+        };
+        var target_status = _c.find_unit_by_filters(game, unit, options_scan);
+        if (!to_loc || target_status && target_status.target) {
+            return _c.movement_strategies.seek(game, unit, target_status, options);
+        }
+
+        //No enemies near, so continue along path
+        path = _c.path_from_to(game, unit.x, unit.y, location.location.x, location.location.y);
+        path.shift();
+
+        var moves = false;
+        if (path.length) {
+            //Walk towards the enemy
+            var x = path[0][0];
+            var y = path[0][1];
+            moves = unit.try_to_move_to_and_draw(x, y);
+
+            //Arrived at waypoint
+            if (moves && unit.waypoint && unit.waypoint.x == x && unit.waypoint.y == y) {
+                unit.waypoint = null;
+                unit.waypoint_weight = null;
+            }
+
+        } else if (options.when_arrive) {
+            //TODO: Skips one turn, fix. maybe call unit.execute_plan();
+            unit._data.plan = options.when_arrive;
+            moves = true;
+        }
+        if (moves) {
+            _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + (location.title || location.name), 1);
         } else {
             return backup_strategies(game, unit, options);
         }
@@ -229,7 +294,7 @@
             options = {
                 side: 'enemy',
                 filter: 'closest',
-                range: 100,
+                range: unit.vision || unit.range || 3,
                 plan: 'seek closest',
                 backup_strategy: unit._data.backup_strategy
             };
@@ -268,7 +333,7 @@
             //Walk towards the enemy
             var x = path[0][0];
             var y = path[0][1];
-            moves = _c.try_to_move_to_and_draw(game, unit, x, y);
+            moves = unit.try_to_move_to_and_draw(x, y);
         }
         if (moves) {
             _c.log_message_to_user(game, unit.describe() + " moves towards their target: " + (location.title || location.name), 1);
@@ -305,7 +370,7 @@
                 y = unit.y + y;
 
                 //TODO: Pick alternate paths if can't move any more
-                moves = _c.try_to_move_to_and_draw(game, unit, x, y);
+                moves = unit.try_to_move_to_and_draw(x, y);
             }
         }
         if (!moves) {

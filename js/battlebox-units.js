@@ -5,7 +5,7 @@
     var controlled_entity_id = 0;
 
     //---------------
-    //Combat Rules:
+    // Combat Rules:
     //---------------
     // Units attack in order of speed, even when multiple forces are in the same unit
     // Each unit can be comprised of many forces (200 soldiers, 50 cavalry, etc)
@@ -19,9 +19,7 @@
     // Only defenders benefit from being on a wall (increase defense .5) or tower (increase defense .2)
     // Units can be entered as an array in addition to an object - to keep complex hero or unit details
     // Units move based on the speed of the slowest living unit in their force
-
-    // IN PROGRESS: Have a goal-oriented AI that uses the information they know about
-    // TODO: Gets stuck if 0 result - in weird loop with 8, should have memory of previous spots to promote exploring
+    // Units have a goal-oriented AI that uses the information they know about
 
     // TODO: Units have a carrying capacity for the amount of loot they can carry
     // TODO: Units consume food over time, and replenish food by pillaging, looting, or foraging
@@ -206,46 +204,7 @@
 
     };
 
-    _c.try_to_move_to_and_draw = function (game, unit, x, y) {
-        var can_move_to = _c.tile_is_traversable(game, x, y, unit._data.move_through_impassable);
-        if (can_move_to) {
-            var is_unit_there = _c.find_unit_by_filters(game, unit, {location: {x: x, y: y}});
-            if (is_unit_there && is_unit_there.target && is_unit_there.target.data && is_unit_there.target.data.side) {
-                if (is_unit_there.target.data.side != unit.data.side) {
-                    can_move_to = _c.entity_attacks_entity(game, unit, is_unit_there.target, _c.log_message_to_user);
-                } else {
-                    //TODO: What to do if on same sides? Exchange information?
-                }
-            }
 
-            if (can_move_to) {
-                var previous_x = unit.x;
-                var previous_y = unit.y;
-                unit.x = x;
-                unit.y = y;
-
-                var cell = _c.tile(game, x, y);
-                if (unit._data.try_to_loot || unit._data.try_to_pillage) {
-                    if (cell.type == 'city' || _c.tile_has(cell, 'dock') || _c.tile_has(cell, 'farm') || _c.tile_has(cell, 'storage') || cell.loot) {
-                        _c.raze_or_loot(game, unit, cell);
-                    }
-                }
-
-                var num_walls = 0, num_towers = 0;
-                if (unit._side == cell.side) {
-                    //The unit is on home territory
-                    num_walls = _c.tile_has(cell, 'wall', true);
-                    num_towers = _c.tile_has(cell, 'tower', true);
-                }
-                unit.protected_by_walls = num_walls;
-                unit.in_towers = num_towers;
-
-                _c.draw_tile(game, previous_x, previous_y);
-                unit._draw();
-            }
-        }
-        return can_move_to;
-    };
 
     _c.remove_entity = function (game, unit) {
         var entity_id = _.indexOf(game.entities, unit);
@@ -319,24 +278,38 @@
 
             if (close_enemies.target.length && (unit._data.goals.weak_enemies || unit._data.goals.all_enemies)) {
                 var enemies_here = _.filter(close_enemies.target, function (enemy) {
-                    return (enemy.x == neighbor.x) && (enemy.y == neighbor.y);
+                    return (enemy.x == neighbor.x) && (enemy.y == neighbor.y) && !enemy.is_dead;
                 });
                 points += (enemies_here.length * Math.max(unit._data.goals.all_enemies, 2));
                 //TODO: How to incorporate weakness of enemy? Have a running power total?
             }
 
-            weighted_neighbors.push({x: neighbor.x, y: neighbor.y, weight: points});
+            if (points > 0) {
+                points -= unit.times_moved_to_tile(neighbor.x, neighbor.y);
+            }
+
+            var point_target = unit.waypoint_weight || 0;
+            if (points > point_target) {
+                weighted_neighbors.push({x: neighbor.x, y: neighbor.y, weight: points});
+            }
         });
 
-        weighted_neighbors.sort(function (a, b) {
-            //TODO: Incorporate distance
-            return a.weight - b.weight;
-        });
+        var best_cell = false;
+
+        if (weighted_neighbors.length == 0 && unit.waypoint) {
+            best_cell = unit.waypoint;
+        } else if (weighted_neighbors.length > 0) {
+            //Sort to find highest points
+            //TODO: Randomly pick one if highest is a tie
+            weighted_neighbors.sort(function (a, b) {
+                //TODO: Incorporate distance
+                return a.weight - b.weight;
+            });
+        }
 
         //TODO: Send message to others that there are important points or that a point is being taken care of?
 
-        var best_cell = false;
-        if (weighted_neighbors) {
+        if (weighted_neighbors && weighted_neighbors.length) {
             best_cell = _.last(weighted_neighbors);
             if (!best_cell.weight) {
                 best_cell = false;
@@ -370,9 +343,10 @@
         var game = time_keeper._game;
 
         game.data.tick_count++;
-        console.log('Game Tick: ' + game.data.tick_count);
 
-        if ((game.game_options.game_over_time !== undefined) && (game.data.tick_count > game.game_options.game_over_time)) {
+        _c.update_ui_display(game);
+
+        if ((game.game_options.game_over_time !== undefined) && (game.data.tick_count >= game.game_options.game_over_time)) {
             _c.game_over(game);
         }
 
@@ -411,6 +385,7 @@
         this._data = unit;
         this._draw();
         this.strategy = '';
+        this.previous_tiles_visited = [];
     };
 
     Entity.prototype.describe = function () {
@@ -433,6 +408,64 @@
 
     Entity.prototype.act = function () {
     };
+
+    Entity.prototype.track_move = function (tile) {
+        this.previous_tiles_visited.push(tile);
+        //Only track last 40 moves;
+        this.previous_tiles_visited = _.last(this.previous_tiles_visited, 40);
+    };
+    Entity.prototype.times_moved_to_tile = function (x, y) {
+        var visited = _.filter(this.previous_tiles_visited, function (tile) {
+            return (tile.x == x) && (tile.y == y);
+        });
+        return visited.length;
+    };
+    Entity.prototype.try_to_move_to_and_draw = function (x, y) {
+        var game = this._game;
+        var unit = this;
+
+        var can_move_to = _c.tile_is_traversable(game, x, y, unit._data.move_through_impassable);
+        if (can_move_to) {
+            var is_unit_there = _c.find_unit_by_filters(game, unit, {location: {x: x, y: y}});
+            if (is_unit_there && is_unit_there.target && is_unit_there.target.data && is_unit_there.target.data.side) {
+                if (is_unit_there.target.data.side != unit.data.side) {
+                    can_move_to = _c.entity_attacks_entity(game, unit, is_unit_there.target, _c.log_message_to_user);
+                } else {
+                    //TODO: What to do if on same sides? Exchange information?  Give loot to stronger?
+                }
+            }
+
+            if (can_move_to) {
+                var previous_x = unit.x;
+                var previous_y = unit.y;
+                unit.x = x;
+                unit.y = y;
+
+                var cell = _c.tile(game, x, y);
+                if (unit._data.try_to_loot || unit._data.try_to_pillage) {
+                    if (cell.type == 'city' || _c.tile_has(cell, 'dock') || _c.tile_has(cell, 'farm') || _c.tile_has(cell, 'storage') || cell.loot) {
+                        _c.raze_or_loot(game, unit, cell);
+                    }
+                }
+
+                var num_walls = 0, num_towers = 0;
+                if (unit._side == cell.side) {
+                    //The unit is on home territory
+                    num_walls = _c.tile_has(cell, 'wall', true);
+                    num_towers = _c.tile_has(cell, 'tower', true);
+                }
+                unit.protected_by_walls = num_walls;
+                unit.in_towers = num_towers;
+
+                _c.draw_tile(game, previous_x, previous_y);
+                unit._draw();
+                unit.track_move(cell);
+            }
+        }
+        return can_move_to;
+    };
+
+
 
     /* Other unit bumps into */
     Entity.prototype.bump = function (who, power) {
@@ -494,9 +527,26 @@
 
             if (best_location.enemy) {
                 _c.entity_attacks_entity(game, unit, best_location.enemy, _c.log_message_to_user);
-            } else {
-                options = {plan: plan, backup_strategy: unit._data.backup_strategy};
-                _c.movement_strategies.seek(game, unit, best_location.tile, options);
+            } else if (best_location.tile) {
+                //options = {plan: plan, backup_strategy: unit._data.backup_strategy};
+                //_c.movement_strategies.seek(game, unit, best_location.tile, options);
+
+                if (unit.waypoint && unit.waypoint.x == unit.x && unit.waypoint.y == unit.y) {
+                    unit.waypoint = null;
+                    unit.waypoint_weight = null;
+                } else {
+                    unit.waypoint = best_location.tile;
+                    unit.waypoint_weight = best_location.tile.weight;
+                }
+
+                options = {
+                    side: 'enemy',
+                    filter: 'closest',
+                    when_arrive: 'goal based',
+                    plan: plan,
+                    backup_strategy: unit._data.backup_strategy
+                };
+                _c.movement_strategies.head_towards_2(game, unit, {location: best_location.tile}, options);
             }
 
         } else if (plan == 'vigilant') {
@@ -610,7 +660,7 @@
 
             var can_move = unit.try_move(game, x, y);
             if (can_move) {
-                _c.try_to_move_to_and_draw(game, unit, x, y);
+                unit.try_to_move_to_and_draw(x, y);
             }
 
             window.removeEventListener("keydown", this);
