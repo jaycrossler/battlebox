@@ -600,6 +600,7 @@
                 filter: 'closest',
                 range: 8,
                 stop_if_cell_has: ['tower', 'wall'],
+                when_arrive: 'goal based',
                 plan: plan,
                 backup_strategy: unit._data.backup_strategy
             };

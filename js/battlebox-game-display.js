@@ -22,8 +22,7 @@
         canvas.addEventListener("mousemove", function (ev) {
             var loc = game.display.eventToPosition(ev);
             _c.highlight_position(game, loc);
-
-            _c.show_info(_c.tile_info(game, loc[0], loc[1]));
+            _c.show_info(game, loc);
         });
     };
 
@@ -54,7 +53,15 @@
         $pointers.info_box = $('<div>')
             .appendTo($pointers.canvas_holder);
 
-        $pointers.unit_holder = $('#unit_list');
+        var $unit_list = $('#unit_list');
+        $pointers.unit_holder = $('<div>')
+            .appendTo($unit_list);
+        $pointers.unit_dead_holder = $('<div>')
+            .appendTo($unit_list);
+        $pointers.unit_dead_holder_title = $("<div>")
+            .text("Dead Units:")
+            .hide()
+            .appendTo($pointers.unit_dead_holder);
 
 
         //Build the map
@@ -79,18 +86,29 @@
 
         game.logMessage(game.log());
 
-        $pointers.play_pause_button = $('<button>')
-            .text('Pause')
-            .on('click', function () {
-                if ($pointers.play_pause_button.text() == 'Pause') {
-                    $pointers.play_pause_button.text('Play');
-                    _c.stop_game_loop(game);
-                } else {
-                    $pointers.play_pause_button.text('Pause');
-                    _c.start_game_loop(game);
-                }
-            })
-            .appendTo($pointers.canvas_holder);
+        //$pointers.play_pause_button = $('<button>')
+        //    .text('Pause')
+        //    .on('click', function () {
+        //        if ($pointers.play_pause_button.text() == 'Pause') {
+        //            $pointers.play_pause_button.text('Play');
+        //            _c.stop_game_loop(game);
+        //        } else {
+        //            $pointers.play_pause_button.text('Pause');
+        //            _c.start_game_loop(game);
+        //        }
+        //    })
+        //    .appendTo($pointers.canvas_holder);
+
+        _.each([2000, 1000, 500, 200, 50], function (speed, i) {
+            $('<button>')
+                .text(_.str.repeat('>', (i + 1)))
+                .on('click', function () {
+                    game.game_options.delay_between_ticks = speed;
+                })
+                .appendTo($pointers.canvas_holder);
+        });
+
+
 
         $('<button>')
             .text('Add 100 people')
@@ -129,7 +147,7 @@
         }
     };
 
-    _c.draw_tile = function (game, x, y, text, color, bg_color) {
+    _c.draw_tile = function (game, x, y, text, color, bg_color, draw_callback) {
         //Cell is used to get color and symbol
 
         var draw_basic_cell = false;
@@ -306,7 +324,11 @@
         });
 
         //First draw it black, then redraw it with the chosen color to help get edges proper color
-        game.display.draw(x, y, text, color || "#000", bg);
+        if (draw_callback) {
+            draw_callback(x, y, text, color || "#000", bg);
+        } else {
+            game.display.draw(x, y, text, color || "#000", bg);
+        }
     };
 
     _c.log_display = function (game) {
@@ -442,15 +464,80 @@
         }
     };
 
-    _c.show_info = function (info) {
-        var out;
-        if (_.isString(info)) {
-            out = info;
-        } else {
-            out = JSON.stringify(info);
+    _c.show_info = function (game, loc) {
+        var x = loc[0];
+        var y = loc[1];
+
+        var info = {};
+
+        var cell = _c.tile(game, x, y);
+        if (cell) {
+            info = _.clone(cell);
         }
-        $pointers.info_box
-            .html(out);
+
+        var title = JSON.stringify(info);
+        $pointers.info_box.empty();
+        var $tile = $("<span>")
+            .addClass('tile_info')
+            .text(_.str.titleize(info.name))
+            .attr('title', title)
+            .appendTo($pointers.info_box);
+        //TODO: On click of canvas, lock title info of cell for a while
+
+        var additions = [];
+        var has_farms = _c.tile_has(cell, 'farm', true);
+        var has_river = _c.tile_has(cell, 'river');
+        var has_roads = _c.tile_has(cell, 'road', true);
+        var has_dock = _c.tile_has(cell, 'dock');
+        var has_walls = _c.tile_has(cell, 'wall', true);
+        var has_towers = _c.tile_has(cell, 'tower', true);
+        var has_loot = _.isObject(cell.loot);
+        var has_people = cell.population;
+
+        if (has_river) additions.push("River");
+        if (has_farms) additions.push("Farms:" + has_farms);
+        if (has_dock) additions.push("Dock");
+        if (has_walls) additions.push("Walls:" + has_walls);
+        if (has_towers) additions.push("Towers" + has_towers);
+        if (has_roads) additions.push("Road");
+        if (has_loot) additions.push("Loot");
+        if (has_people) additions.push("People: " + has_people);
+
+        function draw_callback(x, y, text, color, bg) {
+            var text_add = _.str.titleize(info.name);
+            if (additions.length) {
+                text_add += ", " + additions.join(", ");
+            }
+            if (text) {
+                text_add += " [" + text + "]";
+            }
+            $tile
+                .css({backgroundColor: bg, color: color})
+                .text(text_add);
+        }
+
+        _c.draw_tile(game, x, y, null, null, null, draw_callback);
+
+
+        _.each(_c.entities(game), function (entity, id) {
+            if (entity.x == x && entity.y == y && entity._draw) {
+                var color = entity._data.side;
+                var name = entity._data.title || entity._data.name || "Unit";
+                name += " [" + (entity._symbol || "@") + "]"
+                $("<span>")
+                    .addClass('tile_unit_info')
+                    .css({backgroundColor: color})
+                    .text(name)
+                    .appendTo($pointers.info_box);
+
+                entity.$trump.css({borderWidth: '3px'});
+            } else {
+                entity.$trump.css({borderWidth: '1px'});
+
+            }
+        });
+
+
     };
 
     _c.add_unit_ui_to_main_ui = function (game, unit) {
@@ -505,8 +592,12 @@
             .html(text);
 
         if (unit.is_dead) {
-            unit.$trump
-                .css({backgroundColor: 'lightgray', color: 'red'});
+            if (unit.$trump.parent() != $pointers.unit_dead_holder) {
+                $pointers.unit_dead_holder_title.show();
+                unit.$trump
+                    .css({backgroundColor: 'lightgray', color: 'red'})
+                    .appendTo($pointers.unit_dead_holder);
+            }
         }
     };
 

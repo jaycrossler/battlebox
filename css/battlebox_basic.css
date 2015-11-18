@@ -17,6 +17,21 @@ body{
 h1{
     margin-bottom: 0px;
 }
+
+.tile_info {
+    border-radius: 2px;
+    display: inline-block;
+    border: 1px solid black;
+    padding: 4px;
+}
+
+.tile_unit_info {
+    border-radius: 2px;
+    display: inline-block;
+    border: 1px solid black;
+    padding: 4px;
+}
+
 #message_display{
     display: inline-block;
     position: absolute;

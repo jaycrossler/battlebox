@@ -68,7 +68,7 @@
 
         forces: [
             {
-                name: 'Attacker Main Army Force', side: 'Yellow', location: 'left', player: true,
+                name: 'Attacker Main Army', side: 'Yellow', location: 'left', player: true,
                 goals: {weak_enemies: 6, loot: 4, all_enemies: 7, explore: 2, city: 3},
                 troops: {soldiers: 520, cavalry: 230, siege: 50}
             },

@@ -234,6 +234,8 @@
         };
         var target_status = _c.find_unit_by_filters(game, unit, options_scan);
         if (!to_loc || target_status && target_status.target) {
+            unit.waypoint = null;
+            unit.waypoint_weight = null;
             return _c.movement_strategies.seek(game, unit, target_status, options);
         }
 
