@@ -392,6 +392,7 @@ Helpers.randomLetters = function (n) {
     return out;
 };
 Helpers.pluralize = function (str) {
+    if (str === undefined) return str;
     var uncountable_words = [
         'equipment', 'information', 'rice', 'money', 'species', 'series', 'gold', 'cavalry',
         'fish', 'sheep', 'moose', 'deer', 'news', 'food', 'wood', 'ore', 'piety', 'land'
@@ -636,7 +637,12 @@ Helpers.bw = function (color) {
         throw "Requires colors.min.js library";
     }
 
-    var r = Colors.hex2rgb(color).a;
+    var r = Colors.hex2rgb(color);
+    if (r && r.a) {
+        r = r.a;
+    } else {
+        return 'rgb(0,0,0)';
+    }
 
     var contrast = function (B, F) {
         var abs = Math.abs,

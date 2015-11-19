@@ -162,9 +162,20 @@
 
         if (d_lost >= a_lost) {
             message = a_msg + " WINS attacking " + d_msg;
+            attacker.fights_won = attacker.fights_won || 0;
+            attacker.fights_won++;
+            defender.fights_lost = defender.fights_lost || 0;
+            defender.fights_lost++;
+
             callback(game, message, 3, a_side);
         } else {
             message = a_msg + " LOST attacking " + d_msg;
+
+            defender.fights_won = defender.fights_won || 0;
+            defender.fights_won++;
+            attacker.fights_lost = attacker.fights_lost || 0;
+            attacker.fights_lost++;
+
             callback(game, message, 3, b_side);
         }
 

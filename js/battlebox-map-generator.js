@@ -434,7 +434,7 @@
     _c.tile_has = function (cell, feature, return_count) {
         var has = 0;
 
-        if (cell.additions) {
+        if (cell && cell.additions) {
             for (var i = 0; i < cell.additions.length; i++) {
                 var a = cell.additions[i];
                 if (a == feature || (a && a.name && a.name == feature)) {
@@ -901,6 +901,7 @@
         //Build the center and give it some population
         var center = _c.tile(game, location.x, location.y);
         var building_tile_tries = Math.floor(Math.sqrt(city_info.population));
+        center.type = 'city';
         center.population = center.population || 0;
         center.population += building_tile_tries * 2;
         city_cells.push(center);

@@ -312,7 +312,9 @@
             if (population_darken_amount) {
                 bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), population_darken_amount).toString();
             }
+            if (bg.toString) bg = bg.toString();
         }
+        color = color || "#000";
 
         _.each(game.game_options.hex_drawing_callbacks, function (callback) {
             var results = callback(game, cell, text, color, bg);
@@ -325,9 +327,9 @@
 
         //First draw it black, then redraw it with the chosen color to help get edges proper color
         if (draw_callback) {
-            draw_callback(x, y, text, color || "#000", bg);
+            draw_callback(x, y, text, color, bg);
         } else {
-            game.display.draw(x, y, text, color || "#000", bg);
+            game.display.draw(x, y, text, color, bg);
         }
     };
 
@@ -511,6 +513,12 @@
             if (text) {
                 text_add += " [" + text + "]";
             }
+
+            var new_color = bg ? Helpers.bw(bg) : null;
+            if (new_color == 'rgb(255,255,255)') {
+                color = new_color;
+            }
+
             $tile
                 .css({backgroundColor: bg, color: color})
                 .text(text_add);
@@ -558,11 +566,25 @@
         if (unit.is_dead) {
             text += "<span style='color:red'>Dead on " + battlebox.data.tick_count + "</span><br/>";
         }
-        text += "At: " + unit.x + ", " + unit.y + " <br/>";
+        //text += "At: " + unit.x + ", " + unit.y + " <br/>";
+        var fight_text = [];
+        if (unit.fights_won) {
+            fight_text.push(unit.fights_won + (unit.fights_won > 1 ? " wins" : " win"));
+        }
+        if (unit.fights_lost) {
+            fight_text.push(unit.fights_lost + (unit.fights_lost > 1 ? " losses" : " loss"));
+        }
+        if (fight_text.length) {
+            text += fight_text.join(", ");
+        }
 
-        _.each(unit.forces, function (force) {
-            var count = force.count;
-            var orig = unit._data.troops[force.name];
+        //Show troop data
+        _.each(unit._data.troops, function (force) {
+            var force_now = _.find(unit.forces, function (f) {
+                    return f.name == force.name
+                }) || {};
+            var count = force_now.count || 0;
+            var orig = force.count;
             var name = _.str.titleize(Helpers.pluralize(force.title || force.name));
             if (orig && (count < orig)) {
                 count = "<span style='color:red'>" + count + "</span>/" + orig;

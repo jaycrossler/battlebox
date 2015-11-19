@@ -1,19 +1,17 @@
 /*
- ------------------------------------------------------------------------------------
- -- battlebox.js - v0.0.3 - Built on 2015-11-17 by Jay Crossler using Grunt.js
- ------------------------------------------------------------------------------------
- -- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara
- -- Packaged with color.js - Copyright (c) 2008-2013, Andrew Brehaut, Tim Baumann,
- --                          Matt Wilson, Simon Heimler, Michel Vielmetter
- -- colors.js - Copyright 2012-2013 Matt Jordan - https://github.com/mbjordan/Colors
- ------------------------------------------------------------------------------------
- */
+------------------------------------------------------------------------------------
+-- battlebox.js - v0.0.3 - Built on 2015-11-18 by Jay Crossler using Grunt.js
+------------------------------------------------------------------------------------
+-- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara 
+-- Packaged with color.js - Copyright (c) 2008-2013, Andrew Brehaut, Tim Baumann,  
+--                          Matt Wilson, Simon Heimler, Michel Vielmetter 
+-- colors.js - Copyright 2012-2013 Matt Jordan - https://github.com/mbjordan/Colors 
+------------------------------------------------------------------------------------
+*/
 //Jay's math helpers
-_.mixin({
-    deepClone: function (p_object) {
-        return JSON.parse(JSON.stringify(p_object));
-    }
-});
+_.mixin({ deepClone: function (p_object) {
+    return JSON.parse(JSON.stringify(p_object));
+} });
 
 var maths = {};
 maths.clamp = function (number, min, max) {
@@ -140,12 +138,8 @@ maths.buildTransformFromTriangleToTriangle = function (sourceTriangle, destTrian
 //--------------------------------------------
 
 var Helpers = Helpers || {};
-Helpers.radians = function (degrees) {
-    return degrees * Math.PI / 180
-};
-Helpers.degrees = function (radians) {
-    return radians * 180 / Math.PI
-};
+Helpers.radians = function (degrees) { return degrees * Math.PI / 180};
+Helpers.degrees = function (radians) { return radians * 180 / Math.PI};
 
 Helpers.between = function (s, prefix, suffix, suffixAtEnd, prefixAtEnd) {
     if (!s.lastIndexOf || !s.indexOf) {
@@ -301,7 +295,7 @@ Helpers.abbreviateNumber = function (value, useLongSuffixes, hide_decimals) {
         if (hide_decimals) {
             value = parseInt(value);
         } else {
-            value = Helpers.round(value, 1);
+            value = Helpers.round(value,1);
         }
     }
     var newValue = value;
@@ -582,58 +576,7 @@ Helpers.isNumeric = function (n) {
     return !isNaN(parseFloat(n)) && isFinite(n);
 };
 Helpers.nameOfUSState = function (code, withComma) {
-    var lookup = {
-        AL: 'Alabama',
-        AK: 'Alaska',
-        AZ: 'Arizona',
-        AR: 'Arkansas',
-        CA: 'California',
-        CO: 'Colorado',
-        CT: 'Connecticut',
-        DE: 'Delaware',
-        DC: 'District of Columbia',
-        FL: 'Florida',
-        GA: 'Georgia',
-        HI: 'Hawaii',
-        ID: 'Idaho',
-        IL: 'Illinois',
-        IN: 'Indiana',
-        IA: 'Iowa',
-        KS: 'Kansas',
-        KY: 'Kentucky',
-        LA: 'Louisiana',
-        ME: 'Maine',
-        MD: 'Maryland',
-        MA: 'Massachusetts',
-        MI: 'Michigan',
-        MN: 'Minnesota',
-        MO: 'Missouri',
-        MT: 'Montana',
-        NE: 'Nebraska',
-        NV: 'Nevada',
-        NH: 'New Hampshire',
-        NJ: 'New Jersey',
-        NM: 'New Mexico',
-        NY: 'New York',
-        NC: 'North Carolina',
-        ND: 'North Dakota',
-        OH: 'Ohio',
-        OK: 'Oklahoma',
-        OR: 'Oregon',
-        PA: 'Pennsylvania',
-        RI: 'Rhode Island',
-        SC: 'South Carolina',
-        SD: 'South Dakota',
-        TN: 'Tennessee',
-        TX: 'Texas',
-        UT: 'Utah',
-        VT: 'Vermont',
-        VA: 'Virginia',
-        WA: 'Washington',
-        WV: 'West Virginia',
-        WI: 'Wisconsin',
-        WY: 'Wyoming'
-    };
+    var lookup = {AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', DC: 'District of Columbia', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming'};
     var state = lookup[code.toUpperCase()];
     var output = "";
     if (state) output = withComma ? ", " + state : state;
@@ -1490,8 +1433,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         canvas.addEventListener("mousemove", function (ev) {
             var loc = game.display.eventToPosition(ev);
             _c.highlight_position(game, loc);
-
-            _c.show_info(_c.tile_info(game, loc[0], loc[1]));
+            _c.show_info(game, loc);
         });
     };
 
@@ -1522,7 +1464,15 @@ Battlebox.initializeOptions = function (option_type, options) {
         $pointers.info_box = $('<div>')
             .appendTo($pointers.canvas_holder);
 
-        $pointers.unit_holder = $('#unit_list');
+        var $unit_list = $('#unit_list');
+        $pointers.unit_holder = $('<div>')
+            .appendTo($unit_list);
+        $pointers.unit_dead_holder = $('<div>')
+            .appendTo($unit_list);
+        $pointers.unit_dead_holder_title = $("<div>")
+            .text("Dead Units:")
+            .hide()
+            .appendTo($pointers.unit_dead_holder);
 
 
         //Build the map
@@ -1547,18 +1497,29 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         game.logMessage(game.log());
 
-        $pointers.play_pause_button = $('<button>')
-            .text('Pause')
-            .on('click', function () {
-                if ($pointers.play_pause_button.text() == 'Pause') {
-                    $pointers.play_pause_button.text('Play');
-                    _c.stop_game_loop(game);
-                } else {
-                    $pointers.play_pause_button.text('Pause');
-                    _c.start_game_loop(game);
-                }
-            })
-            .appendTo($pointers.canvas_holder);
+        //$pointers.play_pause_button = $('<button>')
+        //    .text('Pause')
+        //    .on('click', function () {
+        //        if ($pointers.play_pause_button.text() == 'Pause') {
+        //            $pointers.play_pause_button.text('Play');
+        //            _c.stop_game_loop(game);
+        //        } else {
+        //            $pointers.play_pause_button.text('Pause');
+        //            _c.start_game_loop(game);
+        //        }
+        //    })
+        //    .appendTo($pointers.canvas_holder);
+
+        _.each([2000,1000,500,200,50], function(speed, i){
+            $('<button>')
+                .text(_.str.repeat('>',(i+1)))
+                .on('click', function () {
+                    game.game_options.delay_between_ticks = speed;
+                })
+                .appendTo($pointers.canvas_holder);
+        });
+
+
 
         $('<button>')
             .text('Add 100 people')
@@ -1597,7 +1558,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
     };
 
-    _c.draw_tile = function (game, x, y, text, color, bg_color) {
+    _c.draw_tile = function (game, x, y, text, color, bg_color, draw_callback) {
         //Cell is used to get color and symbol
 
         var draw_basic_cell = false;
@@ -1774,7 +1735,11 @@ Battlebox.initializeOptions = function (option_type, options) {
         });
 
         //First draw it black, then redraw it with the chosen color to help get edges proper color
-        game.display.draw(x, y, text, color || "#000", bg);
+        if (draw_callback) {
+            draw_callback(x, y, text, color || "#000", bg);
+        } else {
+            game.display.draw(x, y, text, color || "#000", bg);
+        }
     };
 
     _c.log_display = function (game) {
@@ -1910,15 +1875,80 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
     };
 
-    _c.show_info = function (info) {
-        var out;
-        if (_.isString(info)) {
-            out = info;
-        } else {
-            out = JSON.stringify(info);
+    _c.show_info = function (game, loc) {
+        var x = loc[0];
+        var y = loc[1];
+
+        var info = {};
+
+        var cell = _c.tile(game, x, y);
+        if (cell) {
+            info = _.clone(cell);
         }
-        $pointers.info_box
-            .html(out);
+
+        var title = JSON.stringify(info);
+        $pointers.info_box.empty();
+        var $tile = $("<span>")
+            .addClass('tile_info')
+            .text(_.str.titleize(info.name))
+            .attr('title', title)
+            .appendTo($pointers.info_box);
+        //TODO: On click of canvas, lock title info of cell for a while
+
+        var additions = [];
+        var has_farms = _c.tile_has(cell, 'farm', true);
+        var has_river = _c.tile_has(cell, 'river');
+        var has_roads = _c.tile_has(cell, 'road', true);
+        var has_dock = _c.tile_has(cell, 'dock');
+        var has_walls = _c.tile_has(cell, 'wall', true);
+        var has_towers = _c.tile_has(cell, 'tower', true);
+        var has_loot = _.isObject(cell.loot);
+        var has_people = cell.population;
+
+        if (has_river) additions.push("River");
+        if (has_farms) additions.push("Farms:"+has_farms);
+        if (has_dock) additions.push("Dock");
+        if (has_walls) additions.push("Walls:"+has_walls);
+        if (has_towers) additions.push("Towers"+has_towers);
+        if (has_roads) additions.push("Road");
+        if (has_loot) additions.push("Loot");
+        if (has_people) additions.push("People: "+has_people);
+
+        function draw_callback (x, y, text, color, bg) {
+            var text_add = _.str.titleize(info.name);
+            if (additions.length) {
+                text_add += ", " + additions.join(", ");
+            }
+            if (text) {
+                text_add += " [" + text + "]";
+            }
+            $tile
+                .css({backgroundColor: bg, color: color})
+                .text(text_add);
+        }
+
+        _c.draw_tile(game, x, y, null, null, null, draw_callback);
+
+
+        _.each(_c.entities(game), function (entity, id) {
+            if (entity.x == x && entity.y == y && entity._draw) {
+                var color = entity._data.side;
+                var name = entity._data.title || entity._data.name || "Unit";
+                name += " [" + (entity._symbol || "@") + "]"
+                $("<span>")
+                    .addClass('tile_unit_info')
+                    .css({backgroundColor: color})
+                    .text(name)
+                    .appendTo($pointers.info_box);
+
+                entity.$trump.css({borderWidth:'3px'});
+            } else {
+                entity.$trump.css({borderWidth:'1px'});
+
+            }
+        });
+
+
     };
 
     _c.add_unit_ui_to_main_ui = function (game, unit) {
@@ -1973,8 +2003,12 @@ Battlebox.initializeOptions = function (option_type, options) {
             .html(text);
 
         if (unit.is_dead) {
-            unit.$trump
-                .css({backgroundColor: 'lightgray', color: 'red'});
+            if (unit.$trump.parent() != $pointers.unit_dead_holder) {
+                $pointers.unit_dead_holder_title.show();
+                unit.$trump
+                    .css({backgroundColor: 'lightgray', color: 'red'})
+                    .appendTo($pointers.unit_dead_holder);
+            }
         }
     };
 
@@ -2119,14 +2153,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 impassable: true,
                 symbol: ' '
             },
-            {
-                name: 'forest',
-                density: 'sparse',
-                not_center: true,
-                color: ['#85a982', '#7B947A', '#83A283'],
-                data: {movement: 'slow'},
-                symbol: ' '
-            }
+            {name: 'forest', density: 'sparse', not_center: true, color: ['#85a982', '#7B947A', '#83A283'], data: {movement: 'slow'}, symbol: ' '}
         ],
 
         water_options: [
@@ -2141,7 +2168,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         forces: [
             {
-                name: 'Attacker Main Army Force', side: 'Yellow', location: 'left', player: true,
+                name: 'Attacker Main Army', side: 'Yellow', location: 'left', player: true,
                 goals: {weak_enemies: 6, loot: 4, all_enemies: 7, explore: 2, city: 3},
                 troops: {soldiers: 520, cavalry: 230, siege: 50}
             },
@@ -4166,6 +4193,8 @@ Battlebox.initializeOptions = function (option_type, options) {
         };
         var target_status = _c.find_unit_by_filters(game, unit, options_scan);
         if (!to_loc || target_status && target_status.target) {
+            unit.waypoint = null;
+            unit.waypoint_weight = null;
             return _c.movement_strategies.seek(game, unit, target_status, options);
         }
 
@@ -4319,7 +4348,7 @@ Battlebox.initializeOptions = function (option_type, options) {
     var controlled_entity_id = 0;
 
     //---------------
-    //Combat Rules:
+    // Combat Rules:
     //---------------
     // Units attack in order of speed, even when multiple forces are in the same unit
     // Each unit can be comprised of many forces (200 soldiers, 50 cavalry, etc)
@@ -4333,9 +4362,7 @@ Battlebox.initializeOptions = function (option_type, options) {
     // Only defenders benefit from being on a wall (increase defense .5) or tower (increase defense .2)
     // Units can be entered as an array in addition to an object - to keep complex hero or unit details
     // Units move based on the speed of the slowest living unit in their force
-
-    // IN PROGRESS: Have a goal-oriented AI that uses the information they know about
-    // TODO: Gets stuck if 0 result - in weird loop with 8, should have memory of previous spots to promote exploring
+    // Units have a goal-oriented AI that uses the information they know about
 
     // TODO: Units have a carrying capacity for the amount of loot they can carry
     // TODO: Units consume food over time, and replenish food by pillaging, looting, or foraging
@@ -4519,6 +4546,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
 
     };
+
 
 
     _c.remove_entity = function (game, unit) {
@@ -4781,6 +4809,7 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
 
 
+
     /* Other unit bumps into */
     Entity.prototype.bump = function (who, power) {
     };
@@ -4914,6 +4943,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 filter: 'closest',
                 range: 8,
                 stop_if_cell_has: ['tower', 'wall'],
+                when_arrive: 'goal based',
                 plan: plan,
                 backup_strategy: unit._data.backup_strategy
             };

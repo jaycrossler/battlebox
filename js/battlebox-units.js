@@ -36,9 +36,9 @@
     // TODO: Have attacker starting side be random
     // TODO: Have unit morale based on skill of commander - every losing fight might decrease morale, every lopsided victory, pillaging, finding treasure
 
-    //TODO: Have icons for different units
-    //TODO: SetCenter to have large map and redraw every movement
-    //TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
+    // TODO: Have icons for different units
+    // TODO: SetCenter to have large map and redraw every movement
+    // TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
 
     _c.build_units_from_list = function (game, list) {
         _.each(list || [], function (unit_info, id) {
@@ -85,6 +85,7 @@
                     unit.forces.push(force);
                 }
             }
+            unit._data.troops = JSON.parse(JSON.stringify(unit.forces));
 
             //Vision is from the unit with the highest vision
             //Speed is from teh unit with the lowest speed

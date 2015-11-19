@@ -33,7 +33,7 @@
                 morale: 10,  //TODO
                 communication_speed: 1, //TODO
                 try_to_loot: true, try_to_pillage: true,
-                goals: {weak_enemies: 7, loot: 3, all_enemies: 4, city: 2, friendly_units: 2, farm: 1}
+                goals: {weak_enemies: 7, loot: 3, all_enemies: 4, city: 2, friendly_units: 2, farm: 1, population: 1}
             },
             {
                 side: 'White', home_city: 'Anchorage', face_options: {race: 'Elf'},
