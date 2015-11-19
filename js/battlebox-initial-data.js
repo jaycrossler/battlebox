@@ -9,12 +9,13 @@
         rand_seed: 0,
         tick_time: 1000,
         game_over_time: 600,
+        delay_to_pillage: 80,
 
         arrays_to_map_to_objects: ''.split(','),
         arrays_to_map_to_arrays: 'terrain_options,water_options,forces,buildings'.split(','),
 
         delay_between_ticks: 50,
-        log_level_to_show: 2,
+        log_level_to_show: 4,
 
         cols: 260,
         rows: 90,
@@ -69,13 +70,13 @@
         forces: [
             {
                 name: 'Attacker Main Army', side: 'Yellow', location: 'left', player: true,
-                goals: {weak_enemies: 6, loot: 4, all_enemies: 7, explore: 2, city: 3},
+                //goals: {weak_enemies: 6, loot: 4, all_enemies: 7, explore: 2, city: 3},
                 troops: {soldiers: 520, cavalry: 230, siege: 50}
             },
             {
                 name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
                 leader: {name: 'General Vesuvius', face_options: {race: 'Demon', age: 120}}, //TODO
-                goals: {weak_enemies: 7, loot: 4, all_enemies: 5, explore: 2, city: 3},
+                //goals: {weak_enemies: 7, loot: 4, all_enemies: 5, explore: 2, city: 3},
                 troops: [
                     {name: 'soldiers', count: 80, experience: 'veteran', victories: 12},
                     {name: 'cavalry', count: 20, experience: 'veteran', victories: 13},

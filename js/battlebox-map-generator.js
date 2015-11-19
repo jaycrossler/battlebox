@@ -10,7 +10,7 @@
     //TODO: Use hex images for terrain
     //TODO: Use colored large circle characters for forces, not full hex colors
     //TODO: Find out why pre-rolling placement numbers isn't turning out almost exactly the same between builds. Fixed now?
-    //TODO: Adding population doesnt add new roads if they should
+    //TODO: Adding population doesn't add new roads if they should
 
     _c.tile = function (game, x, y) {
         var cell;
@@ -902,6 +902,12 @@
         var center = _c.tile(game, location.x, location.y);
         var building_tile_tries = Math.floor(Math.sqrt(city_info.population));
         center.type = 'city';
+        center.name = city_info.name;
+        center.title = city_info.title;
+        center.side = city_info.side;
+        game.cells[center.x][center.y] = center;
+
+
         center.population = center.population || 0;
         center.population += building_tile_tries * 2;
         city_cells.push(center);

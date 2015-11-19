@@ -1,6 +1,6 @@
 /*
 ------------------------------------------------------------------------------------
--- battlebox.js - v0.0.3 - Built on 2015-11-18 by Jay Crossler using Grunt.js
+-- battlebox.js - v0.0.3 - Built on 2015-11-19 by Jay Crossler using Grunt.js
 ------------------------------------------------------------------------------------
 -- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara 
 -- Packaged with color.js - Copyright (c) 2008-2013, Andrew Brehaut, Tim Baumann,  
@@ -527,6 +527,7 @@ Helpers.randomLetters = function (n) {
     return out;
 };
 Helpers.pluralize = function (str) {
+    if (str === undefined) return str;
     var uncountable_words = [
         'equipment', 'information', 'rice', 'money', 'species', 'series', 'gold', 'cavalry',
         'fish', 'sheep', 'moose', 'deer', 'news', 'food', 'wood', 'ore', 'piety', 'land'
@@ -771,7 +772,12 @@ Helpers.bw = function (color) {
         throw "Requires colors.min.js library";
     }
 
-    var r = Colors.hex2rgb(color).a;
+    var r = Colors.hex2rgb(color);
+    if (r && r.a) {
+        r = r.a;
+    } else {
+        return 'rgb(0,0,0)';
+    }
 
     var contrast = function (B, F) {
         var abs = Math.abs,
@@ -1368,9 +1374,20 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         if (d_lost >= a_lost) {
             message = a_msg + " WINS attacking " + d_msg;
+            attacker.fights_won = attacker.fights_won || 0;
+            attacker.fights_won++;
+            defender.fights_lost = defender.fights_lost || 0;
+            defender.fights_lost++;
+
             callback(game, message, 3, a_side);
         } else {
             message = a_msg + " LOST attacking " + d_msg;
+
+            defender.fights_won = defender.fights_won || 0;
+            defender.fights_won++;
+            attacker.fights_lost = attacker.fights_lost || 0;
+            attacker.fights_lost++;
+
             callback(game, message, 3, b_side);
         }
 
@@ -1378,24 +1395,28 @@ Battlebox.initializeOptions = function (option_type, options) {
         if (a_count_after <= 0) {
             attacker.is_dead = true;
             _c.remove_entity(game, attacker);
-
-            enemies_alive = _c.find_unit_by_filters(game, attacker, {
-                side: 'enemy',
-                return_multiple: true,
-                only_count_forces: true
-            });
-            if (enemies_alive.target.length == 0) {
-                game_over_side = attacker._data.side;
-            }
         }
         if (d_count_after <= 0) {
             defender.is_dead = true;
             _c.remove_entity(game, defender);
+        }
 
-            enemies_alive = _c.find_unit_by_filters(game, defender, {side: 'enemy', return_multiple: true});
-            if (enemies_alive.target.length == 0) {
-                game_over_side = defender._data.side;
-            }
+        enemies_alive = _c.find_unit_by_filters(game, attacker, {
+            side: 'enemy',
+            return_multiple: true,
+            only_count_forces: true
+        });
+        if (enemies_alive.target.length == 0) {
+            game_over_side = attacker._data.side;
+        }
+
+        var friends_alive = _c.find_unit_by_filters(game, defender, {
+            side: 'enemy',
+            return_multiple: true,
+            only_count_forces: true
+        });
+        if (friends_alive.target.length == 0) {
+            game_over_side = defender._data.side;
         }
 
 
@@ -1444,7 +1465,8 @@ Battlebox.initializeOptions = function (option_type, options) {
     _c.draw_initial_display = function (game, options) {
         $pointers.canvas_holder = $('#container');
 
-        $pointers.message_display = $('#message_display');
+        $pointers.message_display = $('#message_display')
+            .appendTo($pointers.canvas_holder);
 
         game.display = new ROT.Display({
             transpose: game.game_options.transpose,
@@ -1460,6 +1482,8 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         $pointers.canvas_holder
             .append(container_canvas);
+
+
 
         $pointers.info_box = $('<div>')
             .appendTo($pointers.canvas_holder);
@@ -1497,22 +1521,22 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         game.logMessage(game.log());
 
-        //$pointers.play_pause_button = $('<button>')
-        //    .text('Pause')
-        //    .on('click', function () {
-        //        if ($pointers.play_pause_button.text() == 'Pause') {
-        //            $pointers.play_pause_button.text('Play');
-        //            _c.stop_game_loop(game);
-        //        } else {
-        //            $pointers.play_pause_button.text('Pause');
-        //            _c.start_game_loop(game);
-        //        }
-        //    })
-        //    .appendTo($pointers.canvas_holder);
+        $pointers.play_pause_button = $('<button>')
+            .text('Pause')
+            .on('click', function () {
+                if ($pointers.play_pause_button.text() == 'Pause') {
+                    $pointers.play_pause_button.text('Play');
+                    _c.stop_game_loop(game);
+                } else {
+                    $pointers.play_pause_button.text('Pause');
+                    _c.start_game_loop(game);
+                }
+            })
+            .appendTo($pointers.canvas_holder);
 
-        _.each([2000,1000,500,200,50], function(speed, i){
+        _.each([2000, 1000, 500, 200, 50], function (speed, i) {
             $('<button>')
-                .text(_.str.repeat('>',(i+1)))
+                .text(_.str.repeat('>', (i + 1)))
                 .on('click', function () {
                     game.game_options.delay_between_ticks = speed;
                 })
@@ -1723,7 +1747,9 @@ Battlebox.initializeOptions = function (option_type, options) {
             if (population_darken_amount) {
                 bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), population_darken_amount).toString();
             }
+            if (bg.toString) bg = bg.toString();
         }
+        color = color || "#000";
 
         _.each(game.game_options.hex_drawing_callbacks, function (callback) {
             var results = callback(game, cell, text, color, bg);
@@ -1736,9 +1762,9 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         //First draw it black, then redraw it with the chosen color to help get edges proper color
         if (draw_callback) {
-            draw_callback(x, y, text, color || "#000", bg);
+            draw_callback(x, y, text, color, bg);
         } else {
-            game.display.draw(x, y, text, color || "#000", bg);
+            game.display.draw(x, y, text, color, bg);
         }
     };
 
@@ -1808,16 +1834,10 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
     };
 
-    _c.game_over = function (game, side_wins) {
-        game.engine.lock();
-        if (!side_wins) {
-            //TODO: Find the winning side based on amount of city destroyed and number of troops
-            side_wins = "No one";
-        }
+    _c.game_over_loot_report = function (game) {
+        var msg = "";
 
-        var msg = "Game Over!  " + side_wins + ' wins!';
-
-        msg += " (" + game.data.tick_count + " rounds)";
+        var side_wins = game.data.game_over_winner;
 
         //Find ending loot retrieved via living armies
         var loot = {};
@@ -1862,11 +1882,29 @@ Battlebox.initializeOptions = function (option_type, options) {
         });
 
         if (city_msg.length) {
-            msg += "<hr/><b>Cities:</b><br/> " + city_msg.join("<br/>");
+            msg += "<b>Cities:</b><br/> " + city_msg.join("<br/>");
         }
         if (loot_msg.length) {
             msg += "<hr/><b>Surviving invaders looted:</b><br/>" + loot_msg.join(", ");
         }
+        _c.log_message_to_user(game, msg, 4, (side_wins == "No one" ? 'gray' : side_wins));
+    };
+
+    _c.game_over = function (game, side_wins) {
+        //Tell timekeeper to end game in 50
+        var delay_to_pillage = game.game_options.delay_to_pillage || 50;
+        game.data.game_over_at_tick = game.data.tick_count + delay_to_pillage;
+        game.data.game_over_winner = side_wins;
+
+        if (!side_wins) {
+            //TODO: Find the winning side based on amount of city destroyed and number of troops
+            side_wins = "No one";
+        }
+
+        var msg = "Game Over!  " + side_wins + ' wins by defeating all enemies!';
+
+        msg += " (" + game.data.tick_count + " rounds)";
+        msg += "<br/><i>"+delay_to_pillage+" more rounds to gather final pillage</i>";
 
         _c.log_message_to_user(game, msg, 4, (side_wins == "No one" ? 'gray' : side_wins));
 
@@ -1884,6 +1922,8 @@ Battlebox.initializeOptions = function (option_type, options) {
         var cell = _c.tile(game, x, y);
         if (cell) {
             info = _.clone(cell);
+        } else {
+            return;
         }
 
         var title = JSON.stringify(info);
@@ -1906,15 +1946,15 @@ Battlebox.initializeOptions = function (option_type, options) {
         var has_people = cell.population;
 
         if (has_river) additions.push("River");
-        if (has_farms) additions.push("Farms:"+has_farms);
+        if (has_farms) additions.push("Farms:" + has_farms);
         if (has_dock) additions.push("Dock");
-        if (has_walls) additions.push("Walls:"+has_walls);
-        if (has_towers) additions.push("Towers"+has_towers);
+        if (has_walls) additions.push("Walls:" + has_walls);
+        if (has_towers) additions.push("Towers" + has_towers);
         if (has_roads) additions.push("Road");
         if (has_loot) additions.push("Loot");
-        if (has_people) additions.push("People: "+has_people);
+        if (has_people) additions.push("People: " + has_people);
 
-        function draw_callback (x, y, text, color, bg) {
+        function draw_callback(x, y, text, color, bg) {
             var text_add = _.str.titleize(info.name);
             if (additions.length) {
                 text_add += ", " + additions.join(", ");
@@ -1922,6 +1962,12 @@ Battlebox.initializeOptions = function (option_type, options) {
             if (text) {
                 text_add += " [" + text + "]";
             }
+
+            var new_color = bg ? Helpers.bw(bg) : null;
+            if (new_color == 'rgb(255,255,255)') {
+                color = new_color;
+            }
+
             $tile
                 .css({backgroundColor: bg, color: color})
                 .text(text_add);
@@ -1941,14 +1987,12 @@ Battlebox.initializeOptions = function (option_type, options) {
                     .text(name)
                     .appendTo($pointers.info_box);
 
-                entity.$trump.css({borderWidth:'3px'});
+                entity.$trump.css({borderWidth: '3px'});
             } else {
-                entity.$trump.css({borderWidth:'1px'});
+                entity.$trump.css({borderWidth: '1px'});
 
             }
         });
-
-
     };
 
     _c.add_unit_ui_to_main_ui = function (game, unit) {
@@ -1969,11 +2013,25 @@ Battlebox.initializeOptions = function (option_type, options) {
         if (unit.is_dead) {
             text += "<span style='color:red'>Dead on " + battlebox.data.tick_count + "</span><br/>";
         }
-        text += "At: " + unit.x + ", " + unit.y + " <br/>";
+        //text += "At: " + unit.x + ", " + unit.y + " <br/>";
+        var fight_text = [];
+        if (unit.fights_won) {
+            fight_text.push(unit.fights_won + (unit.fights_won > 1 ? " wins" : " win"));
+        }
+        if (unit.fights_lost) {
+            fight_text.push(unit.fights_lost + (unit.fights_lost > 1 ? " losses" : " loss"));
+        }
+        if (fight_text.length) {
+            text += fight_text.join(", ");
+        }
 
-        _.each(unit.forces, function (force) {
-            var count = force.count;
-            var orig = unit._data.troops[force.name];
+        //Show troop data
+        _.each(unit._data.troops, function (force) {
+            var force_now = _.find(unit.forces, function (f) {
+                    return f.name == force.name
+                }) || {};
+            var count = force_now.count || 0;
+            var orig = force.count;
             var name = _.str.titleize(Helpers.pluralize(force.title || force.name));
             if (orig && (count < orig)) {
                 count = "<span style='color:red'>" + count + "</span>/" + orig;
@@ -2109,12 +2167,13 @@ Battlebox.initializeOptions = function (option_type, options) {
         rand_seed: 0,
         tick_time: 1000,
         game_over_time: 600,
+        delay_to_pillage: 80,
 
         arrays_to_map_to_objects: ''.split(','),
         arrays_to_map_to_arrays: 'terrain_options,water_options,forces,buildings'.split(','),
 
         delay_between_ticks: 50,
-        log_level_to_show: 2,
+        log_level_to_show: 4,
 
         cols: 260,
         rows: 90,
@@ -2133,7 +2192,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 morale: 10,  //TODO
                 communication_speed: 1, //TODO
                 try_to_loot: true, try_to_pillage: true,
-                goals: {weak_enemies: 7, loot: 3, all_enemies: 4, city: 2, friendly_units: 2, farm: 1}
+                goals: {weak_enemies: 7, loot: 3, all_enemies: 4, city: 2, friendly_units: 2, farm: 1, population: 1}
             },
             {
                 side: 'White', home_city: 'Anchorage', face_options: {race: 'Elf'},
@@ -2169,13 +2228,13 @@ Battlebox.initializeOptions = function (option_type, options) {
         forces: [
             {
                 name: 'Attacker Main Army', side: 'Yellow', location: 'left', player: true,
-                goals: {weak_enemies: 6, loot: 4, all_enemies: 7, explore: 2, city: 3},
+                //goals: {weak_enemies: 6, loot: 4, all_enemies: 7, explore: 2, city: 3},
                 troops: {soldiers: 520, cavalry: 230, siege: 50}
             },
             {
                 name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
                 leader: {name: 'General Vesuvius', face_options: {race: 'Demon', age: 120}}, //TODO
-                goals: {weak_enemies: 7, loot: 4, all_enemies: 5, explore: 2, city: 3},
+                //goals: {weak_enemies: 7, loot: 4, all_enemies: 5, explore: 2, city: 3},
                 troops: [
                     {name: 'soldiers', count: 80, experience: 'veteran', victories: 12},
                     {name: 'cavalry', count: 20, experience: 'veteran', victories: 13},
@@ -2555,7 +2614,7 @@ Battlebox.initializeOptions = function (option_type, options) {
     //TODO: Use hex images for terrain
     //TODO: Use colored large circle characters for forces, not full hex colors
     //TODO: Find out why pre-rolling placement numbers isn't turning out almost exactly the same between builds. Fixed now?
-    //TODO: Adding population doesnt add new roads if they should
+    //TODO: Adding population doesn't add new roads if they should
 
     _c.tile = function (game, x, y) {
         var cell;
@@ -2979,7 +3038,7 @@ Battlebox.initializeOptions = function (option_type, options) {
     _c.tile_has = function (cell, feature, return_count) {
         var has = 0;
 
-        if (cell.additions) {
+        if (cell && cell.additions) {
             for (var i = 0; i < cell.additions.length; i++) {
                 var a = cell.additions[i];
                 if (a == feature || (a && a.name && a.name == feature)) {
@@ -3446,6 +3505,13 @@ Battlebox.initializeOptions = function (option_type, options) {
         //Build the center and give it some population
         var center = _c.tile(game, location.x, location.y);
         var building_tile_tries = Math.floor(Math.sqrt(city_info.population));
+        center.type = 'city';
+        center.name = city_info.name;
+        center.title = city_info.title;
+        center.side = city_info.side;
+        game.cells[center.x][center.y] = center;
+
+
         center.population = center.population || 0;
         center.population += building_tile_tries * 2;
         city_cells.push(center);
@@ -4193,8 +4259,8 @@ Battlebox.initializeOptions = function (option_type, options) {
         };
         var target_status = _c.find_unit_by_filters(game, unit, options_scan);
         if (!to_loc || target_status && target_status.target) {
-            unit.waypoint = null;
-            unit.waypoint_weight = null;
+            //unit.waypoint = null;
+            //unit.waypoint_weight = null;
             return _c.movement_strategies.seek(game, unit, target_status, options);
         }
 
@@ -4379,9 +4445,9 @@ Battlebox.initializeOptions = function (option_type, options) {
     // TODO: Have attacker starting side be random
     // TODO: Have unit morale based on skill of commander - every losing fight might decrease morale, every lopsided victory, pillaging, finding treasure
 
-    //TODO: Have icons for different units
-    //TODO: SetCenter to have large map and redraw every movement
-    //TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
+    // TODO: Have icons for different units
+    // TODO: SetCenter to have large map and redraw every movement
+    // TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
 
     _c.build_units_from_list = function (game, list) {
         _.each(list || [], function (unit_info, id) {
@@ -4428,6 +4494,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                     unit.forces.push(force);
                 }
             }
+            unit._data.troops = JSON.parse(JSON.stringify(unit.forces));
 
             //Vision is from the unit with the highest vision
             //Speed is from teh unit with the lowest speed
@@ -4480,19 +4547,21 @@ Battlebox.initializeOptions = function (option_type, options) {
         unit.loot = unit.loot || {};
 
         var num_farms = _c.tile_has(cell, 'farm', true);
+        var is_pillaged = _c.tile_has(cell, 'pillaged');
+        var is_looted = _c.tile_has(cell, 'looted');
 
         if (unit._data.try_to_pillage) {
             //TODO: Unit gains health or morale?
             //TODO: consumes action points
 
-            if (num_farms && !_c.tile_has(cell, 'pillaged')) {
+            if (num_farms && !is_pillaged) {
                 unit.loot.food = unit.loot.food || 0;
                 unit.loot.herbs = unit.loot.herbs || 0;
                 unit.loot.food += (100 * num_farms);  //TODO: Random benefits based on technology and population
                 unit.loot.herbs += (20 * num_farms);
                 cell.additions.push('pillaged');
 
-            } else if (cell.type == 'city' && !_c.tile_has(cell, 'pillaged')) {
+            } else if (cell.type == 'city' && !is_pillaged) {
                 unit.loot.food = unit.loot.food || 0;
                 unit.loot.wood = unit.loot.wood || 0;
                 unit.loot.metal = unit.loot.metal || 0;
@@ -4507,6 +4576,10 @@ Battlebox.initializeOptions = function (option_type, options) {
                     unit.loot.gold = unit.loot.gold || 0;
                     unit.loot.gold += 1;
                 }
+            } else if (cell.population) {
+                unit.loot.food = unit.loot.food || 0;
+                unit.loot.food += 3;
+                cell.additions.push('pillaged');
             }
 
         }
@@ -4519,13 +4592,13 @@ Battlebox.initializeOptions = function (option_type, options) {
                 //TODO: Only take as much loot as can carry
             }
 
-            if (num_farms && !_c.tile_has(cell, 'pillaged') && !_c.tile_has(cell, 'looted')) {
+            if (num_farms && !is_pillaged && !is_looted) {
                 unit.loot.food = unit.loot.food || 0;
                 unit.loot.herbs = unit.loot.herbs || 0;
                 unit.loot.food += (25 * num_farms);
                 unit.loot.herbs += (6 * num_farms);
 
-            } else if (cell.type == 'city' && !_c.tile_has(cell, 'looted')) {
+            } else if (cell.type == 'city' && !is_looted) {
                 unit.loot.food = unit.loot.food || 0;
                 unit.loot.wood = unit.loot.wood || 0;
                 unit.loot.metal = unit.loot.metal || 0;
@@ -4540,7 +4613,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                     unit.loot.gold += 1;
                 }
             }
-            if (!_c.tile_has(cell, 'looted')) {
+            if (!is_looted) {
                 cell.additions.push('looted');
             }
         }
@@ -4606,16 +4679,18 @@ Battlebox.initializeOptions = function (option_type, options) {
 
             var is_pillaged_or_looted = _c.tile_has(neighbor, 'pillaged') || _c.tile_has(neighbor, 'looted');
             var num_towers = (_c.tile_has(neighbor, 'tower')) ? 1 : 0;
-            var num_walls = Math.max(2, _c.tile_has(neighbor, 'tower', true));
+            var num_walls = Math.min(2, _c.tile_has(neighbor, 'wall', true));
             var loot = (_.isObject(neighbor.loot) && !is_pillaged_or_looted) ? 1 : 0;
             var is_city = (neighbor.type == 'city' && !is_pillaged_or_looted) ? 1 : 0;
             var is_farm = (_c.tile_has(neighbor, 'farm') && !is_pillaged_or_looted) ? 1 : 0;
+            var is_populated = (neighbor.population && !is_pillaged_or_looted) ? 1 : 0;
 
             points += (num_towers * (unit._data.goals.towers || 0));
             points += (num_walls * (unit._data.goals.walls || 0));
             points += (loot * (unit._data.goals.loot || 0));
             points += (is_city * (unit._data.goals.city || 0));
             points += (is_farm * (unit._data.goals.farm || 0));
+            points += (is_populated * (unit._data.goals.population || 0));
 
             //TODO - friendly_units, weak_enemies
 
@@ -4623,7 +4698,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 var enemies_here = _.filter(close_enemies.target, function (enemy) {
                     return (enemy.x == neighbor.x) && (enemy.y == neighbor.y) && !enemy.is_dead;
                 });
-                points += (enemies_here.length * Math.max(unit._data.goals.all_enemies, 2));
+                points += (enemies_here.length * Math.min(unit._data.goals.all_enemies, 2));
                 //TODO: How to incorporate weakness of enemy? Have a running power total?
             }
 
@@ -4685,12 +4760,23 @@ Battlebox.initializeOptions = function (option_type, options) {
         var time_keeper = this;
         var game = time_keeper._game;
 
+        if ((game.data.tick_count == 0) && (_c.entities(game).length == 0)) {
+            //No entities, don't start clock
+            game.engine.lock();
+            return;
+        }
+
         game.data.tick_count++;
 
         _c.update_ui_display(game);
 
         if ((game.game_options.game_over_time !== undefined) && (game.data.tick_count >= game.game_options.game_over_time)) {
             _c.game_over(game);
+        }
+
+        if ((game.data.game_over_at_tick !== undefined) && (game.data.tick_count >= game.data.game_over_at_tick)) {
+            game.engine.lock();
+            _c.game_over_loot_report(game);
         }
 
         var done = null;

@@ -183,24 +183,28 @@
         if (a_count_after <= 0) {
             attacker.is_dead = true;
             _c.remove_entity(game, attacker);
-
-            enemies_alive = _c.find_unit_by_filters(game, attacker, {
-                side: 'enemy',
-                return_multiple: true,
-                only_count_forces: true
-            });
-            if (enemies_alive.target.length == 0) {
-                game_over_side = attacker._data.side;
-            }
         }
         if (d_count_after <= 0) {
             defender.is_dead = true;
             _c.remove_entity(game, defender);
+        }
 
-            enemies_alive = _c.find_unit_by_filters(game, defender, {side: 'enemy', return_multiple: true});
-            if (enemies_alive.target.length == 0) {
-                game_over_side = defender._data.side;
-            }
+        enemies_alive = _c.find_unit_by_filters(game, attacker, {
+            side: 'enemy',
+            return_multiple: true,
+            only_count_forces: true
+        });
+        if (enemies_alive.target.length == 0) {
+            game_over_side = attacker._data.side;
+        }
+
+        var friends_alive = _c.find_unit_by_filters(game, defender, {
+            side: 'enemy',
+            return_multiple: true,
+            only_count_forces: true
+        });
+        if (friends_alive.target.length == 0) {
+            game_over_side = defender._data.side;
         }
 
 

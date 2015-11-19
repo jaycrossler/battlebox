@@ -32,14 +32,20 @@ h1{
     padding: 4px;
 }
 
+#container {
+    margin-top: 50px;
+    display: block;
+    position: relative;
+    width: 1583px;
+}
 #message_display{
     display: inline-block;
     position: absolute;
     background-color: black;
     width: 300px;
-    right: 200px;
+    right: 100px;
     vertical-align: top;
-    height: 840px;
+    max-height: inherit;
     border-radius: 10px;
     margin: 51px 0px 0px 0px;
     padding: 0px;

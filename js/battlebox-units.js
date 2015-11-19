@@ -138,19 +138,21 @@
         unit.loot = unit.loot || {};
 
         var num_farms = _c.tile_has(cell, 'farm', true);
+        var is_pillaged = _c.tile_has(cell, 'pillaged');
+        var is_looted = _c.tile_has(cell, 'looted');
 
         if (unit._data.try_to_pillage) {
             //TODO: Unit gains health or morale?
             //TODO: consumes action points
 
-            if (num_farms && !_c.tile_has(cell, 'pillaged')) {
+            if (num_farms && !is_pillaged) {
                 unit.loot.food = unit.loot.food || 0;
                 unit.loot.herbs = unit.loot.herbs || 0;
                 unit.loot.food += (100 * num_farms);  //TODO: Random benefits based on technology and population
                 unit.loot.herbs += (20 * num_farms);
                 cell.additions.push('pillaged');
 
-            } else if (cell.type == 'city' && !_c.tile_has(cell, 'pillaged')) {
+            } else if (cell.type == 'city' && !is_pillaged) {
                 unit.loot.food = unit.loot.food || 0;
                 unit.loot.wood = unit.loot.wood || 0;
                 unit.loot.metal = unit.loot.metal || 0;
@@ -165,6 +167,10 @@
                     unit.loot.gold = unit.loot.gold || 0;
                     unit.loot.gold += 1;
                 }
+            } else if (cell.population) {
+                unit.loot.food = unit.loot.food || 0;
+                unit.loot.food += 3;
+                cell.additions.push('pillaged');
             }
 
         }
@@ -177,13 +183,13 @@
                 //TODO: Only take as much loot as can carry
             }
 
-            if (num_farms && !_c.tile_has(cell, 'pillaged') && !_c.tile_has(cell, 'looted')) {
+            if (num_farms && !is_pillaged && !is_looted) {
                 unit.loot.food = unit.loot.food || 0;
                 unit.loot.herbs = unit.loot.herbs || 0;
                 unit.loot.food += (25 * num_farms);
                 unit.loot.herbs += (6 * num_farms);
 
-            } else if (cell.type == 'city' && !_c.tile_has(cell, 'looted')) {
+            } else if (cell.type == 'city' && !is_looted) {
                 unit.loot.food = unit.loot.food || 0;
                 unit.loot.wood = unit.loot.wood || 0;
                 unit.loot.metal = unit.loot.metal || 0;
@@ -198,7 +204,7 @@
                     unit.loot.gold += 1;
                 }
             }
-            if (!_c.tile_has(cell, 'looted')) {
+            if (!is_looted) {
                 cell.additions.push('looted');
             }
         }
@@ -264,16 +270,18 @@
 
             var is_pillaged_or_looted = _c.tile_has(neighbor, 'pillaged') || _c.tile_has(neighbor, 'looted');
             var num_towers = (_c.tile_has(neighbor, 'tower')) ? 1 : 0;
-            var num_walls = Math.max(2, _c.tile_has(neighbor, 'tower', true));
+            var num_walls = Math.min(2, _c.tile_has(neighbor, 'wall', true));
             var loot = (_.isObject(neighbor.loot) && !is_pillaged_or_looted) ? 1 : 0;
             var is_city = (neighbor.type == 'city' && !is_pillaged_or_looted) ? 1 : 0;
             var is_farm = (_c.tile_has(neighbor, 'farm') && !is_pillaged_or_looted) ? 1 : 0;
+            var is_populated = (neighbor.population && !is_pillaged_or_looted) ? 1 : 0;
 
             points += (num_towers * (unit._data.goals.towers || 0));
             points += (num_walls * (unit._data.goals.walls || 0));
             points += (loot * (unit._data.goals.loot || 0));
             points += (is_city * (unit._data.goals.city || 0));
             points += (is_farm * (unit._data.goals.farm || 0));
+            points += (is_populated * (unit._data.goals.population || 0));
 
             //TODO - friendly_units, weak_enemies
 
@@ -281,7 +289,7 @@
                 var enemies_here = _.filter(close_enemies.target, function (enemy) {
                     return (enemy.x == neighbor.x) && (enemy.y == neighbor.y) && !enemy.is_dead;
                 });
-                points += (enemies_here.length * Math.max(unit._data.goals.all_enemies, 2));
+                points += (enemies_here.length * Math.min(unit._data.goals.all_enemies, 2));
                 //TODO: How to incorporate weakness of enemy? Have a running power total?
             }
 
@@ -343,12 +351,23 @@
         var time_keeper = this;
         var game = time_keeper._game;
 
+        if ((game.data.tick_count == 0) && (_c.entities(game).length == 0)) {
+            //No entities, don't start clock
+            game.engine.lock();
+            return;
+        }
+
         game.data.tick_count++;
 
         _c.update_ui_display(game);
 
         if ((game.game_options.game_over_time !== undefined) && (game.data.tick_count >= game.game_options.game_over_time)) {
             _c.game_over(game);
+        }
+
+        if ((game.data.game_over_at_tick !== undefined) && (game.data.tick_count >= game.data.game_over_at_tick)) {
+            game.engine.lock();
+            _c.game_over_loot_report(game);
         }
 
         var done = null;

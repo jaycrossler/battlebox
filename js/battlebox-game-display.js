@@ -33,7 +33,8 @@
     _c.draw_initial_display = function (game, options) {
         $pointers.canvas_holder = $('#container');
 
-        $pointers.message_display = $('#message_display');
+        $pointers.message_display = $('#message_display')
+            .appendTo($pointers.canvas_holder);
 
         game.display = new ROT.Display({
             transpose: game.game_options.transpose,
@@ -49,6 +50,7 @@
 
         $pointers.canvas_holder
             .append(container_canvas);
+
 
         $pointers.info_box = $('<div>')
             .appendTo($pointers.canvas_holder);
@@ -86,18 +88,18 @@
 
         game.logMessage(game.log());
 
-        //$pointers.play_pause_button = $('<button>')
-        //    .text('Pause')
-        //    .on('click', function () {
-        //        if ($pointers.play_pause_button.text() == 'Pause') {
-        //            $pointers.play_pause_button.text('Play');
-        //            _c.stop_game_loop(game);
-        //        } else {
-        //            $pointers.play_pause_button.text('Pause');
-        //            _c.start_game_loop(game);
-        //        }
-        //    })
-        //    .appendTo($pointers.canvas_holder);
+        $pointers.play_pause_button = $('<button>')
+            .text('Pause')
+            .on('click', function () {
+                if ($pointers.play_pause_button.text() == 'Pause') {
+                    $pointers.play_pause_button.text('Play');
+                    _c.stop_game_loop(game);
+                } else {
+                    $pointers.play_pause_button.text('Pause');
+                    _c.start_game_loop(game);
+                }
+            })
+            .appendTo($pointers.canvas_holder);
 
         _.each([2000, 1000, 500, 200, 50], function (speed, i) {
             $('<button>')
@@ -399,16 +401,10 @@
         }
     };
 
-    _c.game_over = function (game, side_wins) {
-        game.engine.lock();
-        if (!side_wins) {
-            //TODO: Find the winning side based on amount of city destroyed and number of troops
-            side_wins = "No one";
-        }
+    _c.game_over_loot_report = function (game) {
+        var msg = "";
 
-        var msg = "Game Over!  " + side_wins + ' wins!';
-
-        msg += " (" + game.data.tick_count + " rounds)";
+        var side_wins = game.data.game_over_winner;
 
         //Find ending loot retrieved via living armies
         var loot = {};
@@ -453,11 +449,29 @@
         });
 
         if (city_msg.length) {
-            msg += "<hr/><b>Cities:</b><br/> " + city_msg.join("<br/>");
+            msg += "<b>Cities:</b><br/> " + city_msg.join("<br/>");
         }
         if (loot_msg.length) {
             msg += "<hr/><b>Surviving invaders looted:</b><br/>" + loot_msg.join(", ");
         }
+        _c.log_message_to_user(game, msg, 4, (side_wins == "No one" ? 'gray' : side_wins));
+    };
+
+    _c.game_over = function (game, side_wins) {
+        //Tell timekeeper to end game in 50
+        var delay_to_pillage = game.game_options.delay_to_pillage || 50;
+        game.data.game_over_at_tick = game.data.tick_count + delay_to_pillage;
+        game.data.game_over_winner = side_wins;
+
+        if (!side_wins) {
+            //TODO: Find the winning side based on amount of city destroyed and number of troops
+            side_wins = "No one";
+        }
+
+        var msg = "Game Over!  " + side_wins + ' wins by defeating all enemies!';
+
+        msg += " (" + game.data.tick_count + " rounds)";
+        msg += "<br/><i>" + delay_to_pillage + " more rounds to gather final pillage</i>";
 
         _c.log_message_to_user(game, msg, 4, (side_wins == "No one" ? 'gray' : side_wins));
 
@@ -475,6 +489,8 @@
         var cell = _c.tile(game, x, y);
         if (cell) {
             info = _.clone(cell);
+        } else {
+            return;
         }
 
         var title = JSON.stringify(info);
@@ -544,8 +560,6 @@
 
             }
         });
-
-
     };
 
     _c.add_unit_ui_to_main_ui = function (game, unit) {
