@@ -54,12 +54,18 @@
                 impassable: true,
                 symbol: ' '
             },
-            {name: 'forest', density: 'sparse', not_center: true, color: ['#85a982', '#7B947A', '#83A283'], data: {movement: 'slow'}, symbol: ' '}
+            {
+                name: 'forest',
+                density: 'sparse',
+                color: ['#85a982', '#7B947A', '#83A283'],
+                data: {movement: 'slow'},
+                symbol: ' '
+            }
         ],
 
         water_options: [
             {name: 'lake', density: 'medium', location: 'left'},
-            {name: 'lake', density: 'large', location: 'mid left'},
+            {name: 'lake2', density: 'large', location: 'mid left'},
             {name: 'lake', density: 'small', location: 'mid right', symbol: '~'},
             {name: 'sea', location: 'right', width: 5},
             {name: 'river', density: 'small', thickness: 1, location: 'mid left'},

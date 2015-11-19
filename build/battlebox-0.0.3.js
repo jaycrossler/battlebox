@@ -1491,8 +1491,8 @@ Battlebox.initializeOptions = function (option_type, options) {
             .appendTo($pointers.canvas_holder);
         $pointers.unit_holder = $('<div>')
             .appendTo($unit_list);
-        $pointers.unit_dead_holder =  $('#unit_dead_list');
-            //.appendTo($unit_list);
+        $pointers.unit_dead_holder = $('#unit_dead_list');
+        //.appendTo($unit_list);
         $pointers.unit_dead_holder_title = $("<div>")
             .text("Dead Units:")
             .hide()
@@ -1630,7 +1630,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             if (was_drawn) return;
 
             var river_info = _c.tile_has(cell, 'river');
-            if (cell.name == 'lake') {
+            if (cell.name == 'lake' || cell.name == 'sea') {
                 text = cell.symbol || text;
                 if (!bg_color) {
                     var depth = cell.data.depth || 1;
@@ -1650,13 +1650,13 @@ Battlebox.initializeOptions = function (option_type, options) {
 
             var population_darken_amount = 0;
             if (cell.population) {
-                color = Helpers.blendColors('black', 'red', cell.population / 300);
+                color = Helpers.blendColors('black', 'gray', cell.population / 300);
                 if (cell.population > 1000) {
-                    color = 'orange';
+                    color = 'black';
                     text = '█';
                     population_darken_amount = .6;
                 } else if (cell.population > 500) {
-                    color = 'orange';
+                    color = 'gray';
                     text = '▓';
                     population_darken_amount = .5;
                 } else if (cell.population > 300) {
@@ -1963,6 +1963,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         if (has_roads) additions.push("Road");
         if (has_loot) additions.push("Loot");
         if (has_people) additions.push("People: " + has_people);
+        if (cell.data && cell.data.depth) additions.push("Depth: " + cell.data.depth);
 
         function draw_callback(x, y, text, color, bg) {
             var text_add = _.str.titleize(info.name);
@@ -2222,13 +2223,14 @@ Battlebox.initializeOptions = function (option_type, options) {
                 impassable: true,
                 symbol: ' '
             },
-            {name: 'forest', density: 'sparse', not_center: true, color: ['#85a982', '#7B947A', '#83A283'], data: {movement: 'slow'}, symbol: ' '}
+            {name: 'forest', density: 'sparse', color: ['#85a982', '#7B947A', '#83A283'], data: {movement: 'slow'}, symbol: ' '}
         ],
 
         water_options: [
-            {name: 'lake', density: 'medium', location: 'left', data: {lake: true}},
-            {name: 'lake', density: 'large', location: 'mid left', data: {lake: true}},
-            {name: 'lake', density: 'small', location: 'mid right', island: true, symbol: '~'},
+            {name: 'lake', density: 'medium', location: 'left'},
+            {name: 'lake2', density: 'large', location: 'mid left'},
+            {name: 'lake', density: 'small', location: 'mid right', symbol: '~'},
+            {name: 'sea', location: 'right', width: 5},
             {name: 'river', density: 'small', thickness: 1, location: 'mid left'},
 //            {name:'river', density:'small', thickness:1, location:'mid right'},
 //            {name:'river', title: 'Snake River', density:'medium', thickness:2, location:'center'},
@@ -2625,6 +2627,9 @@ Battlebox.initializeOptions = function (option_type, options) {
     //TODO: Use colored large circle characters for forces, not full hex colors
     //TODO: Find out why pre-rolling placement numbers isn't turning out almost exactly the same between builds. Fixed now?
     //TODO: Adding population doesn't add new roads if they should
+    //TODO: If city is close to river or sea, grow towards that and add docks (and fishing boats/zones?)
+
+    //TODO: Add sand if between water and mountain
 
     _c.tile = function (game, x, y) {
         var cell;
@@ -2669,19 +2674,26 @@ Battlebox.initializeOptions = function (option_type, options) {
     /**
      * Returns the 6 surrounding hexes around a tile (or more if bigger rings)
      * @param {object} game class data
-     * @param {int} x
-     * @param {int} y
+     * @param {int} x_start
+     * @param {int} y_start
      * @param {int} [rings=1] number of rings away from x,y that should be included
+     * @param {boolean} add_ring_number Should a clone of the tile be made with the ring number added?
      * @returns {Array.<Object>} cells and entity data
      */
-    _c.surrounding_tiles = function (game, x_start, y_start, rings) {
+    _c.surrounding_tiles = function (game, x_start, y_start, rings, add_ring_number) {
         var cells = [];
         rings = rings || 1;
 
-        function add(x_offset, y_offset) {
+        function add(x_offset, y_offset, ring) {
             var new_cell = _c.tile(game, x_offset, y_offset);
             if (new_cell) {
-                if (new_cell) cells.push(new_cell);
+                if (add_ring_number) {
+                    var cloned_cell = JSON.parse(JSON.stringify(new_cell));
+                    cloned_cell.ring = ring;
+                    cells.push(cloned_cell);
+                } else {
+                    cells.push(new_cell);
+                }
             }
         }
 
@@ -2691,18 +2703,18 @@ Battlebox.initializeOptions = function (option_type, options) {
         //Hexagon spiral algorithm, modified from
         for (var n = 1; n <= rings; ++n) {
             x += 2;
-            add(x, y);
-            for (var i = 0; i < n - 1; ++i) add(++x, ++y); // move down right. Note N-1
-            for (var i = 0; i < n; ++i) add(--x, ++y); // move down left
+            add(x, y, n);
+            for (var i = 0; i < n - 1; ++i) add(++x, ++y, n); // move down right. Note N-1
+            for (var i = 0; i < n; ++i) add(--x, ++y, n); // move down left
             for (var i = 0; i < n; ++i) {
                 x -= 2;
-                add(x, y);
+                add(x, y, n);
             } // move left
-            for (var i = 0; i < n; ++i) add(--x, --y); // move up left
-            for (var i = 0; i < n; ++i) add(++x, --y); // move up right
+            for (var i = 0; i < n; ++i) add(--x, --y, n); // move up left
+            for (var i = 0; i < n; ++i) add(++x, --y, n); // move up right
             for (var i = 0; i < n; ++i) {
                 x += 2;
-                add(x, y);
+                add(x, y, n);
             }  // move right
         }
         return cells;
@@ -2741,29 +2753,6 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         }
         return valid_num
-    };
-
-    /**
-     * Find a tile that matches parameters passed in by options
-     * @param {object} game class data
-     * @param {object} options {range: 4, location:{x:1,y2}, or 'center' or 'e' or 'impassable' or 'road' or 'top', etc...
-     * @returns {object} tile hex cell that matches location result, or null if one wasn't found
-     */
-    _c.find_tile_by_filters = function (game, options) {
-        var range = options.vision || options.range || 3;
-
-        var tile = null;
-
-        var loc = options.location;
-        if (_.isString(loc)) {
-            loc = _c.find_a_matching_tile(game, options);
-        }
-
-        var targets = _c.surrounding_tiles(game, loc.x, loc.y, range);
-
-        //TODO: Fill in searching routine, not yet used
-
-        return tile;
     };
 
     /**
@@ -2966,13 +2955,15 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
 
         } else if (options.location == 'top') {
+            var y_range = options.locked ? [0] : [0,1];
             for (i = 0; i < tries; i++) {
                 if (options.x) {
                     x = _c.randOption([options.x - 2, options.x - 1, options.x, options.x + 1, options.x + 2]);
                 } else {
                     x = _c.randInt(_c.cols(game));
                 }
-                y = _c.randOption([0, 1]);
+
+                y = _c.randOption(y_range);
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
@@ -2981,13 +2972,15 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         } else if (options.location == 'bottom') {
             var bottom = _c.rows(game);
+            var y_range = options.locked ? [bottom-1] : [bottom - 1, bottom - 2];
+
             for (i = 0; i < tries; i++) {
                 if (options.x) {
                     x = _c.randOption([options.x - 2, options.x - 1, options.x, options.x + 1, options.x + 2]);
                 } else {
                     x = _c.randInt(_c.cols(game));
                 }
-                y = _c.randOption([bottom - 1, bottom - 2]);
+                y = _c.randOption(y_range);
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
@@ -3179,8 +3172,10 @@ Battlebox.initializeOptions = function (option_type, options) {
             var location = _c.find_a_matching_tile(game, water_layer);
             if (water_layer.name == 'river') {
                 _c.generators.river(game, water_layer, location);
-            } else if (water_layer.name == 'lake') {
+            } else if (water_layer.name == 'lake') {   //More spidery lakes
                 _c.generators.lake(game, water_layer, location);
+            } else if (water_layer.name == 'lake2') {  //More circular lakes
+                _c.generators.lake2(game, water_layer, location);
             } else if (water_layer.name == 'sea') {
                 _c.generators.sea(game, water_layer, location);
             }
@@ -3811,8 +3806,16 @@ Battlebox.initializeOptions = function (option_type, options) {
         var last_side = '';
         var road_tiles = [];
 
+        var directions = ['left', 'right', 'top', 'bottom'];
+        var impassible_directions = _.filter(game.game_options.water_options, function (layer) {
+            return layer.name == 'sea';
+        });
+        _.each(impassible_directions, function (dir) {
+            directions = _.without(directions, dir.location);
+        });
+
         for (var i = 0; i < number_of_roads; i++) {
-            var side = _c.randOption(['left', 'right', 'top', 'bottom'], {}, last_side);
+            var side = _c.randOption(directions, {}, last_side);
             last_side = side;
             for (var t = 0; t < tries; t++) {
                 ending_tile = ending_tile || _c.find_a_matching_tile(game, {location: side});
@@ -3854,8 +3857,6 @@ Battlebox.initializeOptions = function (option_type, options) {
         var building_tile_radius_y = Math.pow(size, 1 / 1.45);
         var building_tile_radius_x = building_tile_radius_y * 1.5;
 
-        //TODO: Don't use recursion, instead just a for x-n to x+n loop
-
         function make_water(x, y, recursion) {
             if (!_c.tile_is_traversable(game, x, y, false)) {
                 return;
@@ -3871,9 +3872,6 @@ Battlebox.initializeOptions = function (option_type, options) {
                 layer.x = x;
                 layer.y = y;
                 set_obj_color(layer);
-
-                //TODO: Not sure why, but depth is first setting properly, then being overwritten to 1 for large lakes
-//                test.push (x +','+y+' setting to ' + recursion);
 
                 game.cells[x][y] = layer;
 
@@ -3899,7 +3897,74 @@ Battlebox.initializeOptions = function (option_type, options) {
             make_water(x, y, 3);
 
         }
+        return water_cells;
+    };
 
+    _c.generators.lake2 = function (game, water_layer, location) {
+        var water_cells = [];
+        var size = 30;
+        if (water_layer.density == 'small') {
+            size = 7;
+        } else if (water_layer.density == 'medium') {
+            size = 14;
+        } else if (water_layer.density == 'large') {
+            size = 30;
+        } else if (_.isNumber(water_layer.density)) {
+            size = parseInt(water_layer.density);
+        }
+
+        var building_tile_radius_y = Math.pow(size, 1 / 1.45);
+        var building_tile_radius_x = building_tile_radius_y * 1.5;
+
+        for (var i = size; i > 0; i--) {
+            var x, y, depth;
+            x = location.x + _c.randInt(building_tile_radius_x) - (building_tile_radius_x / 2) - 1;
+            y = location.y + _c.randInt(building_tile_radius_y) - (building_tile_radius_y / 2) - 1;
+            depth = Math.round(Math.pow(i, 1 / 3));
+
+            x = Math.floor(x);
+            y = Math.floor(y);
+
+            var lake_tiles = _c.surrounding_tiles(game, x, y, depth, true);
+            _.each(lake_tiles, function (lake_tile) {
+                if (_.indexOf(water_cells, lake_tile) == -1) {
+
+                    x = lake_tile.x;
+                    y = lake_tile.y;
+
+                    var good_tile = true;
+                    if (!_c.tile_is_traversable(game, x, y, false)) {
+                        good_tile = false;
+                    }
+                    //If it's already a lake or river
+                    if (game.cells[x][y].data && game.cells[x][y].data.water) {
+                        //Make it deeper if it should be
+                        var current_depth = game.cells[x][y].data.depth || 0;
+                        if (lake_tile.ring > current_depth) {
+                            game.cells[x][y].data.depth = lake_tile.ring;
+                        }
+                        good_tile = false;
+                    } else {
+                        good_tile = true;
+                    }
+
+                    if (good_tile) {
+                        var layer = _.clone(water_layer);
+                        layer.data = layer.data || {};
+                        layer.name = 'lake';
+                        layer.data.water = true;
+                        layer.data.depth = (depth - lake_tile.ring);
+                        layer.x = x;
+                        layer.y = y;
+                        set_obj_color(layer);
+
+                        game.cells[x][y] = layer;
+
+                        water_cells.push(layer);
+                    }
+                }
+            });
+        }
         return water_cells;
     };
 
@@ -3915,13 +3980,32 @@ Battlebox.initializeOptions = function (option_type, options) {
                 starting_tile = _c.find_a_matching_tile(game, {location: 'left', y: location.y});
                 ending_tile = _c.find_a_matching_tile(game, {location: 'right', y: location.y});
             } else {
-                starting_tile = _c.find_a_matching_tile(game, {location: 'top', x: location.x});
-                ending_tile = _c.find_a_matching_tile(game, {location: 'bottom', x: location.x});
+                starting_tile = _c.find_a_matching_tile(game, {location: 'top', x: location.x, locked:true});
+                ending_tile = _c.find_a_matching_tile(game, {location: 'bottom', x: location.x, locked:true});
+
+                //starting_tile = _c.find_a_matching_tile(game, {location: 'top', x: location.x});
+                //ending_tile = _c.find_a_matching_tile(game, {location: 'bottom', x: location.x});
             }
 
-            var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y);
+            function river_weighting_callback (x, y) {
+                var cell = _c.tile(game, x, y);
+                var weight = 0;
+
+                if (cell.name == 'plains') weight += 6;
+                if (cell.name == 'mountains') weight += 12;
+                if (cell.name == 'forest') weight += 6;
+                if (cell.density == 'medium') weight += 4;
+                if (cell.density == 'large') weight += 8;
+                if (cell.name == 'lake') weight -= 4;
+                if (cell.name == 'sea') weight -= 8;
+                if (_c.tile_has(cell, 'river')) weight += 8;
+
+                return Math.max(0, weight);
+            }
+            var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y, river_weighting_callback);
+
             if (path && path.length) {
-                for (var step = 1; step < path.length; step++) {
+                for (var step = 0; step < path.length; step++) {
                     for (var thick = 0; thick < (water_layer.thickness || 1); thick++) {
 
                         var y = path[step][1];
@@ -3935,14 +4019,17 @@ Battlebox.initializeOptions = function (option_type, options) {
 
                         var cell = _c.tile(game, x, y);
                         if (_c.tile_is_traversable(game, x, y)) {
-                            var last_cell = _c.tile(game, path[step - 1]);
                             var dir;
-                            if (thick == 0) {
-                                dir = _c.direction_from_tile_to_tile(last_cell, cell) || {road_symbol: ""};
+                            if (step > 0) {
+                                var last_cell = _c.tile(game, path[step - 1]);
+                                if (thick == 0) {
+                                    dir = _c.direction_from_tile_to_tile(last_cell, cell) || {road_symbol: ""};
+                                } else {
+                                    dir = _c.direction_from_tile_to_tile(last_cell, _c.tile(game, path[step])) || {road_symbol: ""};
+                                }
                             } else {
-                                dir = _c.direction_from_tile_to_tile(last_cell, _c.tile(game, path[step])) || {road_symbol: ""};
+                                dir = {road_symbol: ""};
                             }
-
                             //TODO: Don't use pathfinding, instead make it snaking
 
                             var layer = _.clone(water_layer.data || {});
@@ -3969,9 +4056,50 @@ Battlebox.initializeOptions = function (option_type, options) {
         return water_cells;
     };
 
-    _c.generators.sea = function (game, water_layer, location) {
+    _c.generators.sea = function (game, water_layer) {
         var water_cells = [];
-        //TODO: Enter this
+
+        var width = water_layer.width || 4;
+        var start_x, end_x, start_y, end_y;
+
+        if (water_layer.location == 'left') {
+            start_x = 0;
+            end_x = width * 2;
+            start_y = 0;
+            end_y = _c.rows(game);
+
+        } else if (water_layer.location == 'right') {
+
+            start_x = _c.cols(game) - (width * 2);
+            end_x = _c.cols(game);
+            start_y = 0;
+            end_y = _c.rows(game);
+        }
+
+
+        for (var y = start_y; y < end_y; y++) {
+            for (var x = start_x + y % 2; x < end_x; x += 2) {
+
+                if (_c.tile_is_traversable(game, x, y)) {
+
+                    var layer = _.clone(water_layer || {});
+                    layer.name = 'sea';
+                    layer.x = x;
+                    layer.y = y;
+                    layer.water = true;
+                    layer.data = layer.data || [];
+                    layer.data.water = true;
+                    layer.data.depth = (x - start_x) / 2;
+                    layer.symbol = water_layer.symbol;
+                    layer.title = water_layer.title || water_layer.name;
+                    set_obj_color(layer);
+
+                    game.cells[x][y] = layer;
+
+                }
+            }
+        }
+
 
         return water_cells;
     };
@@ -3986,8 +4114,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         var city_cells = [];
 
         //Build roads based on city size
-        var road_tiles = _c.generators.roads_from(game, number_of_roads, location);
-
+        _c.generators.roads_from(game, number_of_roads, location);
 
         //Reset the city so it'll look the same independent of number of roads
         ROT.RNG.setSeed(game.data.fight_seed || game.data.rand_seed);
@@ -4037,7 +4164,6 @@ Battlebox.initializeOptions = function (option_type, options) {
     var _c = new Battlebox('get_private_functions');
 
     //TODO: Have a queue of plans, then when one can't complete, move to next
-    //TODO: At end of game, spend x turns to look for nearby loot and pillage town
     //TODO: Have strategy to find nearby loot
     //TODO: Have units on nearby fortifications and defenders to go to fortifications if possible
 
@@ -4051,6 +4177,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         if (cell.density == 'medium') weight += 4;
         if (cell.density == 'large') weight += 8;
         if (cell.name == 'lake') weight += 8;
+        if (cell.name == 'sea') weight += 20;
         if (_c.tile_has(cell, 'path')) weight -= 2;
         if (_c.tile_has(cell, 'road')) weight -= 4;
         if (_c.tile_has(cell, 'rail')) weight -= 8;
@@ -4059,7 +4186,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         return Math.max(0, weight);
     };
 
-    _c.path_from_to = function (game, from_x, from_y, to_x, to_y) {
+    _c.path_from_to = function (game, from_x, from_y, to_x, to_y, weighting_callback) {
 
         var passableCallback = function (x, y) {
             var cell = game.cells[x];
@@ -4072,7 +4199,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         var pathCallback = function (x, y) {
             path.push([x, y]);
         };
-        var weightingCallback = function (x, y) {
+        var weightingCallback = weighting_callback || function (x, y) {
             return _c.tile_traversability_weight(game, x, y);
         };
         astar.compute(from_x, from_y, pathCallback, weightingCallback);
@@ -4780,7 +4907,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         _c.update_ui_display(game);
 
-        if ((game.game_options.game_over_time !== undefined) && (game.data.tick_count >= game.game_options.game_over_time)) {
+        if (!game.data.game_over_at_tick && (game.game_options.game_over_time !== undefined) && (game.data.tick_count >= game.game_options.game_over_time)) {
             _c.game_over(game);
         }
 

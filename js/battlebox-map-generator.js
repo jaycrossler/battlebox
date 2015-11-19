@@ -11,6 +11,7 @@
     //TODO: Use colored large circle characters for forces, not full hex colors
     //TODO: Find out why pre-rolling placement numbers isn't turning out almost exactly the same between builds. Fixed now?
     //TODO: Adding population doesn't add new roads if they should
+    //TODO: If city is close to river or sea, grow towards that and add docks (and fishing boats/zones?)
 
     //TODO: Add sand if between water and mountain
 
@@ -338,13 +339,15 @@
             }
 
         } else if (options.location == 'top') {
+            var y_range = options.locked ? [0] : [0, 1];
             for (i = 0; i < tries; i++) {
                 if (options.x) {
                     x = _c.randOption([options.x - 2, options.x - 1, options.x, options.x + 1, options.x + 2]);
                 } else {
                     x = _c.randInt(_c.cols(game));
                 }
-                y = _c.randOption([0, 1]);
+
+                y = _c.randOption(y_range);
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
@@ -353,13 +356,15 @@
 
         } else if (options.location == 'bottom') {
             var bottom = _c.rows(game);
+            var y_range = options.locked ? [bottom - 1] : [bottom - 1, bottom - 2];
+
             for (i = 0; i < tries; i++) {
                 if (options.x) {
                     x = _c.randOption([options.x - 2, options.x - 1, options.x, options.x + 1, options.x + 2]);
                 } else {
                     x = _c.randInt(_c.cols(game));
                 }
-                y = _c.randOption([bottom - 1, bottom - 2]);
+                y = _c.randOption(y_range);
 
                 if (_c.tile_is_traversable(game, x, y, options.move_through_impassable)) {
                     break;
@@ -1330,6 +1335,7 @@
                     if (good_tile) {
                         var layer = _.clone(water_layer);
                         layer.data = layer.data || {};
+                        layer.name = 'lake';
                         layer.data.water = true;
                         layer.data.depth = (depth - lake_tile.ring);
                         layer.x = x;
@@ -1358,13 +1364,33 @@
                 starting_tile = _c.find_a_matching_tile(game, {location: 'left', y: location.y});
                 ending_tile = _c.find_a_matching_tile(game, {location: 'right', y: location.y});
             } else {
-                starting_tile = _c.find_a_matching_tile(game, {location: 'top', x: location.x});
-                ending_tile = _c.find_a_matching_tile(game, {location: 'bottom', x: location.x});
+                starting_tile = _c.find_a_matching_tile(game, {location: 'top', x: location.x, locked: true});
+                ending_tile = _c.find_a_matching_tile(game, {location: 'bottom', x: location.x, locked: true});
+
+                //starting_tile = _c.find_a_matching_tile(game, {location: 'top', x: location.x});
+                //ending_tile = _c.find_a_matching_tile(game, {location: 'bottom', x: location.x});
             }
 
-            var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y);
+            function river_weighting_callback(x, y) {
+                var cell = _c.tile(game, x, y);
+                var weight = 0;
+
+                if (cell.name == 'plains') weight += 6;
+                if (cell.name == 'mountains') weight += 12;
+                if (cell.name == 'forest') weight += 6;
+                if (cell.density == 'medium') weight += 4;
+                if (cell.density == 'large') weight += 8;
+                if (cell.name == 'lake') weight -= 4;
+                if (cell.name == 'sea') weight -= 8;
+                if (_c.tile_has(cell, 'river')) weight += 8;
+
+                return Math.max(0, weight);
+            }
+
+            var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y, river_weighting_callback);
+
             if (path && path.length) {
-                for (var step = 1; step < path.length; step++) {
+                for (var step = 0; step < path.length; step++) {
                     for (var thick = 0; thick < (water_layer.thickness || 1); thick++) {
 
                         var y = path[step][1];
@@ -1378,14 +1404,17 @@
 
                         var cell = _c.tile(game, x, y);
                         if (_c.tile_is_traversable(game, x, y)) {
-                            var last_cell = _c.tile(game, path[step - 1]);
                             var dir;
-                            if (thick == 0) {
-                                dir = _c.direction_from_tile_to_tile(last_cell, cell) || {road_symbol: ""};
+                            if (step > 0) {
+                                var last_cell = _c.tile(game, path[step - 1]);
+                                if (thick == 0) {
+                                    dir = _c.direction_from_tile_to_tile(last_cell, cell) || {road_symbol: ""};
+                                } else {
+                                    dir = _c.direction_from_tile_to_tile(last_cell, _c.tile(game, path[step])) || {road_symbol: ""};
+                                }
                             } else {
-                                dir = _c.direction_from_tile_to_tile(last_cell, _c.tile(game, path[step])) || {road_symbol: ""};
+                                dir = {road_symbol: ""};
                             }
-
                             //TODO: Don't use pathfinding, instead make it snaking
 
                             var layer = _.clone(water_layer.data || {});

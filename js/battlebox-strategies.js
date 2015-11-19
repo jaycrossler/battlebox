@@ -2,7 +2,6 @@
     var _c = new Battlebox('get_private_functions');
 
     //TODO: Have a queue of plans, then when one can't complete, move to next
-    //TODO: At end of game, spend x turns to look for nearby loot and pillage town
     //TODO: Have strategy to find nearby loot
     //TODO: Have units on nearby fortifications and defenders to go to fortifications if possible
 
@@ -25,7 +24,7 @@
         return Math.max(0, weight);
     };
 
-    _c.path_from_to = function (game, from_x, from_y, to_x, to_y) {
+    _c.path_from_to = function (game, from_x, from_y, to_x, to_y, weighting_callback) {
 
         var passableCallback = function (x, y) {
             var cell = game.cells[x];
@@ -38,7 +37,7 @@
         var pathCallback = function (x, y) {
             path.push([x, y]);
         };
-        var weightingCallback = function (x, y) {
+        var weightingCallback = weighting_callback || function (x, y) {
             return _c.tile_traversability_weight(game, x, y);
         };
         astar.compute(from_x, from_y, pathCallback, weightingCallback);
