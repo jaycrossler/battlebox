@@ -1484,15 +1484,15 @@ Battlebox.initializeOptions = function (option_type, options) {
             .append(container_canvas);
 
 
-
         $pointers.info_box = $('<div>')
             .appendTo($pointers.canvas_holder);
 
-        var $unit_list = $('#unit_list');
+        var $unit_list = $('#unit_list')
+            .appendTo($pointers.canvas_holder);
         $pointers.unit_holder = $('<div>')
             .appendTo($unit_list);
-        $pointers.unit_dead_holder = $('<div>')
-            .appendTo($unit_list);
+        $pointers.unit_dead_holder =  $('#unit_dead_list');
+            //.appendTo($unit_list);
         $pointers.unit_dead_holder_title = $("<div>")
             .text("Dead Units:")
             .hide()
@@ -1542,7 +1542,6 @@ Battlebox.initializeOptions = function (option_type, options) {
                 })
                 .appendTo($pointers.canvas_holder);
         });
-
 
 
         $('<button>')
@@ -1904,9 +1903,13 @@ Battlebox.initializeOptions = function (option_type, options) {
         var msg = "Game Over!  " + side_wins + ' wins by defeating all enemies!';
 
         msg += " (" + game.data.tick_count + " rounds)";
-        msg += "<br/><i>"+delay_to_pillage+" more rounds to gather final pillage</i>";
+        msg += "<br/><i>" + delay_to_pillage + " more rounds to gather final pillage</i>";
 
         _c.log_message_to_user(game, msg, 4, (side_wins == "No one" ? 'gray' : side_wins));
+
+        if (side_wins == "No one") {
+            game.engine.lock();
+        }
 
         if (game.game_options.game_over_function) {
             game.game_options.game_over_function(game);
@@ -1928,6 +1931,13 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         var title = JSON.stringify(info);
         $pointers.info_box.empty();
+
+        $("<span>")
+            .addClass('tile_info')
+            .text("X: " + x + " Y:" + y)
+            .appendTo($pointers.info_box);
+
+
         var $tile = $("<span>")
             .addClass('tile_info')
             .text(_.str.titleize(info.name))

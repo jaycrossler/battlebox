@@ -55,11 +55,12 @@
         $pointers.info_box = $('<div>')
             .appendTo($pointers.canvas_holder);
 
-        var $unit_list = $('#unit_list');
+        var $unit_list = $('#unit_list')
+            .appendTo($pointers.canvas_holder);
         $pointers.unit_holder = $('<div>')
             .appendTo($unit_list);
-        $pointers.unit_dead_holder = $('<div>')
-            .appendTo($unit_list);
+        $pointers.unit_dead_holder = $('#unit_dead_list');
+        //.appendTo($unit_list);
         $pointers.unit_dead_holder_title = $("<div>")
             .text("Dead Units:")
             .hide()
@@ -109,7 +110,6 @@
                 })
                 .appendTo($pointers.canvas_holder);
         });
-
 
 
         $('<button>')
@@ -475,6 +475,10 @@
 
         _c.log_message_to_user(game, msg, 4, (side_wins == "No one" ? 'gray' : side_wins));
 
+        if (side_wins == "No one") {
+            game.engine.lock();
+        }
+
         if (game.game_options.game_over_function) {
             game.game_options.game_over_function(game);
         }
@@ -495,6 +499,13 @@
 
         var title = JSON.stringify(info);
         $pointers.info_box.empty();
+
+        $("<span>")
+            .addClass('tile_info')
+            .text("X: " + x + " Y:" + y)
+            .appendTo($pointers.info_box);
+
+
         var $tile = $("<span>")
             .addClass('tile_info')
             .text(_.str.titleize(info.name))

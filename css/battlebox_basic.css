@@ -20,6 +20,7 @@ h1{
 
 .tile_info {
     border-radius: 2px;
+    margin: 2px;
     display: inline-block;
     border: 1px solid black;
     padding: 4px;
@@ -27,6 +28,7 @@ h1{
 
 .tile_unit_info {
     border-radius: 2px;
+    margin: 2px;
     display: inline-block;
     border: 1px solid black;
     padding: 4px;
@@ -37,6 +39,20 @@ h1{
     display: block;
     position: relative;
     width: 1583px;
+}
+
+#unit_list {
+    display: inline-block;
+    position: absolute;
+    width: inherit;
+    left: 20px;
+    bottom: 70px;
+    vertical-align: top;
+    border-radius: 10px;
+    margin: 51px 0px 0px 0px;
+    padding: 0px;
+    opacity: 0.5;
+    overflow-y: hidden;
 }
 #message_display{
     display: inline-block;
