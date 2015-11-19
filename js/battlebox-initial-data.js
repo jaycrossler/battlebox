@@ -58,9 +58,10 @@
         ],
 
         water_options: [
-            {name: 'lake', density: 'medium', location: 'left', data: {lake: true}},
-            {name: 'lake', density: 'large', location: 'mid left', data: {lake: true}},
-            {name: 'lake', density: 'small', location: 'mid right', island: true, symbol: '~'},
+            {name: 'lake', density: 'medium', location: 'left'},
+            {name: 'lake', density: 'large', location: 'mid left'},
+            {name: 'lake', density: 'small', location: 'mid right', symbol: '~'},
+            {name: 'sea', location: 'right', width: 5},
             {name: 'river', density: 'small', thickness: 1, location: 'mid left'},
 //            {name:'river', density:'small', thickness:1, location:'mid right'},
 //            {name:'river', title: 'Snake River', density:'medium', thickness:2, location:'center'},

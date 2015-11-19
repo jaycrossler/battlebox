@@ -12,6 +12,8 @@
     //TODO: Find out why pre-rolling placement numbers isn't turning out almost exactly the same between builds. Fixed now?
     //TODO: Adding population doesn't add new roads if they should
 
+    //TODO: Add sand if between water and mountain
+
     _c.tile = function (game, x, y) {
         var cell;
         if (!game.cells) {
@@ -55,19 +57,26 @@
     /**
      * Returns the 6 surrounding hexes around a tile (or more if bigger rings)
      * @param {object} game class data
-     * @param {int} x
-     * @param {int} y
+     * @param {int} x_start
+     * @param {int} y_start
      * @param {int} [rings=1] number of rings away from x,y that should be included
+     * @param {boolean} add_ring_number Should a clone of the tile be made with the ring number added?
      * @returns {Array.<Object>} cells and entity data
      */
-    _c.surrounding_tiles = function (game, x_start, y_start, rings) {
+    _c.surrounding_tiles = function (game, x_start, y_start, rings, add_ring_number) {
         var cells = [];
         rings = rings || 1;
 
-        function add(x_offset, y_offset) {
+        function add(x_offset, y_offset, ring) {
             var new_cell = _c.tile(game, x_offset, y_offset);
             if (new_cell) {
-                if (new_cell) cells.push(new_cell);
+                if (add_ring_number) {
+                    var cloned_cell = JSON.parse(JSON.stringify(new_cell));
+                    cloned_cell.ring = ring;
+                    cells.push(cloned_cell);
+                } else {
+                    cells.push(new_cell);
+                }
             }
         }
 
@@ -77,18 +86,18 @@
         //Hexagon spiral algorithm, modified from
         for (var n = 1; n <= rings; ++n) {
             x += 2;
-            add(x, y);
-            for (var i = 0; i < n - 1; ++i) add(++x, ++y); // move down right. Note N-1
-            for (var i = 0; i < n; ++i) add(--x, ++y); // move down left
+            add(x, y, n);
+            for (var i = 0; i < n - 1; ++i) add(++x, ++y, n); // move down right. Note N-1
+            for (var i = 0; i < n; ++i) add(--x, ++y, n); // move down left
             for (var i = 0; i < n; ++i) {
                 x -= 2;
-                add(x, y);
+                add(x, y, n);
             } // move left
-            for (var i = 0; i < n; ++i) add(--x, --y); // move up left
-            for (var i = 0; i < n; ++i) add(++x, --y); // move up right
+            for (var i = 0; i < n; ++i) add(--x, --y, n); // move up left
+            for (var i = 0; i < n; ++i) add(++x, --y, n); // move up right
             for (var i = 0; i < n; ++i) {
                 x += 2;
-                add(x, y);
+                add(x, y, n);
             }  // move right
         }
         return cells;
@@ -127,29 +136,6 @@
 
         }
         return valid_num
-    };
-
-    /**
-     * Find a tile that matches parameters passed in by options
-     * @param {object} game class data
-     * @param {object} options {range: 4, location:{x:1,y2}, or 'center' or 'e' or 'impassable' or 'road' or 'top', etc...
-     * @returns {object} tile hex cell that matches location result, or null if one wasn't found
-     */
-    _c.find_tile_by_filters = function (game, options) {
-        var range = options.vision || options.range || 3;
-
-        var tile = null;
-
-        var loc = options.location;
-        if (_.isString(loc)) {
-            loc = _c.find_a_matching_tile(game, options);
-        }
-
-        var targets = _c.surrounding_tiles(game, loc.x, loc.y, range);
-
-        //TODO: Fill in searching routine, not yet used
-
-        return tile;
     };
 
     /**
@@ -565,8 +551,10 @@
             var location = _c.find_a_matching_tile(game, water_layer);
             if (water_layer.name == 'river') {
                 _c.generators.river(game, water_layer, location);
-            } else if (water_layer.name == 'lake') {
+            } else if (water_layer.name == 'lake') {   //More spidery lakes
                 _c.generators.lake(game, water_layer, location);
+            } else if (water_layer.name == 'lake2') {  //More circular lakes
+                _c.generators.lake2(game, water_layer, location);
             } else if (water_layer.name == 'sea') {
                 _c.generators.sea(game, water_layer, location);
             }
@@ -1197,8 +1185,16 @@
         var last_side = '';
         var road_tiles = [];
 
+        var directions = ['left', 'right', 'top', 'bottom'];
+        var impassible_directions = _.filter(game.game_options.water_options, function (layer) {
+            return layer.name == 'sea';
+        });
+        _.each(impassible_directions, function (dir) {
+            directions = _.without(directions, dir.location);
+        });
+
         for (var i = 0; i < number_of_roads; i++) {
-            var side = _c.randOption(['left', 'right', 'top', 'bottom'], {}, last_side);
+            var side = _c.randOption(directions, {}, last_side);
             last_side = side;
             for (var t = 0; t < tries; t++) {
                 ending_tile = ending_tile || _c.find_a_matching_tile(game, {location: side});
@@ -1240,8 +1236,6 @@
         var building_tile_radius_y = Math.pow(size, 1 / 1.45);
         var building_tile_radius_x = building_tile_radius_y * 1.5;
 
-        //TODO: Don't use recursion, instead just a for x-n to x+n loop
-
         function make_water(x, y, recursion) {
             if (!_c.tile_is_traversable(game, x, y, false)) {
                 return;
@@ -1257,9 +1251,6 @@
                 layer.x = x;
                 layer.y = y;
                 set_obj_color(layer);
-
-                //TODO: Not sure why, but depth is first setting properly, then being overwritten to 1 for large lakes
-//                test.push (x +','+y+' setting to ' + recursion);
 
                 game.cells[x][y] = layer;
 
@@ -1285,7 +1276,73 @@
             make_water(x, y, 3);
 
         }
+        return water_cells;
+    };
 
+    _c.generators.lake2 = function (game, water_layer, location) {
+        var water_cells = [];
+        var size = 30;
+        if (water_layer.density == 'small') {
+            size = 7;
+        } else if (water_layer.density == 'medium') {
+            size = 14;
+        } else if (water_layer.density == 'large') {
+            size = 30;
+        } else if (_.isNumber(water_layer.density)) {
+            size = parseInt(water_layer.density);
+        }
+
+        var building_tile_radius_y = Math.pow(size, 1 / 1.45);
+        var building_tile_radius_x = building_tile_radius_y * 1.5;
+
+        for (var i = size; i > 0; i--) {
+            var x, y, depth;
+            x = location.x + _c.randInt(building_tile_radius_x) - (building_tile_radius_x / 2) - 1;
+            y = location.y + _c.randInt(building_tile_radius_y) - (building_tile_radius_y / 2) - 1;
+            depth = Math.round(Math.pow(i, 1 / 3));
+
+            x = Math.floor(x);
+            y = Math.floor(y);
+
+            var lake_tiles = _c.surrounding_tiles(game, x, y, depth, true);
+            _.each(lake_tiles, function (lake_tile) {
+                if (_.indexOf(water_cells, lake_tile) == -1) {
+
+                    x = lake_tile.x;
+                    y = lake_tile.y;
+
+                    var good_tile = true;
+                    if (!_c.tile_is_traversable(game, x, y, false)) {
+                        good_tile = false;
+                    }
+                    //If it's already a lake or river
+                    if (game.cells[x][y].data && game.cells[x][y].data.water) {
+                        //Make it deeper if it should be
+                        var current_depth = game.cells[x][y].data.depth || 0;
+                        if (lake_tile.ring > current_depth) {
+                            game.cells[x][y].data.depth = lake_tile.ring;
+                        }
+                        good_tile = false;
+                    } else {
+                        good_tile = true;
+                    }
+
+                    if (good_tile) {
+                        var layer = _.clone(water_layer);
+                        layer.data = layer.data || {};
+                        layer.data.water = true;
+                        layer.data.depth = (depth - lake_tile.ring);
+                        layer.x = x;
+                        layer.y = y;
+                        set_obj_color(layer);
+
+                        game.cells[x][y] = layer;
+
+                        water_cells.push(layer);
+                    }
+                }
+            });
+        }
         return water_cells;
     };
 
@@ -1355,9 +1412,50 @@
         return water_cells;
     };
 
-    _c.generators.sea = function (game, water_layer, location) {
+    _c.generators.sea = function (game, water_layer) {
         var water_cells = [];
-        //TODO: Enter this
+
+        var width = water_layer.width || 4;
+        var start_x, end_x, start_y, end_y;
+
+        if (water_layer.location == 'left') {
+            start_x = 0;
+            end_x = width * 2;
+            start_y = 0;
+            end_y = _c.rows(game);
+
+        } else if (water_layer.location == 'right') {
+
+            start_x = _c.cols(game) - (width * 2);
+            end_x = _c.cols(game);
+            start_y = 0;
+            end_y = _c.rows(game);
+        }
+
+
+        for (var y = start_y; y < end_y; y++) {
+            for (var x = start_x + y % 2; x < end_x; x += 2) {
+
+                if (_c.tile_is_traversable(game, x, y)) {
+
+                    var layer = _.clone(water_layer || {});
+                    layer.name = 'sea';
+                    layer.x = x;
+                    layer.y = y;
+                    layer.water = true;
+                    layer.data = layer.data || [];
+                    layer.data.water = true;
+                    layer.data.depth = (x - start_x) / 2;
+                    layer.symbol = water_layer.symbol;
+                    layer.title = water_layer.title || water_layer.name;
+                    set_obj_color(layer);
+
+                    game.cells[x][y] = layer;
+
+                }
+            }
+        }
+
 
         return water_cells;
     };
@@ -1372,8 +1470,7 @@
         var city_cells = [];
 
         //Build roads based on city size
-        var road_tiles = _c.generators.roads_from(game, number_of_roads, location);
-
+        _c.generators.roads_from(game, number_of_roads, location);
 
         //Reset the city so it'll look the same independent of number of roads
         ROT.RNG.setSeed(game.data.fight_seed || game.data.rand_seed);

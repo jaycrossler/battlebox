@@ -16,6 +16,7 @@
         if (cell.density == 'medium') weight += 4;
         if (cell.density == 'large') weight += 8;
         if (cell.name == 'lake') weight += 8;
+        if (cell.name == 'sea') weight += 20;
         if (_c.tile_has(cell, 'path')) weight -= 2;
         if (_c.tile_has(cell, 'road')) weight -= 4;
         if (_c.tile_has(cell, 'rail')) weight -= 8;

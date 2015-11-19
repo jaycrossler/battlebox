@@ -198,7 +198,7 @@
             if (was_drawn) return;
 
             var river_info = _c.tile_has(cell, 'river');
-            if (cell.name == 'lake') {
+            if (cell.name == 'lake' || cell.name == 'sea') {
                 text = cell.symbol || text;
                 if (!bg_color) {
                     var depth = cell.data.depth || 1;
@@ -218,13 +218,13 @@
 
             var population_darken_amount = 0;
             if (cell.population) {
-                color = Helpers.blendColors('black', 'red', cell.population / 300);
+                color = Helpers.blendColors('black', 'gray', cell.population / 300);
                 if (cell.population > 1000) {
-                    color = 'orange';
+                    color = 'black';
                     text = '█';
                     population_darken_amount = .6;
                 } else if (cell.population > 500) {
-                    color = 'orange';
+                    color = 'gray';
                     text = '▓';
                     population_darken_amount = .5;
                 } else if (cell.population > 300) {
@@ -531,6 +531,7 @@
         if (has_roads) additions.push("Road");
         if (has_loot) additions.push("Loot");
         if (has_people) additions.push("People: " + has_people);
+        if (cell.data && cell.data.depth) additions.push("Depth: " + cell.data.depth);
 
         function draw_callback(x, y, text, color, bg) {
             var text_add = _.str.titleize(info.name);

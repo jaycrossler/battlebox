@@ -361,7 +361,7 @@
 
         _c.update_ui_display(game);
 
-        if ((game.game_options.game_over_time !== undefined) && (game.data.tick_count >= game.game_options.game_over_time)) {
+        if (!game.data.game_over_at_tick && (game.game_options.game_over_time !== undefined) && (game.data.tick_count >= game.game_options.game_over_time)) {
             _c.game_over(game);
         }
 
