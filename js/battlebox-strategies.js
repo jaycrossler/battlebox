@@ -56,6 +56,7 @@
     _c.find_unit_by_filters = function (game, current_unit, options) {
 
         var targets = _c.entities(game);
+        targets = _.without(targets, current_unit);
 
         if (options.range) {
             targets = _.filter(targets, function (t) {

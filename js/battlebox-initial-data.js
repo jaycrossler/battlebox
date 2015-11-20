@@ -8,7 +8,7 @@
     var _game_options = {
         rand_seed: 0,
         tick_time: 1000,
-        game_over_time: 600,
+        game_over_time: 500,
         delay_to_pillage: 80,
 
         arrays_to_map_to_objects: ''.split(','),
@@ -35,13 +35,22 @@
                 communication_speed: 1, //TODO
                 try_to_loot: true, try_to_pillage: true,
                 starting_food: 5,
-                goals: {weak_enemies: 7, loot: 3, all_enemies: 4, city: 2, friendly_units: -2, farm: 1, population: 1}
+                goals: {
+                    weak_enemies: 7,
+                    loot: 3,
+                    all_enemies: 4,
+                    city: 2,
+                    explore: 1,
+                    friendly_units: -2,
+                    farm: 1,
+                    population: 1
+                }
             },
             {
                 side: 'White', home_city: 'Anchorage', face_options: {race: 'Elf'},
                 plan: 'defend city', backup_strategy: 'vigilant', morale: 15,
                 starting_food: 5,
-                goals: {weak_enemies: 7, towers: 6, walls: 5, all_enemies: 4, city: 3, friendly_units: -4}
+                goals: {weak_enemies: 7, towers: 6, walls: 5, all_enemies: 4, city: 3, friendly_units: -8}
             }
         ],
 
@@ -117,7 +126,6 @@
             //------------------------------
             {
                 name: 'Defender City Force', side: 'White', location: 'city',
-                plan: 'seek closest',
                 troops: {soldiers: 620, cavalry: 40, siege: 100}
             },
             {
@@ -153,7 +161,7 @@
                 troops: {soldiers: 20, siege: 20}
             },
             {
-                name: 'Defender Catapults', side: 'White', symbol: 'B', location: 'city',
+                name: 'Defender Catapults', side: 'White', symbol: '9', location: 'city',
                 troops: {soldiers: 20, siege: 40}
             },
             //----------------------------
@@ -194,7 +202,7 @@
                 name: 'soldiers',
                 side: 'all',
                 range: 1,
-                vision: 5,
+                vision: 4,
                 speed: 30,
                 strength: 1,
                 defense: 2,
@@ -206,7 +214,7 @@
                 name: 'cavalry',
                 side: 'all',
                 range: 1,
-                vision: 6,
+                vision: 4,
                 speed: 70,
                 initiative: 80,  //Note: Initiative can be different than speed
                 strength: 1.5,
@@ -220,7 +228,7 @@
                 title: 'siege units',
                 side: 'all',
                 range: 2,
-                vision: 7,
+                vision: 5,
                 speed: 25,
                 ranged_strength: 5,
                 strength: .5,
@@ -246,7 +254,7 @@
                 name: 'adult_dragon',
                 side: 'all',
                 range: 2,
-                vision: 7,
+                vision: 6,
                 speed: 120,
                 strength: 150,
                 ranged_strength: 50,

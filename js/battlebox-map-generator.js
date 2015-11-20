@@ -988,8 +988,8 @@
             if (cell_population >= 70) {
 
                 game.cells[x][y] = {
-                    name: city_info.name,
-                    title: city_info.title,
+                    name: 'city',
+                    title: city_info.title || city_info.name,
                     population: cell_population,
                     type: 'city',
                     side: city_info.side,
@@ -1542,6 +1542,7 @@
             y = Math.floor(y);
             if (_c.tile_is_traversable(game, x, y, false)) {
                 game.cells[x][y] = _.clone(city_info);
+                game.cells[x][y].name = 'city';
                 game.cells[x][y].x = x;
                 game.cells[x][y].y = y;
                 city_cells.push(game.cells[x][y]);

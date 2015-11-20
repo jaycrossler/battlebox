@@ -1,6 +1,6 @@
 /*
 ------------------------------------------------------------------------------------
--- battlebox.js - v0.0.3 - Built on 2015-11-19 by Jay Crossler using Grunt.js
+-- battlebox.js - v0.0.3 - Built on 2015-11-20 by Jay Crossler using Grunt.js
 ------------------------------------------------------------------------------------
 -- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara 
 -- Packaged with color.js - Copyright (c) 2008-2013, Andrew Brehaut, Tim Baumann,  
@@ -526,7 +526,8 @@ Helpers.randomLetters = function (n) {
     }
     return out;
 };
-Helpers.pluralize = function (str) {
+Helpers.pluralize = function (str, number) {
+    if ((number !== undefined) && (Math.abs(number) == 1)) return;
     if (str === undefined) return str;
     var uncountable_words = [
         'equipment', 'information', 'rice', 'money', 'species', 'series', 'gold', 'cavalry',
@@ -1434,8 +1435,6 @@ Battlebox.initializeOptions = function (option_type, options) {
     var _c = new Battlebox('get_private_functions');
     var $pointers = {};
 
-    //TODO: Pass in a length of rounds before game is over
-
     _c.add_main_city_population = function (game, population) {
         game.data.buildings[0].population += population;
         for (var y = 0; y < _c.rows(game); y++) {
@@ -1952,8 +1951,11 @@ Battlebox.initializeOptions = function (option_type, options) {
         var has_dock = _c.tile_has(cell, 'dock');
         var has_walls = _c.tile_has(cell, 'wall', true);
         var has_towers = _c.tile_has(cell, 'tower', true);
+        var is_pillaged = _c.tile_has(cell, 'pillaged');
+        var is_looted = _c.tile_has(cell, 'looted');
         var has_loot = _.isObject(cell.loot);
         var has_people = cell.population;
+        var has_food = cell.food;
 
         if (has_river) additions.push("River");
         if (has_farms) additions.push("Farms:" + has_farms);
@@ -1963,6 +1965,11 @@ Battlebox.initializeOptions = function (option_type, options) {
         if (has_roads) additions.push("Road");
         if (has_loot) additions.push("Loot");
         if (has_people) additions.push("People: " + has_people);
+        if (has_food) additions.push("Food: " + has_food);
+        if (is_pillaged) additions.push("Pillaged");
+        if (is_looted) additions.push("Looted");
+
+
         if (cell.data && cell.data.depth) additions.push("Depth: " + cell.data.depth);
 
         function draw_callback(x, y, text, color, bg) {
@@ -2025,23 +2032,15 @@ Battlebox.initializeOptions = function (option_type, options) {
             text += "<span style='color:red'>Dead on " + battlebox.data.tick_count + "</span><br/>";
         }
         //text += "At: " + unit.x + ", " + unit.y + " <br/>";
-        var fight_text = [];
-        if (unit.fights_won) {
-            fight_text.push(unit.fights_won + (unit.fights_won > 1 ? " wins" : " win"));
-        }
-        if (unit.fights_lost) {
-            fight_text.push(unit.fights_lost + (unit.fights_lost > 1 ? " losses" : " loss"));
-        }
-        if (fight_text.length) {
-            text += fight_text.join(", ");
-        }
 
         //Show troop data
+        var unit_count = 0;
         _.each(unit._data.troops, function (force) {
             var force_now = _.find(unit.forces, function (f) {
                     return f.name == force.name
                 }) || {};
             var count = force_now.count || 0;
+            unit_count += count;
             var orig = force.count;
             var name = _.str.titleize(Helpers.pluralize(force.title || force.name));
             if (orig && (count < orig)) {
@@ -2049,6 +2048,23 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
             text += "<li>" + count + " " + name + "</li>";
         });
+
+
+        if (unit_count) {
+            var fight_text = [];
+            if (unit.fights_won) {
+                fight_text.push(unit.fights_won + (unit.fights_won > 1 ? " wins" : " win"));
+            }
+            if (unit.fights_lost) {
+                fight_text.push(unit.fights_lost + (unit.fights_lost > 1 ? " losses" : " loss"));
+            }
+            if (fight_text.length) {
+                text += fight_text.join(", ") + ", ";
+            }
+
+            var food = Math.round(unit.loot ? unit.loot.food || 0 : 0);
+            text += "<span style='color:" + ((food < unit_count * .1) ? "red" : "green") + "'>Food: " + food + "</span><br/>";
+        }
 
         if (unit.protected_by_walls) {
             text += "<b style='color:green'>Protected by wall</b><br/>";
@@ -2059,13 +2075,15 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         var loot_arr = [];
         for (var key in unit.loot) {
-            var msg = unit.loot[key] + ' ' + Helpers.pluralize(key);
-            loot_arr.push (msg);
+            if (key != 'food' && unit.loot[key]) {
+                var msg = Math.round(unit.loot[key]) + ' ' + Helpers.pluralize(key, Math.round(unit.loot[key]));
+                loot_arr.push (msg);
+            }
         }
         if (unit.loot && loot_arr.length == 0 && unit.is_dead) {
             text += "<b>Loot Dropped on death</b>";
         } else if (loot_arr.length) {
-            text += "<b>Loot: " + loot_arr.join(", ") + "</b>";
+            text += "<b>Loot [" + unit.can_carry(true) + "]: " + loot_arr.join(", ") + "</b>";
         }
 
         unit.$trump
@@ -2183,7 +2201,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         arrays_to_map_to_objects: ''.split(','),
         arrays_to_map_to_arrays: 'terrain_options,water_options,forces,buildings'.split(','),
 
-        delay_between_ticks: 50,
+        delay_between_ticks: 250,
         log_level_to_show: 4,
 
         cols: 260,
@@ -2203,44 +2221,58 @@ Battlebox.initializeOptions = function (option_type, options) {
                 morale: 10,  //TODO
                 communication_speed: 1, //TODO
                 try_to_loot: true, try_to_pillage: true,
-                goals: {weak_enemies: 7, loot: 3, all_enemies: 4, city: 2, friendly_units: 2, farm: 1, population: 1}
+                starting_food: 5,
+                goals: {weak_enemies: 7, loot: 3, all_enemies: 4, city: 2, friendly_units: -2, farm: 1, population: 1}
             },
             {
                 side: 'White', home_city: 'Anchorage', face_options: {race: 'Elf'},
                 plan: 'defend city', backup_strategy: 'vigilant', morale: 15,
-                goals: {weak_enemies: 7, towers: 6, walls: 5, all_enemies: 4, city: 3}
+                starting_food: 5,
+                goals: {weak_enemies: 7, towers: 6, walls: 5, all_enemies: 4, city: 3, friendly_units: -4}
             }
         ],
 
         terrain_options: [
-            {name: 'plains', ground: true, draw_type: 'flat', color: ["#d0efc6", "#cfefc6", "#d1eec6"], symbol: ''},
+            {
+                name: 'plains',
+                ground: true,
+                draw_type: 'flat',
+                food: [3, 4, 5],
+                color: ["#d0efc6", "#cfefc6", "#d1eec6"],
+                symbol: ''
+            },
             {
                 name: 'mountains',
                 density: 'medium',
                 smoothness: 3,
+                food: [0, 1],
                 not_center: true,
                 color: ['#b1c3c3', '#b3c4c4', '#8b999c'],
                 impassable: true,
                 symbol: ' '
             },
-            {name: 'forest', density: 'sparse', color: ['#85a982', '#7B947A', '#83A283'], data: {movement: 'slow'}, symbol: ' '}
+            {
+                name: 'forest',
+                density: 'sparse',
+                food: [5, 6],
+                color: ['#85a982', '#7B947A', '#83A283'],
+                data: {movement: 'slow'},
+                symbol: ' '
+            }
         ],
 
         water_options: [
-            {name: 'lake', density: 'medium', location: 'left'},
-            {name: 'lake2', density: 'large', location: 'mid left'},
-            {name: 'lake', density: 'small', location: 'mid right', symbol: '~'},
-            {name: 'sea', location: 'right', width: 5},
-            {name: 'river', density: 'small', thickness: 1, location: 'mid left'},
-//            {name:'river', density:'small', thickness:1, location:'mid right'},
-//            {name:'river', title: 'Snake River', density:'medium', thickness:2, location:'center'},
-            {name: 'river', title: 'Snake River', density: 'medium', thickness: 2, location: 'center'}
+            {name: 'lake', density: 'medium', location: 'left', food: [1, 2, 3]},
+            {name: 'lake2', density: 'large', location: 'mid left', food: [2, 3]},
+            {name: 'lake', density: 'small', location: 'mid right', symbol: '~', food: [2, 3, 4]},
+            {name: 'sea', location: 'right', width: 5, food: [4, 5, 6, 7], beach_width: 3},
+            {name: 'river', density: 'small', thickness: 1, food: [2, 3], location: 'mid left'},
+            {name: 'river', title: 'Snake River', density: 'medium', thickness: 2, food: [3, 4], location: 'center'}
         ],
 
         forces: [
             {
                 name: 'Attacker Main Army', side: 'Yellow', location: 'left', player: true,
-                //goals: {weak_enemies: 6, loot: 4, all_enemies: 7, explore: 2, city: 3},
                 troops: {soldiers: 520, cavalry: 230, siege: 50}
             },
             {
@@ -2383,6 +2415,20 @@ Battlebox.initializeOptions = function (option_type, options) {
                 weapon: 'catapults',
                 carrying: 1
             },
+            {
+                name: 'zombies',
+                title: 'zombie swarm',
+                side: 'all',
+                eat_the_dead: true,
+                range: 1,
+                vision: 2,
+                speed: 20,
+                strength: 3,
+                defense: .5,
+                weapon: 'bites',
+                carrying: 1
+            },
+
             {
                 name: 'adult_dragon',
                 side: 'all',
@@ -2955,7 +3001,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
 
         } else if (options.location == 'top') {
-            var y_range = options.locked ? [0] : [0,1];
+            var y_range = options.locked ? [0] : [0, 1];
             for (i = 0; i < tries; i++) {
                 if (options.x) {
                     x = _c.randOption([options.x - 2, options.x - 1, options.x, options.x + 1, options.x + 2]);
@@ -2972,7 +3018,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         } else if (options.location == 'bottom') {
             var bottom = _c.rows(game);
-            var y_range = options.locked ? [bottom-1] : [bottom - 1, bottom - 2];
+            var y_range = options.locked ? [bottom - 1] : [bottom - 1, bottom - 2];
 
             for (i = 0; i < tries; i++) {
                 if (options.x) {
@@ -3156,7 +3202,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                     freeCells.push([x, y]);
                     if (!cells[x][y].name) {
                         cells[x][y] = _.clone(ground_layer);
-                        set_obj_color(cells[x][y]);
+                        set_obj_color_and_food(cells[x][y]);
                         cells[x][y].x = x;
                         cells[x][y].y = y;
                     }
@@ -3757,7 +3803,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 if (value) {
                     cells[x] = cells[x] || [];
                     cells[x][y] = _.clone(terrain_layer);
-                    set_obj_color(cells[x][y]);
+                    set_obj_color_and_food(cells[x][y]);
                     cells[x][y].x = x;
                     cells[x][y].y = y;
                 }
@@ -3767,10 +3813,15 @@ Battlebox.initializeOptions = function (option_type, options) {
         return cells;
     };
 
-    function set_obj_color(obj) {
+    function set_obj_color_and_food(obj) {
         if (obj.color && _.isArray(obj.color)) {
             obj.color = obj.color.random();
         }
+
+        if (obj.food && _.isArray(obj.food)) {
+            obj.food = obj.food.random();
+        }
+
     }
 
     _c.generators.storage = function (game, location, storage_info) {
@@ -3871,7 +3922,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 layer.data.depth = recursion;
                 layer.x = x;
                 layer.y = y;
-                set_obj_color(layer);
+                set_obj_color_and_food(layer);
 
                 game.cells[x][y] = layer;
 
@@ -3956,7 +4007,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                         layer.data.depth = (depth - lake_tile.ring);
                         layer.x = x;
                         layer.y = y;
-                        set_obj_color(layer);
+                        set_obj_color_and_food(layer);
 
                         game.cells[x][y] = layer;
 
@@ -3980,14 +4031,14 @@ Battlebox.initializeOptions = function (option_type, options) {
                 starting_tile = _c.find_a_matching_tile(game, {location: 'left', y: location.y});
                 ending_tile = _c.find_a_matching_tile(game, {location: 'right', y: location.y});
             } else {
-                starting_tile = _c.find_a_matching_tile(game, {location: 'top', x: location.x, locked:true});
-                ending_tile = _c.find_a_matching_tile(game, {location: 'bottom', x: location.x, locked:true});
+                starting_tile = _c.find_a_matching_tile(game, {location: 'top', x: location.x, locked: true});
+                ending_tile = _c.find_a_matching_tile(game, {location: 'bottom', x: location.x, locked: true});
 
                 //starting_tile = _c.find_a_matching_tile(game, {location: 'top', x: location.x});
                 //ending_tile = _c.find_a_matching_tile(game, {location: 'bottom', x: location.x});
             }
 
-            function river_weighting_callback (x, y) {
+            function river_weighting_callback(x, y) {
                 var cell = _c.tile(game, x, y);
                 var weight = 0;
 
@@ -4002,6 +4053,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
                 return Math.max(0, weight);
             }
+
             var path = _c.path_from_to(game, starting_tile.x, starting_tile.y, ending_tile.x, ending_tile.y, river_weighting_callback);
 
             if (path && path.length) {
@@ -4044,7 +4096,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                             cell.additions = cell.additions || [];
                             cell.additions.push(layer);
 
-                            set_obj_color(cell);
+                            set_obj_color_and_food(cell);
                         }
                     }
                 }
@@ -4057,9 +4109,9 @@ Battlebox.initializeOptions = function (option_type, options) {
     };
 
     _c.generators.sea = function (game, water_layer) {
-        var water_cells = [];
 
         var width = water_layer.width || 4;
+        var beach_width = water_layer.beach_width === undefined ? 2 : water_layer.beach_width;
         var start_x, end_x, start_y, end_y;
 
         if (water_layer.location == 'left') {
@@ -4076,23 +4128,24 @@ Battlebox.initializeOptions = function (option_type, options) {
             end_y = _c.rows(game);
         }
 
+        //TODO: Add coves and land wiggles
 
         for (var y = start_y; y < end_y; y++) {
             for (var x = start_x + y % 2; x < end_x; x += 2) {
 
                 if (_c.tile_is_traversable(game, x, y)) {
-
                     var layer = _.clone(water_layer || {});
                     layer.name = 'sea';
                     layer.x = x;
                     layer.y = y;
                     layer.water = true;
+                    layer.food = water_layer.food || [2,3,4];
                     layer.data = layer.data || [];
                     layer.data.water = true;
-                    layer.data.depth = (x - start_x) / 2;
+                    layer.data.depth = (x - start_x) / (.4 * width);
                     layer.symbol = water_layer.symbol;
                     layer.title = water_layer.title || water_layer.name;
-                    set_obj_color(layer);
+                    set_obj_color_and_food(layer);
 
                     game.cells[x][y] = layer;
 
@@ -4100,8 +4153,29 @@ Battlebox.initializeOptions = function (option_type, options) {
             }
         }
 
+        //Add beaches
+        if (water_layer.location == 'left') {
+            start_x = width * 2 + 1;
+            end_x = (width * 2) + (beach_width * 2) + 1;
+        } else if (water_layer.location == 'right') {
+            start_x = _c.cols(game) - (width * 2) - (beach_width * 2);
+            end_x = _c.cols(game) - (width * 2);
+        }
 
-        return water_cells;
+        for (var y = start_y; y < end_y; y++) {
+            for (var x = start_x + y % 2; x < end_x; x += 2) {
+                if (_c.tile_is_traversable(game, x, y)) {
+                    var layer = {};
+                    layer.name = 'beach';
+                    layer.x = x;
+                    layer.y = y;
+                    layer.food = [0,1,2];
+                    layer.color = water_layer.beach_color || ['#FEEDA0', '#F6E596', '#F9F1CE'];
+                    set_obj_color_and_food(layer);
+                    game.cells[x][y] = layer;
+                }
+            }
+        }
     };
 
     _c.generators.city = function (game, location, city_info) {
@@ -4164,24 +4238,31 @@ Battlebox.initializeOptions = function (option_type, options) {
     var _c = new Battlebox('get_private_functions');
 
     //TODO: Have a queue of plans, then when one can't complete, move to next
-    //TODO: Have strategy to find nearby loot
     //TODO: Have units on nearby fortifications and defenders to go to fortifications if possible
+
+    var terrain_weights = {
+        plains: 4,
+        desert: 6,
+        hills: 8,
+        dunes: 8,
+        mountains: 12,
+        forest: 6,
+        lake: 10,
+        sea: 20
+    };
 
     _c.tile_traversability_weight = function (game, x, y) {
         var cell = _c.tile(game, x, y);
         var weight = 0;
 
-        if (cell.name == 'plains') weight += 4;
-        if (cell.name == 'mountains') weight += 12;
-        if (cell.name == 'forest') weight += 6;
+        weight += terrain_weights[cell.name] || 0;
+
         if (cell.density == 'medium') weight += 4;
         if (cell.density == 'large') weight += 8;
-        if (cell.name == 'lake') weight += 8;
-        if (cell.name == 'sea') weight += 20;
+        if (_c.tile_has(cell, 'river')) weight += 4;
         if (_c.tile_has(cell, 'path')) weight -= 2;
         if (_c.tile_has(cell, 'road')) weight -= 4;
         if (_c.tile_has(cell, 'rail')) weight -= 8;
-        if (_c.tile_has(cell, 'river')) weight += 4;
 
         return Math.max(0, weight);
     };
@@ -4550,6 +4631,11 @@ Battlebox.initializeOptions = function (option_type, options) {
 
     var controlled_entity_id = 0;
 
+    var food_eat_ratio = .01;
+    var turns_before_dying = 2;
+    var amount_dying_when_hungry = .02;
+    var eat_each_number_of_turns = 24;
+
     //---------------
     // Combat Rules:
     //---------------
@@ -4566,25 +4652,29 @@ Battlebox.initializeOptions = function (option_type, options) {
     // Units can be entered as an array in addition to an object - to keep complex hero or unit details
     // Units move based on the speed of the slowest living unit in their force
     // Units have a goal-oriented AI that uses the information they know about
+    // Units have a carrying capacity for the amount of loot they can carry
+    // Units consume food over time, and replenish food by pillaging, looting, or foraging
+    // Units start dying off and losing morale if they don't have food
 
-    // TODO: Units have a carrying capacity for the amount of loot they can carry
-    // TODO: Units consume food over time, and replenish food by pillaging, looting, or foraging
     // TODO: Towers increase defender's vision * 1.5, range +1 if range > 1
     // TODO: Attackers with range > 1 can attack enemies in nearby squares by using some action points
+
     // TODO: When looting or pillaging land, small chance of new defenders spawning a defense force
+
     // TODO: Have units communicate with each other, sending enemy positions or storage locations, or what else?
     // TODO: Move faster over roads, and slower over water - have an action point amount to spend, and a buffer towards moving into a terrain
-    // TODO: When defeating all enemies, give n extra turns to finish pillaging
+
     // TODO: Each unit type and side can have face_options that combine to create avatars
     // TODO: Each unit has commanders in it that learn and grow, and keep array items
+    // TODO: Have unit morale based on skill of commander - every losing fight might decrease morale, every lopsided victory, pillaging, finding treasure
     // TODO: Specify a number of copies of a certain unit
     // TODO: Specify details like 'brutality' that define how to treat pillaging and prisoners
+
     // TODO: Have attacker starting side be random
-    // TODO: Have unit morale based on skill of commander - every losing fight might decrease morale, every lopsided victory, pillaging, finding treasure
+    // TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
 
     // TODO: Have icons for different units
     // TODO: SetCenter to have large map and redraw every movement
-    // TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
 
     _c.build_units_from_list = function (game, list) {
         _.each(list || [], function (unit_info, id) {
@@ -4635,6 +4725,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
             //Vision is from the unit with the highest vision
             //Speed is from teh unit with the lowest speed
+            var unit_count = 0;
             var lowest_speed = 100;
             var highest_vision = 0;
             _.each(unit.forces, function (force) {
@@ -4642,12 +4733,18 @@ Battlebox.initializeOptions = function (option_type, options) {
 
                 var sight = force.vision || force.range;
                 if (sight > highest_vision) highest_vision = sight;
+
+                unit_count += force.count;
             });
             unit.speed = lowest_speed;
             unit.vision = highest_vision;
 
             unit.data_expanded = true;
+
+            unit.pickup_loot({food: unit_count * (unit.starting_food || 1)});
         }
+
+        unit.loot = unit.loot || {};
 
         return unit;
     };
@@ -4692,63 +4789,35 @@ Battlebox.initializeOptions = function (option_type, options) {
             //TODO: consumes action points
 
             if (num_farms && !is_pillaged) {
-                unit.loot.food = unit.loot.food || 0;
-                unit.loot.herbs = unit.loot.herbs || 0;
-                unit.loot.food += (100 * num_farms);  //TODO: Random benefits based on technology and population
-                unit.loot.herbs += (20 * num_farms);
+                unit.pickup_loot({food: (100 * num_farms), herbs: (20 * num_farms)})
                 cell.additions.push('pillaged');
 
             } else if (cell.type == 'city' && !is_pillaged) {
-                unit.loot.food = unit.loot.food || 0;
-                unit.loot.wood = unit.loot.wood || 0;
-                unit.loot.metal = unit.loot.metal || 0;
-                unit.loot.skins = unit.loot.skins || 0;
-                unit.loot.food += 10;
-                unit.loot.wood += 10;
-                unit.loot.metal += 10;
-                unit.loot.skins += 10;
+                if ((cell.population > 3000) && (_c.random() > .8)) {
+                    unit.pickup_loot({gold: 1});
+                }
+                unit.pickup_loot({food: 10, wood: 10, metal: 10, skins: 10});
                 cell.additions.push('pillaged');
 
-                if ((cell.population > 3000) && (_c.random() > .8)) {
-                    unit.loot.gold = unit.loot.gold || 0;
-                    unit.loot.gold += 1;
-                }
             } else if (cell.population) {
-                unit.loot.food = unit.loot.food || 0;
-                unit.loot.food += 3;
+                unit.pickup_loot({food: 3});
                 cell.additions.push('pillaged');
             }
 
         }
-        if (unit._data.try_to_loot && (_c.tile_has(cell, 'storage') || cell.loot)) {
-            unit.loot = unit.loot || {};
-            for (var key in cell.loot) {
-                unit.loot[key] = unit.loot[key] || 0;
-                unit.loot[key] += cell.loot[key];
-                cell.loot[key] = 0;
-                //TODO: Only take as much loot as can carry
+        if (unit._data.try_to_loot && (_c.tile_has(cell, 'storage') || cell.loot || num_farms || cell.type == 'city')) {
+            if (cell.loot) {
+                cell.loot = unit.pickup_loot(cell.loot);
             }
 
             if (num_farms && !is_pillaged && !is_looted) {
-                unit.loot.food = unit.loot.food || 0;
-                unit.loot.herbs = unit.loot.herbs || 0;
-                unit.loot.food += (25 * num_farms);
-                unit.loot.herbs += (6 * num_farms);
+                unit.pickup_loot({food: (25 * num_farms), herbs: (6 * num_farms)})
 
             } else if (cell.type == 'city' && !is_looted) {
-                unit.loot.food = unit.loot.food || 0;
-                unit.loot.wood = unit.loot.wood || 0;
-                unit.loot.metal = unit.loot.metal || 0;
-                unit.loot.skins = unit.loot.skins || 0;
-                unit.loot.food += 5;
-                unit.loot.wood += 5;
-                unit.loot.metal += 5;
-                unit.loot.skins += 5;
-
                 if ((cell.population > 3000) && (_c.random() > .9)) {
-                    unit.loot.gold = unit.loot.gold || 0;
-                    unit.loot.gold += 1;
+                    unit.pickup_loot({gold: 1});
                 }
+                unit.pickup_loot({food: 5, wood: 5, metal: 5, skins: 5});
             }
             if (!is_looted) {
                 cell.additions.push('looted');
@@ -4756,7 +4825,6 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
 
     };
-
 
 
     _c.remove_entity = function (game, unit) {
@@ -4767,16 +4835,18 @@ Battlebox.initializeOptions = function (option_type, options) {
 
             var cell = _c.tile(game, x, y);
             if (cell) {
-                cell.additions = cell.additions || [];
-                cell.additions.push({name: 'unit corpse', unit: unit._data});
+                game.cells[x][y].additions = cell.additions || [];
+                game.cells[x][y].additions.push({name: 'unit corpse', unit: unit._data});
             }
             if (unit.loot) {
-                cell.loot = cell.loot || {};
+                game.cells[x][y].loot = game.cells[x][y].loot || {};
                 for (var key in unit.loot) {
-                    cell.loot[key] = cell.loot[key] || 0;
-                    cell.loot[key] += unit.loot[key];
+                    game.cells[x][y].loot[key] = game.cells[x][y].loot[key] || 0;
+                    game.cells[x][y].loot[key] += unit.loot[key];
                 }
             }
+
+            _c.update_unit_ui(game, unit);
 
             game.scheduler.remove(game.entities[entity_id]);
             game.entities = _.reject(game.entities, unit);
@@ -4971,9 +5041,89 @@ Battlebox.initializeOptions = function (option_type, options) {
     Entity.prototype.getPosition = function () {
         return {x: this.x, y: this.y};
     };
+    Entity.prototype.morale = function () {
+        //TODO: Incorporate commander skill, number of wins/losses, how hungry, brutality?
+
+    };
+
 
     Entity.prototype.act = function () {
+        //NOTE: This should always be overloaded with entity-specific actions
     };
+
+    Entity.prototype.count_forces = function () {
+        var unit = this;
+
+        var total = 0;
+        _.each(unit.forces, function (force) {
+            total += force.count;
+        });
+        return total;
+    };
+    Entity.prototype.can_carry = function (show_total) {
+        var unit = this;
+
+        var total = 0;
+        _.each(unit.forces, function (force) {
+            total += (force.count * force.carrying);
+        });
+
+        return show_total ? total : Math.max(0, total -= this.is_carrying());
+    };
+    Entity.prototype.is_carrying = function () {
+        var unit = this;
+
+        var total = 0;
+        for (var key in unit.loot) {
+            total += unit.loot[key];
+        }
+        return total;
+    };
+    Entity.prototype.pickup_loot = function (loot) {
+        var unit = this;
+        unit.loot = unit.loot || {};
+
+        var can_carry = unit.can_carry();
+        for (var key in (loot || {})) {
+            unit.loot[key] = unit.loot[key] || 0;
+
+            var picked_up = maths.clamp(loot[key], 0, can_carry);
+            can_carry -= picked_up;
+            loot[key] -= picked_up;
+            unit.loot[key] += picked_up;
+        }
+        return loot;
+    };
+    Entity.prototype.eat = function () {
+        var unit = this;
+
+        if (this._game.tick_count % eat_each_number_of_turns) return; //Eats only once every 24 turns
+
+        unit.loot = unit.loot || {};
+
+        var total_eaters = unit.count_forces();
+
+        unit.loot.food -= (total_eaters * food_eat_ratio);
+        if (unit.loot.food < 0) {
+            //Didn't have enough food.
+            unit.loot.food = 0;
+            unit.hungry = unit.hungry || 0;
+            unit.hungry++;
+
+            if (unit.hungry > turns_before_dying) {
+                //Starving, start dying off
+                _.each(unit.forces, function (force) {
+                    var starved = Math.floor(force.count * amount_dying_when_hungry);
+                    force.count -= starved;
+                    if (unit.eat_the_dead) {
+                        unit.pickup_loot({food: starved})
+                    }
+                });
+            }
+        }
+
+    };
+
 
     Entity.prototype.track_move = function (tile) {
         this.previous_tiles_visited.push(tile);
@@ -5012,6 +5162,10 @@ Battlebox.initializeOptions = function (option_type, options) {
                     if (cell.type == 'city' || _c.tile_has(cell, 'dock') || _c.tile_has(cell, 'farm') || _c.tile_has(cell, 'storage') || cell.loot) {
                         _c.raze_or_loot(game, unit, cell);
                     }
+                    if (cell.food) {
+                        var left = unit.pickup_loot({food: cell.food});
+                        cell.food = left.food || 0;
+                    }
                 }
 
                 var num_walls = 0, num_towers = 0;
@@ -5019,6 +5173,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                     //The unit is on home territory
                     num_walls = _c.tile_has(cell, 'wall', true);
                     num_towers = _c.tile_has(cell, 'tower', true);
+                    unit.pickup_loot({food: unit.count_forces() * food_eat_ratio * (1 / eat_each_number_of_turns)});
                 }
                 unit.protected_by_walls = num_walls;
                 unit.in_towers = num_towers;
@@ -5073,6 +5228,8 @@ Battlebox.initializeOptions = function (option_type, options) {
         var unit = this;
         var game = unit._game;
 
+
+        unit.eat();
 
         var plan = unit._data.plan || 'seek closest';
         var options, target_status;
@@ -5143,7 +5300,6 @@ Battlebox.initializeOptions = function (option_type, options) {
             _c.movement_strategies.avoid(game, unit, target_status, options);
 
         } else if (plan == 'invade city') {
-            //TODO: If no enemies and close to city, then try to loot and pillage
             var location = _.find(game.data.buildings, function (b) {
                 return b.type == 'city' || b.type == 'city2'
             });

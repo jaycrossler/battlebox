@@ -29,7 +29,7 @@
     // Units consume food over time, and replenish food by pillaging, looting, or foraging
     // Units start dying off and losing morale if they don't have food
 
-    // TODO: Towers increase defender's vision * 1.5, range +1 if range > 1
+    // TODO: Towers increase defender's vision +2, range +1 if range > 1
     // TODO: Attackers with range > 1 can attack enemies in nearby squares by using some action points
 
     // TODO: When looting or pillaging land, small chance of new defenders spawning a defense force
@@ -239,21 +239,19 @@
         unit._data.goals = unit._data.goals || {};
 
         //TODO: Add in knowledge - where is a town or storage area or friendly unit
-        //TODO: Consider current cell if need to stay here for tower/wall
 
         var current_cell = _c.tile(game, unit.x, unit.y);
 
-        if (unit._data.goals.weak_enemies || unit._data.goals.all_enemies) {
-            var options = {
-                side: 'enemy',
-                range: range,
-                return_multiple: true
-            };
-            var close_enemies = _c.find_unit_by_filters(game, unit, options);
-        }
+        var options = {
+            range: range,
+            return_multiple: true
+        };
+        var close_entities = _c.find_unit_by_filters(game, unit, options);
 
-        var neighbors = _c.surrounding_tiles(game, unit.x, unit.y, range);
+
+        var neighbors = [current_cell].concat(_c.surrounding_tiles(game, unit.x, unit.y, range, true));
         var weighted_neighbors = [];
+        var current_cell_weight = 0;
         _.each(neighbors, function (neighbor) {
             var points = 0;
 
@@ -272,20 +270,40 @@
             points += (is_farm * (unit._data.goals.farm || 0));
             points += (is_populated * (unit._data.goals.population || 0));
 
-            //TODO - friendly_units, weak_enemies
+            //TODO: How to incorporate weakness of enemy? Have a running power total?
 
-            if (close_enemies.target.length && (unit._data.goals.weak_enemies || unit._data.goals.all_enemies)) {
-                var enemies_here = _.filter(close_enemies.target, function (enemy) {
-                    return (enemy.x == neighbor.x) && (enemy.y == neighbor.y) && !enemy.is_dead;
+            //Modify for enemies if that matters
+            if (close_entities.target.length && (unit._data.goals.weak_enemies || unit._data.goals.all_enemies)) {
+                var enemies_here = _.filter(close_entities.target, function (enemy) {
+                    return (unit._data.side != enemy._data.side) && (enemy.x == neighbor.x) && (enemy.y == neighbor.y) && !enemy.is_dead;
                 });
                 points += (enemies_here.length * Math.min(unit._data.goals.all_enemies, 2));
-                //TODO: How to incorporate weakness of enemy? Have a running power total?
+            }
+            //Modify for friends if that matters (negative to stay away from friends, positive to follow)
+            if (close_entities.target.length && unit._data.goals.friendly_units) {
+                var friendly_units = _.filter(close_entities.target, function (friend) {
+                    return (unit._data.side == friend._data.side) && (friend.x == neighbor.x) && (friend.y == neighbor.y) && !friend.is_dead;
+                });
+                points += (friendly_units.length * Math.min(unit._data.goals.friendly_units, 2));
             }
 
-            if (points > 0) {
-                points -= unit.times_moved_to_tile(neighbor.x, neighbor.y);
+            //Modify for exploration - will move away from cells
+            if (unit._data.goals.explore && points > 0) {
+                points -= (unit.times_moved_to_tile(neighbor.x, neighbor.y) * unit._data.goals.explore);
             }
 
+            //Reduce points by distance
+            points -= 2 * Math.max(0, (neighbor.ring || 0) - (unit._data.goals.explore || 0));
+
+            //Update the waypoint value to be up to date (if you can see it)
+            if (unit.waypoint && unit.waypoint.x == neighbor.x && unit.waypoint.y == neighbor.y) {
+                unit.waypoint_weight = points;
+            }
+            if (unit.x == neighbor.x && unit.y == neighbor.y) {
+                current_cell_weight = points;
+            }
+
+            //Only consider cells that are better than current mission
             var point_target = unit.waypoint_weight || 0;
             if (points > point_target) {
                 weighted_neighbors.push({x: neighbor.x, y: neighbor.y, weight: points});
@@ -298,28 +316,35 @@
             best_cell = unit.waypoint;
         } else if (weighted_neighbors.length > 0) {
             //Sort to find highest points
-            //TODO: Randomly pick one if highest is a tie
             weighted_neighbors.sort(function (a, b) {
-                //TODO: Incorporate distance
                 return a.weight - b.weight;
             });
+
+            best_cell = _.last(weighted_neighbors);
+
+            //Randomly pick one if highest is a tie.  NOTE: Sometimes this is better, sometimes not
+            weighted_neighbors = _.filter(weighted_neighbors, function (neighbor) {
+                return neighbor.weight == best_cell.weight;
+            });
+            best_cell = weighted_neighbors.random();
         }
 
         //TODO: Send message to others that there are important points or that a point is being taken care of?
 
+        //Find the last weighted cell, and move there if it has more points than current cell
         if (weighted_neighbors && weighted_neighbors.length) {
-            best_cell = _.last(weighted_neighbors);
             if (!best_cell.weight) {
                 best_cell = false;
-            }
-            if ((best_cell.x == current_cell.x) && (best_cell.y == current_cell.y)) {
+            } else if (best_cell.weight <= current_cell_weight) {
+                best_cell = false;
+            } else if ((best_cell.x == current_cell.x) && (best_cell.y == current_cell.y)) {
                 best_cell = false;
             }
         }
 
-        var enemy_here = _.find(close_enemies.target, function (enemy) {
+        var enemy_here = _.find(close_entities.target, function (enemy) {
             //TODO: Either find by weakest or strongest by options
-            return (enemy.x == unit.x) && (enemy.y == unit.y);
+            return (unit._data.side != enemy._data.side) && (enemy.x == unit.x) && (enemy.y == unit.y);
         });
 
         //Closest cell with most points
@@ -694,7 +719,7 @@
                 side: 'enemy',
                 filter: 'closest',
                 range: 8,
-                stop_if_cell_has: ['tower', 'wall'],
+                //stop_if_cell_has: ['tower', 'wall'],
                 when_arrive: 'goal based',
                 plan: plan,
                 backup_strategy: unit._data.backup_strategy
