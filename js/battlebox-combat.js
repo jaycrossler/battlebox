@@ -7,6 +7,12 @@
     _c.battle = {};
     _c.battle.fight = function (game, attacker, defender) {
 
+        //Slow down game clock if set
+        if (game.game_options.delay_to_set_on_battle !== undefined) {
+            game.game_options.delay_between_ticks = game.game_options.delay_to_set_on_battle;
+            game.game_options.reset_clock_to_default_at = game.data.tick_count + 8;
+        }
+
         var attacker_strength = 0;
         var attacker_defense = 0;
         _.each(attacker.forces, function (force) {
@@ -22,6 +28,16 @@
             defender_defense += (force.count || 1) * (force.defense || 1);
             force.mode = 'defending';
         });
+
+        //TODO: Run away if weaker?
+        //TODO: Incorporate range weapons?
+
+        if (defender_defense < attacker_strength) {
+            defender.tell_friends_about({message: "Strong Enemy Attacking", location: {x: defender.x, y: defender.y}});
+        }
+        if (attacker_defense < defender_strength) {
+            attacker.tell_friends_about({message: "Strong Enemy Defending", location: {x: defender.x, y: defender.y}});
+        }
 
 
         //Sort from fastest to slowest
@@ -159,6 +175,8 @@
         var a_lost = a_count - a_count_after;
         var d_lost = d_count - d_count_after;
 
+        attacker.reset_bonuses();
+        defender.reset_bonuses();
 
         if (d_lost >= a_lost) {
             message = a_msg + " WINS attacking " + d_msg;

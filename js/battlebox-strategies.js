@@ -236,7 +236,7 @@
         var options_scan = {
             side: 'enemy',
             filter: 'closest',
-            range: unit.vision || unit.range || 3,
+            range: unit.vision_range(),
             plan: 'seek closest',
             backup_strategy: unit._data.backup_strategy
         };
@@ -304,7 +304,7 @@
             options = {
                 side: 'enemy',
                 filter: 'closest',
-                range: unit.vision || unit.range || 3,
+                range: unit.vision_range(),
                 plan: 'seek closest',
                 backup_strategy: unit._data.backup_strategy
             };
@@ -318,7 +318,7 @@
         }
 
         var moves = false;
-        if (path.length <= (unit.vision || unit.range || 3)) {
+        if (path.length <= unit.vision_range()) {
             if (options.when_arrive) {
                 //TODO: Skips one turn, fix. maybe call unit.execute_plan();
                 unit._data.plan = options.when_arrive;
@@ -327,7 +327,7 @@
                 options = {
                     side: 'enemy',
                     filter: 'closest',
-                    range: unit.vision || unit.range || 3,
+                    range: unit.vision_range(),
                     plan: 'invade city',
                     backup_strategy: unit._data.backup_strategy
                 };

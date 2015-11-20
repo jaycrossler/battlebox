@@ -14,7 +14,8 @@
         arrays_to_map_to_objects: ''.split(','),
         arrays_to_map_to_arrays: 'terrain_options,water_options,forces,buildings'.split(','),
 
-        delay_between_ticks: 250,
+        delay_between_ticks: 20,
+        delay_to_set_on_battle: 500,
         log_level_to_show: 4,
 
         cols: 260,
@@ -33,6 +34,7 @@
                 face_options: {rand_seed: 42, race: 'Human'}, //TODO
                 morale: 10,  //TODO
                 communication_speed: 1, //TODO
+                communication_range: 10,
                 try_to_loot: true, try_to_pillage: true,
                 starting_food: 5,
                 goals: {

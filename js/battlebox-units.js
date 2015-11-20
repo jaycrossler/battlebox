@@ -28,8 +28,8 @@
     // Units have a carrying capacity for the amount of loot they can carry
     // Units consume food over time, and replenish food by pillaging, looting, or foraging
     // Units start dying off and losing morale if they don't have food
+    // Towers increase defender's vision +2, range +1 if range > 1
 
-    // TODO: Towers increase defender's vision +2, range +1 if range > 1
     // TODO: Attackers with range > 1 can attack enemies in nearby squares by using some action points
 
     // TODO: When looting or pillaging land, small chance of new defenders spawning a defense force
@@ -59,6 +59,8 @@
     };
     _c.add_screen_scheduler = function (game) {
         game.scheduler.add(new TimeKeeper(game), true);
+
+        game.game_options.original_clock_time = game.game_options.delay_between_ticks;
     };
 
     _c.create_unit = function (game, unit_info, id) {
@@ -98,26 +100,13 @@
 
             //Vision is from the unit with the highest vision
             //Speed is from teh unit with the lowest speed
-            var unit_count = 0;
-            var lowest_speed = 100;
-            var highest_vision = 0;
-            _.each(unit.forces, function (force) {
-                if (force.speed < lowest_speed) lowest_speed = force.speed;
+            unit.reset_bonuses();
 
-                var sight = force.vision || force.range;
-                if (sight > highest_vision) highest_vision = sight;
-
-                unit_count += force.count;
-            });
-            unit.speed = lowest_speed;
-            unit.vision = highest_vision;
-
-            unit.data_expanded = true;
-
-            unit.pickup_loot({food: unit_count * (unit.starting_food || 1)});
+            unit.pickup_loot({food: unit.unit_count * (unit.starting_food || 1)});
         }
 
         unit.loot = unit.loot || {};
+        unit.knowledge = [];
 
         return unit;
     };
@@ -196,7 +185,6 @@
                 cell.additions.push('looted');
             }
         }
-
     };
 
 
@@ -235,7 +223,7 @@
      * @returns {object} tile hex cell that best matches goals
      */
     _c.find_tile_by_unit_goals = function (game, unit) {
-        var range = unit.vision || unit.range || 3;
+        var range = unit.vision_range();
         unit._data.goals = unit._data.goals || {};
 
         //TODO: Add in knowledge - where is a town or storage area or friendly unit
@@ -295,9 +283,9 @@
             //Reduce points by distance
             points -= 2 * Math.max(0, (neighbor.ring || 0) - (unit._data.goals.explore || 0));
 
-            //Update the waypoint value to be up to date (if you can see it)
+            //Update the waypoint value to be closer to up to date (if you can see it)
             if (unit.waypoint && unit.waypoint.x == neighbor.x && unit.waypoint.y == neighbor.y) {
-                unit.waypoint_weight = points;
+                unit.waypoint_weight = Math.round((unit.waypoint_weight + unit.waypoint_weight + points) / 3);
             }
             if (unit.x == neighbor.x && unit.y == neighbor.y) {
                 current_cell_weight = points;
@@ -372,6 +360,11 @@
         }
 
         game.data.tick_count++;
+
+        if (game.game_options.original_clock_time && (game.game_options.reset_clock_to_default_at < game.data.tick_count)) {
+            game.game_options.reset_clock_to_default_at = null;
+            game.game_options.delay_between_ticks = game.game_options.original_clock_time;
+        }
 
         _c.update_ui_display(game);
 
@@ -449,6 +442,37 @@
         //NOTE: This should always be overloaded with entity-specific actions
     };
 
+    Entity.prototype.vision_range = function () {
+        var unit = this;
+        var range = unit.vision || unit.range || 3;
+
+        var tile = unit.tile_on();
+        if (_c.tile_has(tile, 'tower')) range += 2;
+
+        return range;
+    };
+    Entity.prototype.attack_range = function () {
+        var unit = this;
+        var range = unit.range || 1;
+
+        var is_ranged = (unit.ranged_strength) || (unit.range > 1);
+
+        if (is_ranged) {
+            var tile = unit.tile_on();
+            if (_c.tile_has(tile, 'tower')) range++;
+        }
+        return range;
+    };
+
+
+    Entity.prototype.tile_on = function () {
+        var unit = this;
+        if (unit.is_dead) {
+            return false;
+        } else {
+            return _c.tile(unit._game, unit.x, unit.y);
+        }
+    };
     Entity.prototype.count_forces = function () {
         var unit = this;
 
@@ -519,7 +543,6 @@
                 });
             }
         }
-
     };
 
 
@@ -533,6 +556,56 @@
             return (tile.x == x) && (tile.y == y);
         });
         return visited.length;
+    };
+    Entity.prototype.reset_bonuses = function () {
+        var unit = this;
+
+        var lowest_speed = 100;
+        var highest_vision = 0;
+        var unit_count = 0;
+        var attacker_strength = 0;
+        var attacker_defense = 0;
+
+        _.each(unit.forces, function (force) {
+            if (force.speed < lowest_speed) lowest_speed = force.speed;
+
+            var sight = force.vision || force.range;
+            if (sight > highest_vision) highest_vision = sight;
+
+            unit_count += force.count || 1;
+
+            attacker_strength += unit_count * (force.strength || 1);
+            attacker_defense += unit_count * (force.defense || 1);
+        });
+        unit.speed = lowest_speed;
+        unit.vision = highest_vision;
+        unit.unit_count = unit_count;
+        unit.base_strength = attacker_strength;
+        unit.base_defense = attacker_defense;
+    };
+    Entity.prototype.tell_friends_about = function (message) {
+        var unit = this;
+        var friends_in_range = _c.find_unit_by_filters(unit._game, unit, {
+            side: 'friend',
+            range: unit.communication_range,
+            return_multiple: true
+        });
+
+        _.each(friends_in_range.target, function (friend) {
+            friend.learn_about(message, unit);
+        })
+    };
+    Entity.prototype.learn_about = function (message, sender) {
+        var unit = this;
+        unit.knowledge.push({message: message, sender: sender, time: unit._game.data.tick_count});
+        console.log(unit._symbol + " learned about " + JSON.stringify(message) + " from " + sender._symbol);
+        //TODO: Apply some time filters to delay learning
+
+        if (message.message == 'Strong Enemy Attacking' || message.message == 'Strong Enemy Defending') {
+            unit.waypoint = _c.tile(unit._game, message.location.x, message.location.y);
+            unit.waypoint_weight = 1000;
+        }
+
     };
     Entity.prototype.try_to_move_to_and_draw = function (x, y) {
         var game = this._game;
