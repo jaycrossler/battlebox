@@ -78,7 +78,7 @@
             {name: 'lake', density: 'medium', location: 'left', food: [1, 2, 3]},
             {name: 'lake2', density: 'large', location: 'mid left', food: [2, 3]},
             {name: 'lake', density: 'small', location: 'mid right', symbol: '~', food: [2, 3, 4]},
-            {name: 'sea', location: 'right', width: 5, food: [4, 5, 6, 7], beach_width: 1},
+            {name: 'sea', location: 'right', width: 5, food: [4, 5, 6, 7], beach_width: 3},
             {name: 'river', density: 'small', thickness: 1, food: [2, 3], location: 'mid left'},
             {name: 'river', title: 'Snake River', density: 'medium', thickness: 2, food: [3, 4], location: 'center'}
         ],

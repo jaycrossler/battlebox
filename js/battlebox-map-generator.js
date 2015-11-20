@@ -1447,10 +1447,9 @@
     };
 
     _c.generators.sea = function (game, water_layer) {
-        var water_cells = [];
 
         var width = water_layer.width || 4;
-        var beach_width = water_layer.beach_width || 2;
+        var beach_width = water_layer.beach_width === undefined ? 2 : water_layer.beach_width;
         var start_x, end_x, start_y, end_y;
 
         if (water_layer.location == 'left') {
@@ -1468,18 +1467,17 @@
         }
 
         //TODO: Add coves and land wiggles
-        //TODO: Add sand for beach_width
 
         for (var y = start_y; y < end_y; y++) {
             for (var x = start_x + y % 2; x < end_x; x += 2) {
 
                 if (_c.tile_is_traversable(game, x, y)) {
-
                     var layer = _.clone(water_layer || {});
                     layer.name = 'sea';
                     layer.x = x;
                     layer.y = y;
                     layer.water = true;
+                    layer.food = water_layer.food || [2, 3, 4];
                     layer.data = layer.data || [];
                     layer.data.water = true;
                     layer.data.depth = (x - start_x) / (.4 * width);
@@ -1493,8 +1491,29 @@
             }
         }
 
+        //Add beaches
+        if (water_layer.location == 'left') {
+            start_x = width * 2 + 1;
+            end_x = (width * 2) + (beach_width * 2) + 1;
+        } else if (water_layer.location == 'right') {
+            start_x = _c.cols(game) - (width * 2) - (beach_width * 2);
+            end_x = _c.cols(game) - (width * 2);
+        }
 
-        return water_cells;
+        for (var y = start_y; y < end_y; y++) {
+            for (var x = start_x + y % 2; x < end_x; x += 2) {
+                if (_c.tile_is_traversable(game, x, y)) {
+                    var layer = {};
+                    layer.name = 'beach';
+                    layer.x = x;
+                    layer.y = y;
+                    layer.food = [0, 1, 2];
+                    layer.color = water_layer.beach_color || ['#FEEDA0', '#F6E596', '#F9F1CE'];
+                    set_obj_color_and_food(layer);
+                    game.cells[x][y] = layer;
+                }
+            }
+        }
     };
 
     _c.generators.city = function (game, location, city_info) {

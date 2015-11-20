@@ -124,6 +124,15 @@ $(function () {
                 symbol: ''
             },
             {
+                name: 'mountains',
+                density: 'small',
+                food: [0, 1],
+                not_center: true,
+                color: ['#b1c3c3', '#b3c4c4', '#8b999c'],
+                impassable: true
+            },
+
+            {
                 name: 'dunes',
                 density: 'sparse',
                 food: [0, 1],
