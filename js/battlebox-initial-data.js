@@ -14,7 +14,7 @@
         arrays_to_map_to_objects: ''.split(','),
         arrays_to_map_to_arrays: 'terrain_options,water_options,forces,buildings'.split(','),
 
-        delay_between_ticks: 50,
+        delay_between_ticks: 250,
         log_level_to_show: 4,
 
         cols: 260,
@@ -34,21 +34,31 @@
                 morale: 10,  //TODO
                 communication_speed: 1, //TODO
                 try_to_loot: true, try_to_pillage: true,
-                goals: {weak_enemies: 7, loot: 3, all_enemies: 4, city: 2, friendly_units: 2, farm: 1, population: 1}
+                starting_food: 5,
+                goals: {weak_enemies: 7, loot: 3, all_enemies: 4, city: 2, friendly_units: -2, farm: 1, population: 1}
             },
             {
                 side: 'White', home_city: 'Anchorage', face_options: {race: 'Elf'},
                 plan: 'defend city', backup_strategy: 'vigilant', morale: 15,
-                goals: {weak_enemies: 7, towers: 6, walls: 5, all_enemies: 4, city: 3}
+                starting_food: 5,
+                goals: {weak_enemies: 7, towers: 6, walls: 5, all_enemies: 4, city: 3, friendly_units: -4}
             }
         ],
 
         terrain_options: [
-            {name: 'plains', ground: true, draw_type: 'flat', color: ["#d0efc6", "#cfefc6", "#d1eec6"], symbol: ''},
+            {
+                name: 'plains',
+                ground: true,
+                draw_type: 'flat',
+                food: [3, 4, 5],
+                color: ["#d0efc6", "#cfefc6", "#d1eec6"],
+                symbol: ''
+            },
             {
                 name: 'mountains',
                 density: 'medium',
                 smoothness: 3,
+                food: [0, 1],
                 not_center: true,
                 color: ['#b1c3c3', '#b3c4c4', '#8b999c'],
                 impassable: true,
@@ -57,6 +67,7 @@
             {
                 name: 'forest',
                 density: 'sparse',
+                food: [5, 6],
                 color: ['#85a982', '#7B947A', '#83A283'],
                 data: {movement: 'slow'},
                 symbol: ' '
@@ -64,20 +75,17 @@
         ],
 
         water_options: [
-            {name: 'lake', density: 'medium', location: 'left'},
-            {name: 'lake2', density: 'large', location: 'mid left'},
-            {name: 'lake', density: 'small', location: 'mid right', symbol: '~'},
-            {name: 'sea', location: 'right', width: 5},
-            {name: 'river', density: 'small', thickness: 1, location: 'mid left'},
-//            {name:'river', density:'small', thickness:1, location:'mid right'},
-//            {name:'river', title: 'Snake River', density:'medium', thickness:2, location:'center'},
-            {name: 'river', title: 'Snake River', density: 'medium', thickness: 2, location: 'center'}
+            {name: 'lake', density: 'medium', location: 'left', food: [1, 2, 3]},
+            {name: 'lake2', density: 'large', location: 'mid left', food: [2, 3]},
+            {name: 'lake', density: 'small', location: 'mid right', symbol: '~', food: [2, 3, 4]},
+            {name: 'sea', location: 'right', width: 5, food: [4, 5, 6, 7], beach_width: 1},
+            {name: 'river', density: 'small', thickness: 1, food: [2, 3], location: 'mid left'},
+            {name: 'river', title: 'Snake River', density: 'medium', thickness: 2, food: [3, 4], location: 'center'}
         ],
 
         forces: [
             {
                 name: 'Attacker Main Army', side: 'Yellow', location: 'left', player: true,
-                //goals: {weak_enemies: 6, loot: 4, all_enemies: 7, explore: 2, city: 3},
                 troops: {soldiers: 520, cavalry: 230, siege: 50}
             },
             {
@@ -220,6 +228,20 @@
                 weapon: 'catapults',
                 carrying: 1
             },
+            {
+                name: 'zombies',
+                title: 'zombie swarm',
+                side: 'all',
+                eat_the_dead: true,
+                range: 1,
+                vision: 2,
+                speed: 20,
+                strength: 3,
+                defense: .5,
+                weapon: 'bites',
+                carrying: 1
+            },
+
             {
                 name: 'adult_dragon',
                 side: 'all',

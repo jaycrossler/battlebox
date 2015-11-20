@@ -14,6 +14,7 @@ $(function () {
     var forts = Helpers.getQueryVariable('forts');
     var tightness = Helpers.getQueryVariable('tightness');
     var placement = Helpers.getQueryVariable('placement');
+    var desert = Helpers.getQueryVariable('desert');
 
     function custom_color_hex(game, cell, text, color, bg) {
         if (text == " ") {
@@ -110,6 +111,34 @@ $(function () {
                 starting_angle: 0
             });
         }
+    }
+
+    if (desert) {
+        game_options.terrain_options = [
+            {
+                name: 'desert',
+                ground: true,
+                draw_type: 'flat',
+                food: 0,
+                color: ['#CC7917', '#CB6810'],
+                symbol: ''
+            },
+            {
+                name: 'dunes',
+                density: 'sparse',
+                food: [0, 1],
+                color: ['#935614', '#A45A0A'],
+                symbol: ' '
+            }
+        ];
+
+        game_options.water_options = [
+            {name: 'lake', density: 'small'},
+            {name: 'lake', density: 'small'},
+            {name: 'sea', location: 'right', width: 15}
+        ]
+
+
     }
 
     battlebox = new Battlebox({rand_seed:land_seed || 42, fight_seed: fight_seed});

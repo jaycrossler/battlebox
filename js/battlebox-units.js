@@ -4,6 +4,11 @@
 
     var controlled_entity_id = 0;
 
+    var food_eat_ratio = .01;
+    var turns_before_dying = 2;
+    var amount_dying_when_hungry = .02;
+    var eat_each_number_of_turns = 24;
+
     //---------------
     // Combat Rules:
     //---------------
@@ -20,25 +25,29 @@
     // Units can be entered as an array in addition to an object - to keep complex hero or unit details
     // Units move based on the speed of the slowest living unit in their force
     // Units have a goal-oriented AI that uses the information they know about
+    // Units have a carrying capacity for the amount of loot they can carry
+    // Units consume food over time, and replenish food by pillaging, looting, or foraging
+    // Units start dying off and losing morale if they don't have food
 
-    // TODO: Units have a carrying capacity for the amount of loot they can carry
-    // TODO: Units consume food over time, and replenish food by pillaging, looting, or foraging
     // TODO: Towers increase defender's vision * 1.5, range +1 if range > 1
     // TODO: Attackers with range > 1 can attack enemies in nearby squares by using some action points
+
     // TODO: When looting or pillaging land, small chance of new defenders spawning a defense force
+
     // TODO: Have units communicate with each other, sending enemy positions or storage locations, or what else?
     // TODO: Move faster over roads, and slower over water - have an action point amount to spend, and a buffer towards moving into a terrain
-    // TODO: When defeating all enemies, give n extra turns to finish pillaging
+
     // TODO: Each unit type and side can have face_options that combine to create avatars
     // TODO: Each unit has commanders in it that learn and grow, and keep array items
+    // TODO: Have unit morale based on skill of commander - every losing fight might decrease morale, every lopsided victory, pillaging, finding treasure
     // TODO: Specify a number of copies of a certain unit
     // TODO: Specify details like 'brutality' that define how to treat pillaging and prisoners
+
     // TODO: Have attacker starting side be random
-    // TODO: Have unit morale based on skill of commander - every losing fight might decrease morale, every lopsided victory, pillaging, finding treasure
+    // TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
 
     // TODO: Have icons for different units
     // TODO: SetCenter to have large map and redraw every movement
-    // TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path
 
     _c.build_units_from_list = function (game, list) {
         _.each(list || [], function (unit_info, id) {
@@ -89,6 +98,7 @@
 
             //Vision is from the unit with the highest vision
             //Speed is from teh unit with the lowest speed
+            var unit_count = 0;
             var lowest_speed = 100;
             var highest_vision = 0;
             _.each(unit.forces, function (force) {
@@ -96,12 +106,18 @@
 
                 var sight = force.vision || force.range;
                 if (sight > highest_vision) highest_vision = sight;
+
+                unit_count += force.count;
             });
             unit.speed = lowest_speed;
             unit.vision = highest_vision;
 
             unit.data_expanded = true;
+
+            unit.pickup_loot({food: unit_count * (unit.starting_food || 1)});
         }
+
+        unit.loot = unit.loot || {};
 
         return unit;
     };
@@ -146,63 +162,35 @@
             //TODO: consumes action points
 
             if (num_farms && !is_pillaged) {
-                unit.loot.food = unit.loot.food || 0;
-                unit.loot.herbs = unit.loot.herbs || 0;
-                unit.loot.food += (100 * num_farms);  //TODO: Random benefits based on technology and population
-                unit.loot.herbs += (20 * num_farms);
+                unit.pickup_loot({food: (100 * num_farms), herbs: (20 * num_farms)})
                 cell.additions.push('pillaged');
 
             } else if (cell.type == 'city' && !is_pillaged) {
-                unit.loot.food = unit.loot.food || 0;
-                unit.loot.wood = unit.loot.wood || 0;
-                unit.loot.metal = unit.loot.metal || 0;
-                unit.loot.skins = unit.loot.skins || 0;
-                unit.loot.food += 10;
-                unit.loot.wood += 10;
-                unit.loot.metal += 10;
-                unit.loot.skins += 10;
+                if ((cell.population > 3000) && (_c.random() > .8)) {
+                    unit.pickup_loot({gold: 1});
+                }
+                unit.pickup_loot({food: 10, wood: 10, metal: 10, skins: 10});
                 cell.additions.push('pillaged');
 
-                if ((cell.population > 3000) && (_c.random() > .8)) {
-                    unit.loot.gold = unit.loot.gold || 0;
-                    unit.loot.gold += 1;
-                }
             } else if (cell.population) {
-                unit.loot.food = unit.loot.food || 0;
-                unit.loot.food += 3;
+                unit.pickup_loot({food: 3});
                 cell.additions.push('pillaged');
             }
 
         }
-        if (unit._data.try_to_loot && (_c.tile_has(cell, 'storage') || cell.loot)) {
-            unit.loot = unit.loot || {};
-            for (var key in cell.loot) {
-                unit.loot[key] = unit.loot[key] || 0;
-                unit.loot[key] += cell.loot[key];
-                cell.loot[key] = 0;
-                //TODO: Only take as much loot as can carry
+        if (unit._data.try_to_loot && (_c.tile_has(cell, 'storage') || cell.loot || num_farms || cell.type == 'city')) {
+            if (cell.loot) {
+                cell.loot = unit.pickup_loot(cell.loot);
             }
 
             if (num_farms && !is_pillaged && !is_looted) {
-                unit.loot.food = unit.loot.food || 0;
-                unit.loot.herbs = unit.loot.herbs || 0;
-                unit.loot.food += (25 * num_farms);
-                unit.loot.herbs += (6 * num_farms);
+                unit.pickup_loot({food: (25 * num_farms), herbs: (6 * num_farms)})
 
             } else if (cell.type == 'city' && !is_looted) {
-                unit.loot.food = unit.loot.food || 0;
-                unit.loot.wood = unit.loot.wood || 0;
-                unit.loot.metal = unit.loot.metal || 0;
-                unit.loot.skins = unit.loot.skins || 0;
-                unit.loot.food += 5;
-                unit.loot.wood += 5;
-                unit.loot.metal += 5;
-                unit.loot.skins += 5;
-
                 if ((cell.population > 3000) && (_c.random() > .9)) {
-                    unit.loot.gold = unit.loot.gold || 0;
-                    unit.loot.gold += 1;
+                    unit.pickup_loot({gold: 1});
                 }
+                unit.pickup_loot({food: 5, wood: 5, metal: 5, skins: 5});
             }
             if (!is_looted) {
                 cell.additions.push('looted');
@@ -210,7 +198,6 @@
         }
 
     };
-
 
 
     _c.remove_entity = function (game, unit) {
@@ -221,16 +208,18 @@
 
             var cell = _c.tile(game, x, y);
             if (cell) {
-                cell.additions = cell.additions || [];
-                cell.additions.push({name: 'unit corpse', unit: unit._data});
+                game.cells[x][y].additions = cell.additions || [];
+                game.cells[x][y].additions.push({name: 'unit corpse', unit: unit._data});
             }
             if (unit.loot) {
-                cell.loot = cell.loot || {};
+                game.cells[x][y].loot = game.cells[x][y].loot || {};
                 for (var key in unit.loot) {
-                    cell.loot[key] = cell.loot[key] || 0;
-                    cell.loot[key] += unit.loot[key];
+                    game.cells[x][y].loot[key] = game.cells[x][y].loot[key] || 0;
+                    game.cells[x][y].loot[key] += unit.loot[key];
                 }
             }
+
+            _c.update_unit_ui(game, unit);
 
             game.scheduler.remove(game.entities[entity_id]);
             game.entities = _.reject(game.entities, unit);
@@ -425,9 +414,89 @@
     Entity.prototype.getPosition = function () {
         return {x: this.x, y: this.y};
     };
+    Entity.prototype.morale = function () {
+        //TODO: Incorporate commander skill, number of wins/losses, how hungry, brutality?
+
+    };
+
 
     Entity.prototype.act = function () {
+        //NOTE: This should always be overloaded with entity-specific actions
     };
+
+    Entity.prototype.count_forces = function () {
+        var unit = this;
+
+        var total = 0;
+        _.each(unit.forces, function (force) {
+            total += force.count;
+        });
+        return total;
+    };
+    Entity.prototype.can_carry = function (show_total) {
+        var unit = this;
+
+        var total = 0;
+        _.each(unit.forces, function (force) {
+            total += (force.count * force.carrying);
+        });
+
+        return show_total ? total : Math.max(0, total -= this.is_carrying());
+    };
+    Entity.prototype.is_carrying = function () {
+        var unit = this;
+
+        var total = 0;
+        for (var key in unit.loot) {
+            total += unit.loot[key];
+        }
+        return total;
+    };
+    Entity.prototype.pickup_loot = function (loot) {
+        var unit = this;
+        unit.loot = unit.loot || {};
+
+        var can_carry = unit.can_carry();
+        for (var key in (loot || {})) {
+            unit.loot[key] = unit.loot[key] || 0;
+
+            var picked_up = maths.clamp(loot[key], 0, can_carry);
+            can_carry -= picked_up;
+            loot[key] -= picked_up;
+            unit.loot[key] += picked_up;
+        }
+        return loot;
+    };
+    Entity.prototype.eat = function () {
+        var unit = this;
+
+        if (this._game.tick_count % eat_each_number_of_turns) return; //Eats only once every 24 turns
+
+        unit.loot = unit.loot || {};
+
+        var total_eaters = unit.count_forces();
+
+        unit.loot.food -= (total_eaters * food_eat_ratio);
+        if (unit.loot.food < 0) {
+            //Didn't have enough food.
+            unit.loot.food = 0;
+            unit.hungry = unit.hungry || 0;
+            unit.hungry++;
+
+            if (unit.hungry > turns_before_dying) {
+                //Starving, start dying off
+                _.each(unit.forces, function (force) {
+                    var starved = Math.floor(force.count * amount_dying_when_hungry);
+                    force.count -= starved;
+                    if (unit.eat_the_dead) {
+                        unit.pickup_loot({food: starved})
+                    }
+                });
+            }
+        }
+
+    };
+
 
     Entity.prototype.track_move = function (tile) {
         this.previous_tiles_visited.push(tile);
@@ -466,6 +535,10 @@
                     if (cell.type == 'city' || _c.tile_has(cell, 'dock') || _c.tile_has(cell, 'farm') || _c.tile_has(cell, 'storage') || cell.loot) {
                         _c.raze_or_loot(game, unit, cell);
                     }
+                    if (cell.food) {
+                        var left = unit.pickup_loot({food: cell.food});
+                        cell.food = left.food || 0;
+                    }
                 }
 
                 var num_walls = 0, num_towers = 0;
@@ -473,6 +546,7 @@
                     //The unit is on home territory
                     num_walls = _c.tile_has(cell, 'wall', true);
                     num_towers = _c.tile_has(cell, 'tower', true);
+                    unit.pickup_loot({food: unit.count_forces() * food_eat_ratio * (1 / eat_each_number_of_turns)});
                 }
                 unit.protected_by_walls = num_walls;
                 unit.in_towers = num_towers;
@@ -527,6 +601,8 @@
         var unit = this;
         var game = unit._game;
 
+
+        unit.eat();
 
         var plan = unit._data.plan || 'seek closest';
         var options, target_status;
@@ -597,7 +673,6 @@
             _c.movement_strategies.avoid(game, unit, target_status, options);
 
         } else if (plan == 'invade city') {
-            //TODO: If no enemies and close to city, then try to loot and pillage
             var location = _.find(game.data.buildings, function (b) {
                 return b.type == 'city' || b.type == 'city2'
             });

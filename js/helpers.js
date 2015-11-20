@@ -391,7 +391,8 @@ Helpers.randomLetters = function (n) {
     }
     return out;
 };
-Helpers.pluralize = function (str) {
+Helpers.pluralize = function (str, number) {
+    if ((number !== undefined) && (Math.abs(number) == 1)) return;
     if (str === undefined) return str;
     var uncountable_words = [
         'equipment', 'information', 'rice', 'money', 'species', 'series', 'gold', 'cavalry',

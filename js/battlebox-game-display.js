@@ -2,8 +2,6 @@
     var _c = new Battlebox('get_private_functions');
     var $pointers = {};
 
-    //TODO: Pass in a length of rounds before game is over
-
     _c.add_main_city_population = function (game, population) {
         game.data.buildings[0].population += population;
         for (var y = 0; y < _c.rows(game); y++) {
@@ -520,8 +518,11 @@
         var has_dock = _c.tile_has(cell, 'dock');
         var has_walls = _c.tile_has(cell, 'wall', true);
         var has_towers = _c.tile_has(cell, 'tower', true);
+        var is_pillaged = _c.tile_has(cell, 'pillaged');
+        var is_looted = _c.tile_has(cell, 'looted');
         var has_loot = _.isObject(cell.loot);
         var has_people = cell.population;
+        var has_food = cell.food;
 
         if (has_river) additions.push("River");
         if (has_farms) additions.push("Farms:" + has_farms);
@@ -531,6 +532,11 @@
         if (has_roads) additions.push("Road");
         if (has_loot) additions.push("Loot");
         if (has_people) additions.push("People: " + has_people);
+        if (has_food) additions.push("Food: " + has_food);
+        if (is_pillaged) additions.push("Pillaged");
+        if (is_looted) additions.push("Looted");
+
+
         if (cell.data && cell.data.depth) additions.push("Depth: " + cell.data.depth);
 
         function draw_callback(x, y, text, color, bg) {
@@ -593,23 +599,15 @@
             text += "<span style='color:red'>Dead on " + battlebox.data.tick_count + "</span><br/>";
         }
         //text += "At: " + unit.x + ", " + unit.y + " <br/>";
-        var fight_text = [];
-        if (unit.fights_won) {
-            fight_text.push(unit.fights_won + (unit.fights_won > 1 ? " wins" : " win"));
-        }
-        if (unit.fights_lost) {
-            fight_text.push(unit.fights_lost + (unit.fights_lost > 1 ? " losses" : " loss"));
-        }
-        if (fight_text.length) {
-            text += fight_text.join(", ");
-        }
 
         //Show troop data
+        var unit_count = 0;
         _.each(unit._data.troops, function (force) {
             var force_now = _.find(unit.forces, function (f) {
                     return f.name == force.name
                 }) || {};
             var count = force_now.count || 0;
+            unit_count += count;
             var orig = force.count;
             var name = _.str.titleize(Helpers.pluralize(force.title || force.name));
             if (orig && (count < orig)) {
@@ -617,6 +615,23 @@
             }
             text += "<li>" + count + " " + name + "</li>";
         });
+
+
+        if (unit_count) {
+            var fight_text = [];
+            if (unit.fights_won) {
+                fight_text.push(unit.fights_won + (unit.fights_won > 1 ? " wins" : " win"));
+            }
+            if (unit.fights_lost) {
+                fight_text.push(unit.fights_lost + (unit.fights_lost > 1 ? " losses" : " loss"));
+            }
+            if (fight_text.length) {
+                text += fight_text.join(", ") + ", ";
+            }
+
+            var food = Math.round(unit.loot ? unit.loot.food || 0 : 0);
+            text += "<span style='color:" + ((food < unit_count * .1) ? "red" : "green") + "'>Food: " + food + "</span><br/>";
+        }
 
         if (unit.protected_by_walls) {
             text += "<b style='color:green'>Protected by wall</b><br/>";
@@ -627,13 +642,15 @@
 
         var loot_arr = [];
         for (var key in unit.loot) {
-            var msg = unit.loot[key] + ' ' + Helpers.pluralize(key);
-            loot_arr.push (msg);
+            if (key != 'food' && unit.loot[key]) {
+                var msg = Math.round(unit.loot[key]) + ' ' + Helpers.pluralize(key, Math.round(unit.loot[key]));
+                loot_arr.push (msg);
+            }
         }
         if (unit.loot && loot_arr.length == 0 && unit.is_dead) {
             text += "<b>Loot Dropped on death</b>";
         } else if (loot_arr.length) {
-            text += "<b>Loot: " + loot_arr.join(", ") + "</b>";
+            text += "<b>Loot [" + unit.can_carry(true) + "]: " + loot_arr.join(", ") + "</b>";
         }
 
         unit.$trump

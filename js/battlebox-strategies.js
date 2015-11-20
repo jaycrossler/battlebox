@@ -2,24 +2,31 @@
     var _c = new Battlebox('get_private_functions');
 
     //TODO: Have a queue of plans, then when one can't complete, move to next
-    //TODO: Have strategy to find nearby loot
     //TODO: Have units on nearby fortifications and defenders to go to fortifications if possible
+
+    var terrain_weights = {
+        plains: 4,
+        desert: 6,
+        hills: 8,
+        dunes: 8,
+        mountains: 12,
+        forest: 6,
+        lake: 10,
+        sea: 20
+    };
 
     _c.tile_traversability_weight = function (game, x, y) {
         var cell = _c.tile(game, x, y);
         var weight = 0;
 
-        if (cell.name == 'plains') weight += 4;
-        if (cell.name == 'mountains') weight += 12;
-        if (cell.name == 'forest') weight += 6;
+        weight += terrain_weights[cell.name] || 0;
+
         if (cell.density == 'medium') weight += 4;
         if (cell.density == 'large') weight += 8;
-        if (cell.name == 'lake') weight += 8;
-        if (cell.name == 'sea') weight += 20;
+        if (_c.tile_has(cell, 'river')) weight += 4;
         if (_c.tile_has(cell, 'path')) weight -= 2;
         if (_c.tile_has(cell, 'road')) weight -= 4;
         if (_c.tile_has(cell, 'rail')) weight -= 8;
-        if (_c.tile_has(cell, 'river')) weight += 4;
 
         return Math.max(0, weight);
     };

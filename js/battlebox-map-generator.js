@@ -540,7 +540,7 @@
                     freeCells.push([x, y]);
                     if (!cells[x][y].name) {
                         cells[x][y] = _.clone(ground_layer);
-                        set_obj_color(cells[x][y]);
+                        set_obj_color_and_food(cells[x][y]);
                         cells[x][y].x = x;
                         cells[x][y].y = y;
                     }
@@ -1141,7 +1141,7 @@
                 if (value) {
                     cells[x] = cells[x] || [];
                     cells[x][y] = _.clone(terrain_layer);
-                    set_obj_color(cells[x][y]);
+                    set_obj_color_and_food(cells[x][y]);
                     cells[x][y].x = x;
                     cells[x][y].y = y;
                 }
@@ -1151,10 +1151,15 @@
         return cells;
     };
 
-    function set_obj_color(obj) {
+    function set_obj_color_and_food(obj) {
         if (obj.color && _.isArray(obj.color)) {
             obj.color = obj.color.random();
         }
+
+        if (obj.food && _.isArray(obj.food)) {
+            obj.food = obj.food.random();
+        }
+
     }
 
     _c.generators.storage = function (game, location, storage_info) {
@@ -1255,7 +1260,7 @@
                 layer.data.depth = recursion;
                 layer.x = x;
                 layer.y = y;
-                set_obj_color(layer);
+                set_obj_color_and_food(layer);
 
                 game.cells[x][y] = layer;
 
@@ -1340,7 +1345,7 @@
                         layer.data.depth = (depth - lake_tile.ring);
                         layer.x = x;
                         layer.y = y;
-                        set_obj_color(layer);
+                        set_obj_color_and_food(layer);
 
                         game.cells[x][y] = layer;
 
@@ -1429,7 +1434,7 @@
                             cell.additions = cell.additions || [];
                             cell.additions.push(layer);
 
-                            set_obj_color(cell);
+                            set_obj_color_and_food(cell);
                         }
                     }
                 }
@@ -1445,6 +1450,7 @@
         var water_cells = [];
 
         var width = water_layer.width || 4;
+        var beach_width = water_layer.beach_width || 2;
         var start_x, end_x, start_y, end_y;
 
         if (water_layer.location == 'left') {
@@ -1461,6 +1467,8 @@
             end_y = _c.rows(game);
         }
 
+        //TODO: Add coves and land wiggles
+        //TODO: Add sand for beach_width
 
         for (var y = start_y; y < end_y; y++) {
             for (var x = start_x + y % 2; x < end_x; x += 2) {
@@ -1474,10 +1482,10 @@
                     layer.water = true;
                     layer.data = layer.data || [];
                     layer.data.water = true;
-                    layer.data.depth = (x - start_x) / 2;
+                    layer.data.depth = (x - start_x) / (.4 * width);
                     layer.symbol = water_layer.symbol;
                     layer.title = water_layer.title || water_layer.name;
-                    set_obj_color(layer);
+                    set_obj_color_and_food(layer);
 
                     game.cells[x][y] = layer;
 
