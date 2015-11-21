@@ -29,12 +29,12 @@
     // Units consume food over time, and replenish food by pillaging, looting, or foraging
     // Units start dying off and losing morale if they don't have food
     // Towers increase defender's vision +2, range +1 if range > 1
-
-    // TODO: Attackers with range > 1 can attack enemies in nearby squares by using some action points
+    // Attackers with range > 1 can attack enemies in nearby squares by using some action points
+    // Have units communicate with each other, sending enemy positions
 
     // TODO: When looting or pillaging land, small chance of new defenders spawning a defense force
 
-    // TODO: Have units communicate with each other, sending enemy positions or storage locations, or what else?
+    // TODO: Also communicate storage locations, or what else?  Make sure defenders respond properly
     // TODO: Move faster over roads, and slower over water - have an action point amount to spend, and a buffer towards moving into a terrain
 
     // TODO: Each unit type and side can have face_options that combine to create avatars
@@ -220,7 +220,7 @@
      * Find tile that best meets goal values of unit
      * @param {object} game class data
      * @param {object} unit unit that is looking for cells to move to
-     * @returns {object} tile hex cell that best matches goals
+     * @returns {object} tile hex cell that best matches goals, and also enemy on tile and nearest enemy in range if ranged attacks are possible
      */
     _c.find_tile_by_unit_goals = function (game, unit) {
         var range = unit.vision_range();
@@ -236,6 +236,19 @@
         };
         var close_entities = _c.find_unit_by_filters(game, unit, options);
 
+
+        var has_ranged_ability = false;
+        var ranged_unit_range = 0;
+        _.each(unit.forces, function (force) {
+            if (force.ranged_strength || force.range > 1) {
+                has_ranged_ability = true;
+                if (force.range > ranged_unit_range) {
+                    ranged_unit_range = force.range;
+                }
+            }
+
+        });
+        var ranged_enemy = [];
 
         var neighbors = [current_cell].concat(_c.surrounding_tiles(game, unit.x, unit.y, range, true));
         var weighted_neighbors = [];
@@ -267,6 +280,17 @@
                 });
                 points += (enemies_here.length * Math.min(unit._data.goals.all_enemies, 2));
             }
+
+            //See if any enemies are within attack range
+            if (has_ranged_ability && close_entities.target.length) {
+                var enemies_ranged_here = _.filter(close_entities.target, function (enemy) {
+                    return neighbor.ring && (neighbor.ring < ranged_unit_range) && (unit._data.side != enemy._data.side) && (enemy.x == neighbor.x) && (enemy.y == neighbor.y) && !enemy.is_dead;
+                });
+                if (enemies_ranged_here && enemies_ranged_here.length) {
+                    ranged_enemy = ranged_enemy.concat({target: enemies_ranged_here, ring: neighbor.ring});
+                }
+            }
+
             //Modify for friends if that matters (negative to stay away from friends, positive to follow)
             if (close_entities.target.length && unit._data.goals.friendly_units) {
                 var friendly_units = _.filter(close_entities.target, function (friend) {
@@ -330,13 +354,25 @@
             }
         }
 
+        //Find any targets on the current square for convenience
         var enemy_here = _.find(close_entities.target, function (enemy) {
             //TODO: Either find by weakest or strongest by options
             return (unit._data.side != enemy._data.side) && (enemy.x == unit.x) && (enemy.y == unit.y);
         });
 
-        //Closest cell with most points
-        return {tile: best_cell, enemy: enemy_here};
+        //If any ranged attacks are permissible, find the closest
+        if (ranged_enemy && ranged_enemy.length) {
+            ranged_enemy.sort(function (a, b) {
+                return a.target.ring - b.target.ring;
+            });
+            ranged_enemy = _.first(ranged_enemy);
+            ranged_enemy = (ranged_enemy && ranged_enemy.target && ranged_enemy.target[0]) ? ranged_enemy.target[0] : null;
+        } else {
+            ranged_enemy = null;
+        }
+
+        //Closest cell with most points, and the first enemies within range
+        return {tile: best_cell, enemy: enemy_here, ranged_enemy: ranged_enemy};
     };
 
     //--------------------
@@ -451,7 +487,8 @@
 
         return range;
     };
-    Entity.prototype.attack_range = function () {
+    Entity.prototype.attack_range = function (force_name) {
+        //TODO: This should look at forces, not the overall unit
         var unit = this;
         var range = unit.range || 1;
 
@@ -721,10 +758,9 @@
 
             if (best_location.enemy) {
                 _c.entity_attacks_entity(game, unit, best_location.enemy, _c.log_message_to_user);
+            } else if (best_location.ranged_enemy) {
+                _c.entity_attacks_entity(game, unit, best_location.ranged_enemy, _c.log_message_to_user, true);
             } else if (best_location.tile) {
-                //options = {plan: plan, backup_strategy: unit._data.backup_strategy};
-                //_c.movement_strategies.seek(game, unit, best_location.tile, options);
-
                 if (unit.waypoint && unit.waypoint.x == unit.x && unit.waypoint.y == unit.y) {
                     unit.waypoint = null;
                     unit.waypoint_weight = null;

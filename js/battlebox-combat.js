@@ -5,7 +5,7 @@
 
     var _c = new Battlebox('get_private_functions');
     _c.battle = {};
-    _c.battle.fight = function (game, attacker, defender) {
+    _c.battle.fight = function (game, attacker, defender, ranged_only) {
 
         //Slow down game clock if set
         if (game.game_options.delay_to_set_on_battle !== undefined) {
@@ -14,29 +14,61 @@
         }
 
         var attacker_strength = 0;
+        var attacker_ranged_strength = 0;
         var attacker_defense = 0;
         _.each(attacker.forces, function (force) {
-            attacker_strength += (force.count || 1) * (force.strength || 1);
-            attacker_defense += (force.count || 1) * (force.defense || 1);
+            var count = force.count || 1;
+
+            var is_ranged = (force.ranged_strength) || (force.range > 1);
+            if (is_ranged) {
+                var strength = force.ranged_strength || force.strength || 1;
+
+                //var tile = attacker.tile_on();
+                //if (_c.tile_has(tile, 'tower') && (tile.side == attacker.side)) {strength *= 1.5;}
+                attacker_ranged_strength += count * strength;
+            }
+            attacker_strength += count * (force.strength || 1);
+            attacker_defense += count * (force.defense || 1);
             force.mode = 'attacking';
         });
 
         var defender_strength = 0;
+        var defender_ranged_strength = 0;
         var defender_defense = 0;
         _.each(defender.forces, function (force) {
-            defender_strength += (force.count || 1) * (force.strength || 1);
-            defender_defense += (force.count || 1) * (force.defense || 1);
+            var count = force.count || 1;
+
+            var is_ranged = (force.ranged_strength) || (force.range > 1);
+            if (is_ranged) {
+                var strength = force.ranged_strength || force.strength || 1;
+
+                //var tile = defender.tile_on();
+                //if (_c.tile_has(tile, 'tower') && (tile.side == defender.side)) {strength *= 1.5;}
+                defender_ranged_strength += count * strength;
+            }
+            defender_strength += count * (force.strength || 1);
+            defender_defense += count * (force.defense || 1);
             force.mode = 'defending';
         });
 
         //TODO: Run away if weaker?
-        //TODO: Incorporate range weapons?
 
-        if (defender_defense < attacker_strength) {
-            defender.tell_friends_about({message: "Strong Enemy Attacking", location: {x: defender.x, y: defender.y}});
+        //Call for help if enemy is stronger
+        if (defender_defense < attacker_strength) {  //TODO: What about ranged attacks? move to end if dead?
+            defender.tell_friends_about({
+                message: "Strong Enemy Attacking",
+                strength: ranged_only ? attacker_ranged_strength : attacker_strength,
+                ranged: ranged_only,
+                location: {x: defender.x, y: defender.y}
+            });
         }
         if (attacker_defense < defender_strength) {
-            attacker.tell_friends_about({message: "Strong Enemy Defending", location: {x: defender.x, y: defender.y}});
+            attacker.tell_friends_about({
+                message: "Strong Enemy Defending",
+                strength: ranged_only ? defender_ranged_strength : defender_strength,
+                ranged: ranged_only,
+                location: {x: defender.x, y: defender.y}
+            });
         }
 
 
@@ -52,10 +84,14 @@
         for (var f = 0; f < all_forces.length; f++) {
             var force = all_forces[f];
 
-            if (!force.dead) {
+            //If ranged only, skip non-ranged forces attacking
+            if (ranged_only && !(force.ranged_strength || force.range > 1 )) continue;
+
+            if (force.count && !force.dead) {
                 for (var i = 0; i < force.count; i++) {
                     //Have each troop attack a random enemy
                     //TODO: Allow attacking fastest, slowest, weakest, strongest, least defended, etc
+
                     var enemy_side = force.mode == 'attacking' ? defender.forces : attacker.forces;
                     if (enemy_side.length) {
 
@@ -68,8 +104,10 @@
                             defender_defense_val += (defender_defense_val * target_force.in_towers * .2);
                         }
 
-                        var to_hit_chance = force.strength / defender_defense_val;
 
+                        //See if attack hit
+                        var strength = (ranged_only ? force.ranged_strength : force.strength) || 1;
+                        var to_hit_chance = strength / defender_defense_val;
                         var enemy_killed = (to_hit_chance >= 1) ? true : (_c.random() <= to_hit_chance);
                         if (enemy_killed) {
                             //------------------------------------------------
@@ -90,12 +128,18 @@
 
                             //------------------------------------------------
                             //See if enemy gets returning free hit against attacker - 20% of normal attack chance
-                            var attacker_defense_val = force.defense || 1;
+                            var attacker_defense_val = force.defense || 1; //TODO: Add tower defense?
                             if (force.protected_by_walls) {
                                 attacker_defense_val += (attacker_defense_val * force.protected_by_walls * .5);
                             }
 
-                            var return_hit_chance = (.2 * target_force.strength) / attacker_defense_val;
+                            //If ranged battle, only ranged enemies get a return kill chance
+                            if (ranged_only && !(target_force.ranged_strength || target_force.range > 1 )) continue;
+
+                            //TODO: Turn all bonuses into constants
+                            var target_strength = (ranged_only ? target_force.ranged_strength : target_force.strength) || 1;
+
+                            var return_hit_chance = (.2 * target_strength) / attacker_defense_val;
                             if (_c.random() <= return_hit_chance) {
 
                                 //------------------------------------------------
@@ -124,8 +168,11 @@
             }
         }
     };
+    _c.entity_range_attacks_entity = function (game, attacker, defender, callback) {
+        _c.entity_attacks_entity(game, attacker, defender, callback, true);
+    };
 
-    _c.entity_attacks_entity = function (game, attacker, defender, callback) {
+    _c.entity_attacks_entity = function (game, attacker, defender, callback, ranged_only) {
         attacker._data.troops = attacker._data.troops || {};
         defender._data.troops = defender._data.troops || {};
         callback = callback || _c.log_message_to_user;
@@ -150,7 +197,7 @@
         if ((a_count <= 0) || (d_count <= 0)) return true;
 
         //Have the forces fight together
-        _c.battle.fight(game, attacker, defender);
+        _c.battle.fight(game, attacker, defender, ranged_only);
 
 
         //Count the survivors
