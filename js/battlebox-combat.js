@@ -71,6 +71,9 @@
             });
         }
 
+        attacker.fatigue += ranged_only ? defender_ranged_strength : defender_strength;
+        defender.fatigue += ranged_only ? attacker_ranged_strength : attacker_strength;
+
 
         //Sort from fastest to slowest
         var all_forces = [].concat(attacker.forces, defender.forces);

@@ -1,6 +1,6 @@
 /*
 ------------------------------------------------------------------------------------
--- battlebox.js - v0.0.3 - Built on 2015-11-21 by Jay Crossler using Grunt.js
+-- battlebox.js - v0.0.3 - Built on 2015-11-22 by Jay Crossler using Grunt.js
 ------------------------------------------------------------------------------------
 -- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara 
 -- Packaged with color.js - Copyright (c) 2008-2013, Andrew Brehaut, Tim Baumann,  
@@ -1272,15 +1272,20 @@ Battlebox.initializeOptions = function (option_type, options) {
                 message: "Strong Enemy Attacking",
                 strength: ranged_only ? attacker_ranged_strength : attacker_strength,
                 ranged: ranged_only,
-                location: {x: defender.x, y: defender.y}});
+                location: {x: defender.x, y: defender.y}
+            });
         }
         if (attacker_defense < defender_strength) {
             attacker.tell_friends_about({
                 message: "Strong Enemy Defending",
                 strength: ranged_only ? defender_ranged_strength : defender_strength,
                 ranged: ranged_only,
-                location: {x: defender.x, y: defender.y}});
+                location: {x: defender.x, y: defender.y}
+            });
         }
+
+        attacker.fatigue += ranged_only ? defender_ranged_strength : defender_strength;
+        defender.fatigue += ranged_only ? attacker_ranged_strength : attacker_strength;
 
 
         //Sort from fastest to slowest
@@ -2095,6 +2100,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             text += "<span style='color:red'>Dead on " + battlebox.data.tick_count + "</span><br/>";
         }
         //text += "At: " + unit.x + ", " + unit.y + " <br/>";
+        text += "Fatigue: " + Math.round(unit.fatigue) + "<br/>";
 
         //Show troop data
         var unit_count = 0;
@@ -2187,7 +2193,13 @@ Battlebox.initializeOptions = function (option_type, options) {
             } else {
                 game.data[game_options_name] = game.data[game_options_name] || [];
                 _.each(game.game_options[game_options_name], function (item) {
-                    game.data[game_options_name].push(JSON.parse(JSON.stringify(item)));
+                    var new_item = JSON.parse(JSON.stringify(item));
+                    for (var key in item) {
+                        if (_.isFunction(item[key])) {
+                            new_item[key] = item[key];
+                        }
+                    }
+                    game.data[game_options_name].push(new_item);
                 });
             }
         });
@@ -2347,7 +2359,13 @@ Battlebox.initializeOptions = function (option_type, options) {
         forces: [
             {
                 name: 'Attacker Main Army', side: 'Yellow', location: 'left', player: true,
-                troops: {soldiers: 520, cavalry: 230, siege: 50}
+                troops: {soldiers: 520, cavalry: 230, siege: 50},
+                strategy_post_plan_callback: function (move, resources) {
+                    console.log("[" + this._symbol + "] ");
+                    console.table(move);
+
+                    return move;
+                }
             },
             {
                 name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
@@ -4706,10 +4724,13 @@ Battlebox.initializeOptions = function (option_type, options) {
 
     var controlled_entity_id = 0;
 
-    var food_eat_ratio = .01;
-    var turns_before_dying = 2;
-    var amount_dying_when_hungry = .02;
-    var eat_each_number_of_turns = 24;
+    var CONSTS = {
+        food_eat_ratio: .01,
+        turns_before_dying: 2,
+        amount_dying_when_hungry: .02,
+        eat_each_number_of_turns: 24,
+        fatigue_replenished_each_turn: .25
+    };
 
     //---------------
     // Combat Rules:
@@ -4733,6 +4754,11 @@ Battlebox.initializeOptions = function (option_type, options) {
     // Towers increase defender's vision +2, range +1 if range > 1
     // Attackers with range > 1 can attack enemies in nearby squares by using some action points
     // Have units communicate with each other, sending enemy positions
+    // Units can have their own strategy functions that replace or augment the built-in ones
+
+    // TODO: Have a strategy system for picking what to do when (big force don't move in until archers killed for def, attackers wait for vanguard
+    // TODO: Have archers move back from attacks if possible
+    // TODO: HAve a fatigue that improves every turn
 
     // TODO: When looting or pillaging land, small chance of new defenders spawning a defense force
 
@@ -4809,6 +4835,10 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         unit.loot = unit.loot || {};
         unit.knowledge = [];
+
+        //Add unit's strategy functions
+        unit.strategy_plan_callback = unit_info.strategy_plan_callback || null;
+        unit.strategy_post_plan_callback = unit_info.strategy_post_plan_callback || null;
 
         return unit;
     };
@@ -4926,7 +4956,6 @@ Battlebox.initializeOptions = function (option_type, options) {
      */
     _c.find_tile_by_unit_goals = function (game, unit) {
         var range = unit.vision_range();
-        unit._data.goals = unit._data.goals || {};
 
         //TODO: Add in knowledge - where is a town or storage area or friendly unit
 
@@ -4941,7 +4970,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         var has_ranged_ability = false;
         var ranged_unit_range = 0;
-        _.each(unit.forces, function(force){
+        _.each(unit.forces, function (force) {
             if (force.ranged_strength || force.range > 1) {
                 has_ranged_ability = true;
                 if (force.range > ranged_unit_range) {
@@ -4952,7 +4981,30 @@ Battlebox.initializeOptions = function (option_type, options) {
         });
         var ranged_enemy = [];
 
-        var neighbors = [current_cell].concat(_c.surrounding_tiles(game, unit.x, unit.y, range, true));
+        //Find the neighboring cells
+        var neighbors = _c.surrounding_tiles(game, unit.x, unit.y, range, true);
+
+        if (unit.strategy_plan_callback) {
+            var resources = {
+                current_cell: current_cell,
+                neighbors: neighbors,
+                close_entities: close_entities,
+                ranged_range: ranged_unit_range
+            };
+            unit._game = null;  //Hide so functions can't access game object
+            var x = unit.x; //Make sure functions don't overwrite x,y
+            var y = unit.y;
+            var result = unit.strategy_plan_callback(resources);
+            unit._game = game;
+            unit.x = x;
+            unit.y = y;
+            return result;
+        }
+
+        unit._data.goals = unit._data.goals || {};
+
+        //Add in the current cell, then search through all to find out point values for the current strategy
+        neighbors = [current_cell].concat(neighbors);
         var weighted_neighbors = [];
         var current_cell_weight = 0;
         _.each(neighbors, function (neighbor) {
@@ -5074,7 +5126,26 @@ Battlebox.initializeOptions = function (option_type, options) {
         }
 
         //Closest cell with most points, and the first enemies within range
-        return {tile: best_cell, enemy: enemy_here, ranged_enemy: ranged_enemy};
+        var result = {tile: best_cell, enemy: enemy_here, ranged_enemy: ranged_enemy};
+
+        //If the unit has a post-ai function, run it
+        if (unit.strategy_post_plan_callback) {
+            var resources = {
+                current_cell: current_cell,
+                neighbors: neighbors,
+                close_entities: close_entities,
+                ranged_range: ranged_unit_range
+            };
+            unit._game = null;  //Hide so functions can't access game object
+            x = unit.x; //Make sure functions don't overwrite x,y
+            y = unit.y;
+            var result = unit.strategy_post_plan_callback(result, resources);
+            unit._game = game;
+            unit.x = x;
+            unit.y = y;
+            return result;
+        }
+        return result;
     };
 
     //--------------------
@@ -5151,6 +5222,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         this._draw();
         this.strategy = '';
         this.previous_tiles_visited = [];
+        this.fatigue = 0;
     };
 
     Entity.prototype.describe = function () {
@@ -5258,23 +5330,25 @@ Battlebox.initializeOptions = function (option_type, options) {
     Entity.prototype.eat = function () {
         var unit = this;
 
-        if (this._game.tick_count % eat_each_number_of_turns) return; //Eats only once every 24 turns
+        unit.fatigue *= (1 - CONSTS.fatigue_replenished_each_turn); // 10% of fatigue goes away
+
+        if (this._game.tick_count % CONSTS.eat_each_number_of_turns) return; //Eats only once every 24 turns
 
         unit.loot = unit.loot || {};
 
         var total_eaters = unit.count_forces();
 
-        unit.loot.food -= (total_eaters * food_eat_ratio);
+        unit.loot.food -= (total_eaters * CONSTS.food_eat_ratio);
         if (unit.loot.food < 0) {
             //Didn't have enough food.
             unit.loot.food = 0;
             unit.hungry = unit.hungry || 0;
             unit.hungry++;
 
-            if (unit.hungry > turns_before_dying) {
+            if (unit.hungry > CONSTS.turns_before_dying) {
                 //Starving, start dying off
                 _.each(unit.forces, function (force) {
-                    var starved = Math.floor(force.count * amount_dying_when_hungry);
+                    var starved = Math.floor(force.count * CONSTS.amount_dying_when_hungry);
                     force.count -= starved;
                     if (unit.eat_the_dead) {
                         unit.pickup_loot({food: starved})
@@ -5337,7 +5411,7 @@ Battlebox.initializeOptions = function (option_type, options) {
     Entity.prototype.learn_about = function (message, sender) {
         var unit = this;
         unit.knowledge.push({message: message, sender: sender, time: unit._game.data.tick_count});
-        console.log(unit._symbol + " learned about " + JSON.stringify(message) + " from " + sender._symbol);
+        //console.log(unit._symbol + " learned about " + JSON.stringify(message) + " from " + sender._symbol);
         //TODO: Apply some time filters to delay learning
 
         if (message.message == 'Strong Enemy Attacking' || message.message == 'Strong Enemy Defending') {
@@ -5383,7 +5457,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                     //The unit is on home territory
                     num_walls = _c.tile_has(cell, 'wall', true);
                     num_towers = _c.tile_has(cell, 'tower', true);
-                    unit.pickup_loot({food: unit.count_forces() * food_eat_ratio * (1 / eat_each_number_of_turns)});
+                    unit.pickup_loot({food: unit.count_forces() * CONSTS.food_eat_ratio * (1 / CONSTS.eat_each_number_of_turns)});
                 }
                 unit.protected_by_walls = num_walls;
                 unit.in_towers = num_towers;
@@ -5439,7 +5513,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         var game = unit._game;
 
 
-        unit.eat();
+        unit.eat();  //Consume food and replenish fatigue
 
         var plan = unit._data.plan || 'seek closest';
         var options, target_status;

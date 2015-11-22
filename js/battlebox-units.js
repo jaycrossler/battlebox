@@ -4,10 +4,13 @@
 
     var controlled_entity_id = 0;
 
-    var food_eat_ratio = .01;
-    var turns_before_dying = 2;
-    var amount_dying_when_hungry = .02;
-    var eat_each_number_of_turns = 24;
+    var CONSTS = {
+        food_eat_ratio: .01,
+        turns_before_dying: 2,
+        amount_dying_when_hungry: .02,
+        eat_each_number_of_turns: 24,
+        fatigue_replenished_each_turn: .25
+    };
 
     //---------------
     // Combat Rules:
@@ -32,6 +35,10 @@
     // Attackers with range > 1 can attack enemies in nearby squares by using some action points
     // Have units communicate with each other, sending enemy positions
     // Units can have their own strategy functions that replace or augment the built-in ones
+
+    // TODO: Have a strategy system for picking what to do when (big force don't move in until archers killed for def, attackers wait for vanguard
+    // TODO: Have archers move back from attacks if possible
+    // TODO: HAve a fatigue that improves every turn
 
     // TODO: When looting or pillaging land, small chance of new defenders spawning a defense force
 
@@ -264,9 +271,13 @@
                 close_entities: close_entities,
                 ranged_range: ranged_unit_range
             };
-            unit._game = null;
+            unit._game = null;  //Hide so functions can't access game object
+            var x = unit.x; //Make sure functions don't overwrite x,y
+            var y = unit.y;
             var result = unit.strategy_plan_callback(resources);
             unit._game = game;
+            unit.x = x;
+            unit.y = y;
             return result;
         }
 
@@ -405,9 +416,13 @@
                 close_entities: close_entities,
                 ranged_range: ranged_unit_range
             };
-            unit._game = null;
+            unit._game = null;  //Hide so functions can't access game object
+            x = unit.x; //Make sure functions don't overwrite x,y
+            y = unit.y;
             var result = unit.strategy_post_plan_callback(result, resources);
             unit._game = game;
+            unit.x = x;
+            unit.y = y;
             return result;
         }
         return result;
@@ -487,6 +502,7 @@
         this._draw();
         this.strategy = '';
         this.previous_tiles_visited = [];
+        this.fatigue = 0;
     };
 
     Entity.prototype.describe = function () {
@@ -594,23 +610,25 @@
     Entity.prototype.eat = function () {
         var unit = this;
 
-        if (this._game.tick_count % eat_each_number_of_turns) return; //Eats only once every 24 turns
+        unit.fatigue *= (1 - CONSTS.fatigue_replenished_each_turn); // 10% of fatigue goes away
+
+        if (this._game.tick_count % CONSTS.eat_each_number_of_turns) return; //Eats only once every 24 turns
 
         unit.loot = unit.loot || {};
 
         var total_eaters = unit.count_forces();
 
-        unit.loot.food -= (total_eaters * food_eat_ratio);
+        unit.loot.food -= (total_eaters * CONSTS.food_eat_ratio);
         if (unit.loot.food < 0) {
             //Didn't have enough food.
             unit.loot.food = 0;
             unit.hungry = unit.hungry || 0;
             unit.hungry++;
 
-            if (unit.hungry > turns_before_dying) {
+            if (unit.hungry > CONSTS.turns_before_dying) {
                 //Starving, start dying off
                 _.each(unit.forces, function (force) {
-                    var starved = Math.floor(force.count * amount_dying_when_hungry);
+                    var starved = Math.floor(force.count * CONSTS.amount_dying_when_hungry);
                     force.count -= starved;
                     if (unit.eat_the_dead) {
                         unit.pickup_loot({food: starved})
@@ -719,7 +737,7 @@
                     //The unit is on home territory
                     num_walls = _c.tile_has(cell, 'wall', true);
                     num_towers = _c.tile_has(cell, 'tower', true);
-                    unit.pickup_loot({food: unit.count_forces() * food_eat_ratio * (1 / eat_each_number_of_turns)});
+                    unit.pickup_loot({food: unit.count_forces() * CONSTS.food_eat_ratio * (1 / CONSTS.eat_each_number_of_turns)});
                 }
                 unit.protected_by_walls = num_walls;
                 unit.in_towers = num_towers;
@@ -775,7 +793,7 @@
         var game = unit._game;
 
 
-        unit.eat();
+        unit.eat();  //Consume food and replenish fatigue
 
         var plan = unit._data.plan || 'seek closest';
         var options, target_status;

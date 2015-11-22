@@ -599,6 +599,7 @@
             text += "<span style='color:red'>Dead on " + battlebox.data.tick_count + "</span><br/>";
         }
         //text += "At: " + unit.x + ", " + unit.y + " <br/>";
+        text += "Fatigue: " + Math.round(unit.fatigue) + "<br/>";
 
         //Show troop data
         var unit_count = 0;
