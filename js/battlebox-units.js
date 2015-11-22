@@ -31,6 +31,7 @@
     // Towers increase defender's vision +2, range +1 if range > 1
     // Attackers with range > 1 can attack enemies in nearby squares by using some action points
     // Have units communicate with each other, sending enemy positions
+    // Units can have their own strategy functions that replace or augment the built-in ones
 
     // TODO: When looting or pillaging land, small chance of new defenders spawning a defense force
 
@@ -107,6 +108,10 @@
 
         unit.loot = unit.loot || {};
         unit.knowledge = [];
+
+        //Add unit's strategy functions
+        unit.strategy_plan_callback = unit_info.strategy_plan_callback || null;
+        unit.strategy_post_plan_callback = unit_info.strategy_post_plan_callback || null;
 
         return unit;
     };
@@ -224,7 +229,6 @@
      */
     _c.find_tile_by_unit_goals = function (game, unit) {
         var range = unit.vision_range();
-        unit._data.goals = unit._data.goals || {};
 
         //TODO: Add in knowledge - where is a town or storage area or friendly unit
 
@@ -250,7 +254,26 @@
         });
         var ranged_enemy = [];
 
-        var neighbors = [current_cell].concat(_c.surrounding_tiles(game, unit.x, unit.y, range, true));
+        //Find the neighboring cells
+        var neighbors = _c.surrounding_tiles(game, unit.x, unit.y, range, true);
+
+        if (unit.strategy_plan_callback) {
+            var resources = {
+                current_cell: current_cell,
+                neighbors: neighbors,
+                close_entities: close_entities,
+                ranged_range: ranged_unit_range
+            };
+            unit._game = null;
+            var result = unit.strategy_plan_callback(resources);
+            unit._game = game;
+            return result;
+        }
+
+        unit._data.goals = unit._data.goals || {};
+
+        //Add in the current cell, then search through all to find out point values for the current strategy
+        neighbors = [current_cell].concat(neighbors);
         var weighted_neighbors = [];
         var current_cell_weight = 0;
         _.each(neighbors, function (neighbor) {
@@ -372,7 +395,22 @@
         }
 
         //Closest cell with most points, and the first enemies within range
-        return {tile: best_cell, enemy: enemy_here, ranged_enemy: ranged_enemy};
+        var result = {tile: best_cell, enemy: enemy_here, ranged_enemy: ranged_enemy};
+
+        //If the unit has a post-ai function, run it
+        if (unit.strategy_post_plan_callback) {
+            var resources = {
+                current_cell: current_cell,
+                neighbors: neighbors,
+                close_entities: close_entities,
+                ranged_range: ranged_unit_range
+            };
+            unit._game = null;
+            var result = unit.strategy_post_plan_callback(result, resources);
+            unit._game = game;
+            return result;
+        }
+        return result;
     };
 
     //--------------------
@@ -635,7 +673,7 @@
     Entity.prototype.learn_about = function (message, sender) {
         var unit = this;
         unit.knowledge.push({message: message, sender: sender, time: unit._game.data.tick_count});
-        console.log(unit._symbol + " learned about " + JSON.stringify(message) + " from " + sender._symbol);
+        //console.log(unit._symbol + " learned about " + JSON.stringify(message) + " from " + sender._symbol);
         //TODO: Apply some time filters to delay learning
 
         if (message.message == 'Strong Enemy Attacking' || message.message == 'Strong Enemy Defending') {

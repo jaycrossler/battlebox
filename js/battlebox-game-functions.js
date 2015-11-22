@@ -21,7 +21,13 @@
             } else {
                 game.data[game_options_name] = game.data[game_options_name] || [];
                 _.each(game.game_options[game_options_name], function (item) {
-                    game.data[game_options_name].push(JSON.parse(JSON.stringify(item)));
+                    var new_item = JSON.parse(JSON.stringify(item));
+                    for (var key in item) {
+                        if (_.isFunction(item[key])) {
+                            new_item[key] = item[key];
+                        }
+                    }
+                    game.data[game_options_name].push(new_item);
                 });
             }
         });

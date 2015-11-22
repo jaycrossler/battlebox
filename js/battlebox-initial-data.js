@@ -97,7 +97,13 @@
         forces: [
             {
                 name: 'Attacker Main Army', side: 'Yellow', location: 'left', player: true,
-                troops: {soldiers: 520, cavalry: 230, siege: 50}
+                troops: {soldiers: 520, cavalry: 230, siege: 50},
+                strategy_post_plan_callback: function (move, resources) {
+                    console.log("[" + this._symbol + "] ");
+                    console.table(move);
+
+                    return move;
+                }
             },
             {
                 name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
