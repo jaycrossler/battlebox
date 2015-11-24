@@ -145,7 +145,7 @@
             }
 
             //Modify for exploration - will move away from cells
-            if (unit._data.goals.explore && points > 0) {
+            if (unit._data.goals.explore) {
                 points -= (unit.times_moved_to_tile(neighbor.x, neighbor.y) * unit._data.goals.explore);
             }
 

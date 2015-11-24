@@ -16,7 +16,7 @@
         //Slow down game clock if set
         if (game.game_options.delay_to_set_on_battle !== undefined) {
             game.game_options.delay_between_ticks = game.game_options.delay_to_set_on_battle;
-            game.game_options.reset_clock_to_default_at = game.data.tick_count + 8;
+            game.game_options.reset_clock_to_default_at = game.data.tick_count + 3;
         }
 
         var attacker_strength = 0;

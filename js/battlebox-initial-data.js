@@ -41,7 +41,7 @@
                     loot: 3,
                     all_enemies: 4,
                     city: 2,
-                    explore: 1,
+                    explore: 3,
                     friendly_units: -2,
                     farm: 1,
                     population: 1
@@ -53,7 +53,7 @@
                 starting_food: 5,
                 goals: {
                     towers: 6, walls: 5, city: 3,
-                    friendly_units: -8, weak_enemies: 7, all_enemies: 4, strong_enemies: -10 //TODO: Strong_enemies Doesn't seem to matter)
+                    friendly_units: -8//TODO: Strong_enemies Doesn't seem to matter)
                 }
             }
         ],

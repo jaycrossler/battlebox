@@ -1,6 +1,6 @@
 /*
 ------------------------------------------------------------------------------------
--- battlebox.js - v0.0.3 - Built on 2015-11-22 by Jay Crossler using Grunt.js
+-- battlebox.js - v0.0.3 - Built on 2015-11-24 by Jay Crossler using Grunt.js
 ------------------------------------------------------------------------------------
 -- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara 
 -- Packaged with color.js - Copyright (c) 2008-2013, Andrew Brehaut, Tim Baumann,  
@@ -1213,6 +1213,12 @@ Battlebox.initializeOptions = function (option_type, options) {
 };
 (function (Battlebox) {
 
+    var CONSTS = {
+        fatigue_for_enemy_force: 0.5,
+        fatigue_for_friends_killed: 1
+    };
+
+
     //TODO: Game is over if all of the forces on a defender's side are killed.  How to handle monsters?
     //TODO: Should there be a list of sides that matter in a conflict?
 
@@ -1223,7 +1229,7 @@ Battlebox.initializeOptions = function (option_type, options) {
         //Slow down game clock if set
         if (game.game_options.delay_to_set_on_battle !== undefined) {
             game.game_options.delay_between_ticks = game.game_options.delay_to_set_on_battle;
-            game.game_options.reset_clock_to_default_at = game.data.tick_count + 8;
+            game.game_options.reset_clock_to_default_at = game.data.tick_count + 3;
         }
 
         var attacker_strength = 0;
@@ -1264,6 +1270,7 @@ Battlebox.initializeOptions = function (option_type, options) {
             force.mode = 'defending';
         });
 
+
         //TODO: Run away if weaker?
 
         //Call for help if enemy is stronger
@@ -1284,16 +1291,40 @@ Battlebox.initializeOptions = function (option_type, options) {
             });
         }
 
-        attacker.fatigue += ranged_only ? defender_ranged_strength : defender_strength;
-        defender.fatigue += ranged_only ? attacker_ranged_strength : attacker_strength;
+        var attackers_killed = 0;
+        var defenders_killed = 0;
 
+
+        var attacker_strength_fatigue_modifier = 1 - (Math.sqrt(Math.floor(attacker.fatigue)) / (attacker_strength));
+        var defender_strength_fatigue_modifier = 1 - (Math.sqrt(Math.floor(defender.fatigue)) / (defender_strength));
 
         //Sort from fastest to slowest
         var all_forces = [].concat(attacker.forces, defender.forces);
         all_forces.sort(function (a, b) {
             var a_initiative = a.initiative || a.speed || 40;
             var b_initiative = b.initiative || b.speed || 40;
-            return (a_initiative < b_initiative);
+
+            //Break ties
+            if (a_initiative == b_initiative) {
+                //Defenders and those in towers and walls should go first
+                if (a.mode == 'attacking') {
+                    a_initiative--;
+                    a_initiative += attacker.in_towers + attacker.protected_by_walls;
+                }
+                if (b.mode == 'attacking') {
+                    b_initiative--;
+                    b_initiative += attacker.in_towers + attacker.protected_by_walls;
+                }
+                if (a.mode == 'defending') {
+                    a_initiative += defender.in_towers + defender.protected_by_walls;
+                }
+                if (b.mode == 'attacking') {
+                    b_initiative += defender.in_towers + defender.protected_by_walls;
+                }
+            }
+
+
+            return (b_initiative - a_initiative);
         });
 
         //For each group of forces
@@ -1312,23 +1343,32 @@ Battlebox.initializeOptions = function (option_type, options) {
                     if (enemy_side.length) {
 
                         var target_force = _c.randOption(force.mode == 'attacking' ? defender.forces : attacker.forces);
-                        var defender_defense_val = target_force.defense || 1;
+                        var target_defense_val = target_force.defense || 1;
                         if (target_force.protected_by_walls) {
-                            defender_defense_val += (defender_defense_val * target_force.protected_by_walls * .5);
+                            target_defense_val += (target_defense_val * target_force.protected_by_walls * .5);
                         }
                         if (target_force.in_towers) {
-                            defender_defense_val += (defender_defense_val * target_force.in_towers * .2);
+                            target_defense_val += (target_defense_val * target_force.in_towers * .2);
                         }
-
 
                         //See if attack hit
                         var strength = (ranged_only ? force.ranged_strength : force.strength) || 1;
-                        var to_hit_chance = strength / defender_defense_val;
+                        //Attack reduced by fatigue
+                        strength *= maths.clamp((force.mode == 'attacking' ? attacker_strength_fatigue_modifier : defender_strength_fatigue_modifier), 0.95, 1);
+
+
+                        var to_hit_chance = strength / target_defense_val;
                         var enemy_killed = (to_hit_chance >= 1) ? true : (_c.random() <= to_hit_chance);
                         if (enemy_killed) {
                             //------------------------------------------------
                             //If the attacked force is removed, take it off the unit
-                            target_force.count--;
+                            var enemies_dead = (force.area_attacks ? Math.ceil(to_hit_chance) : 1)
+                            target_force.count -= enemies_dead;
+                            if (force.mode == 'attacking') {
+                                defenders_killed += enemies_dead;
+                            } else {
+                                attackers_killed += enemies_dead;
+                            }
                             if (target_force.count <= 0) {
                                 var f_i = _.indexOf(all_forces, target_force);
                                 if (f_i > -1) {
@@ -1354,13 +1394,22 @@ Battlebox.initializeOptions = function (option_type, options) {
 
                             //TODO: Turn all bonuses into constants
                             var target_strength = (ranged_only ? target_force.ranged_strength : target_force.strength) || 1;
+                            target_strength *= maths.clamp((force.mode == 'attacking' ? defender_strength_fatigue_modifier : attacker_strength_fatigue_modifier), 0.95, 1);
 
                             var return_hit_chance = (.2 * target_strength) / attacker_defense_val;
                             if (_c.random() <= return_hit_chance) {
 
                                 //------------------------------------------------
                                 //If the returned-fire force is removed, take it off the unit
-                                force.count--;
+                                enemies_dead = (force.area_attacks ? Math.ceil(to_hit_chance) : 1)
+
+                                force.count -= enemies_dead;
+                                if (force.mode == 'attacking') {
+                                    attackers_killed += enemies_dead;
+                                } else {
+                                    defenders_killed += enemies_dead;
+                                }
+
                                 if (force.count <= 0) {
                                     var f_i = _.indexOf(all_forces, force);
                                     if (f_i > -1) {
@@ -1383,6 +1432,10 @@ Battlebox.initializeOptions = function (option_type, options) {
                 }
             }
         }
+
+        //Gain fatigue for all enemies strength and also for teammates killed
+        attacker.fatigue += Math.max(0, ((ranged_only ? defender_ranged_strength : defender_strength) * CONSTS.fatigue_for_enemy_force) + (attackers_killed * CONSTS.fatigue_for_friends_killed));
+        defender.fatigue += Math.max(0, ((ranged_only ? attacker_ranged_strength : attacker_strength) * CONSTS.fatigue_for_enemy_force) + (defenders_killed * CONSTS.fatigue_for_friends_killed));
     };
     _c.entity_range_attacks_entity = function (game, attacker, defender, callback) {
         _c.entity_attacks_entity(game, attacker, defender, callback, true);
@@ -2022,8 +2075,8 @@ Battlebox.initializeOptions = function (option_type, options) {
         var is_pillaged = _c.tile_has(cell, 'pillaged');
         var is_looted = _c.tile_has(cell, 'looted');
         var has_loot = _.isObject(cell.loot);
-        var has_people = cell.population;
-        var has_food = cell.food;
+        var has_people = Math.round(cell.population);
+        var has_food = Math.round(cell.food);
 
         if (has_river) additions.push("River");
         if (has_farms) additions.push("Farms:" + has_farms);
@@ -2295,7 +2348,6 @@ Battlebox.initializeOptions = function (option_type, options) {
                 side: 'Yellow', player: true, plan: 'invade city', backup_strategy: 'vigilant',
                 face_options: {rand_seed: 42, race: 'Human'}, //TODO
                 morale: 10,  //TODO
-                communication_speed: 1, //TODO
                 communication_range: 10,
                 try_to_loot: true, try_to_pillage: true,
                 starting_food: 5,
@@ -2304,7 +2356,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                     loot: 3,
                     all_enemies: 4,
                     city: 2,
-                    explore: 1,
+                    explore: 3,
                     friendly_units: -2,
                     farm: 1,
                     population: 1
@@ -2314,7 +2366,10 @@ Battlebox.initializeOptions = function (option_type, options) {
                 side: 'White', home_city: 'Anchorage', face_options: {race: 'Elf'},
                 plan: 'defend city', backup_strategy: 'vigilant', morale: 15,
                 starting_food: 5,
-                goals: {weak_enemies: 7, towers: 6, walls: 5, all_enemies: 4, city: 3, friendly_units: -8}
+                goals: {
+                    towers: 6, walls: 5, city: 3,
+                    friendly_units: -8//TODO: Strong_enemies Doesn't seem to matter)
+                }
             }
         ],
 
@@ -2359,76 +2414,81 @@ Battlebox.initializeOptions = function (option_type, options) {
         forces: [
             {
                 name: 'Attacker Main Army', side: 'Yellow', location: 'left', player: true,
-                troops: {soldiers: 520, cavalry: 230, siege: 50},
-                strategy_post_plan_callback: function (move, resources) {
-                    console.log("[" + this._symbol + "] ");
-                    console.table(move);
-
-                    return move;
-                }
+                troops: {soldiers: 600, cavalry: 200, siege: 100}
+                //,strategy_post_plan_callback: function (move, unit_vision) {
+                //    var unit = this;
+                //    console.log("[" + unit._symbol + "] ");
+                //    //console.table(move);
+                //
+                //    if (unit.fatigue > 0) {
+                //        console.log('[' + battlebox.data.tick_count + '] Fatigue :' + unit.fatigue + ', Units:' + unit.unit_count);
+                //    }
+                //
+                //    return move;
+                //}
             },
             {
                 name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
                 leader: {name: 'General Vesuvius', face_options: {race: 'Demon', age: 120}}, //TODO
                 //goals: {weak_enemies: 7, loot: 4, all_enemies: 5, explore: 2, city: 3},
                 troops: [
-                    {name: 'soldiers', count: 80, experience: 'veteran', victories: 12},
-                    {name: 'cavalry', count: 20, experience: 'veteran', victories: 13},
-                    {name: 'siege', count: 10, experience: 'master', victories: 23}
+                    {name: 'soldiers', count: 10, experience: 'veteran', victories: 12},
+                    {name: 'cavalry', count: 10, experience: 'veteran', victories: 13},
+                    {name: 'archers', count: 80, experience: 'master', victories: 23}
                 ]
             },
             {
                 name: 'Task Force Bravo', side: 'Yellow', symbol: '#B', location: 'left', player: true,
-                troops: {cavalry: 20}
+                troops: {cavalry: 125}
             },
             {
                 name: 'Task Force Charlie', side: 'Yellow', symbol: '#C', location: 'left', player: true,
-                troops: {cavalry: 20}
+                troops: {cavalry: 125}
             },
             {
                 name: 'Task Force Delta', side: 'Yellow', symbol: '#D', location: 'left', player: true,
-                troops: {cavalry: 20}
+                troops: {cavalry: 125}
             },
             {
                 name: 'Task Force Echo', side: 'Yellow', symbol: '#E', location: 'left', player: true,
-                troops: {cavalry: 20}
+                troops: {cavalry: 125}
             },
             //------------------------------
             {
-                name: 'Defender City Force', side: 'White', location: 'city',
-                troops: {soldiers: 620, cavalry: 40, siege: 100}
+                name: 'Defender City Force', side: 'White', location: 'city', symbol: "!",
+                troops: {soldiers: 500, cavalry: 40, archers: 100}
             },
             {
                 name: 'Defender Bowmen 1', side: 'White', symbol: '1', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Bowmen 2', side: 'White', symbol: '2', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Bowmen 3', side: 'White', symbol: '3', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Bowmen 4', side: 'White', symbol: '4', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Bowmen 5', side: 'White', symbol: '5', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Bowmen 6', side: 'White', symbol: '6', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Bowmen 7', side: 'White', symbol: '7', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Bowmen 8', side: 'White', symbol: '8', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Catapults', side: 'White', symbol: '9', location: 'city',
@@ -2494,6 +2554,20 @@ Battlebox.initializeOptions = function (option_type, options) {
                 carrying: 2
             },
             {
+                name: 'archers',
+                title: 'bowmen',
+                side: 'all',
+                range: 2,
+                vision: 5,
+                speed: 50,
+                initiative: 80,
+                ranged_strength: 3,
+                strength: .5,
+                defense: .8,
+                weapon: 'longbows',
+                carrying: 2
+            },
+            {
                 name: 'siege',
                 title: 'siege units',
                 side: 'all',
@@ -2504,6 +2578,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 strength: .5,
                 defense: .5,
                 weapon: 'catapults',
+                area_attacks: true,
                 carrying: 1
             },
             {
@@ -2531,6 +2606,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 defense: 300,
                 weapon: 'fire breath',
                 armor: 'impenetrable scales',
+                area_attacks: true,
                 carrying: 2000
             }
         ],
@@ -4359,6 +4435,224 @@ Battlebox.initializeOptions = function (option_type, options) {
         return Math.max(0, weight);
     };
 
+    /**
+     * Find tile that best meets goal values of unit
+     * @param {object} game class data
+     * @param {object} unit unit that is looking for cells to move to
+     * @returns {object} tile hex cell that best matches goals, and also enemy on tile and nearest enemy in range if ranged attacks are possible
+     */
+    _c.find_tile_by_unit_goals = function (game, unit) {
+        var range = unit.vision_range();
+
+        //TODO: Add in knowledge - where is a town or storage area or friendly unit
+
+        var current_cell = _c.tile(game, unit.x, unit.y);
+
+        var options = {
+            range: range,
+            return_multiple: true
+        };
+        var close_entities = _c.find_unit_by_filters(game, unit, options);
+
+
+        var ranged_unit_range = unit.ranged_fighting_range();
+        var has_ranged_ability = (ranged_unit_range > 1);
+        var ranged_enemy = [];
+
+        //Find the neighboring cells
+        var neighbors = _c.surrounding_tiles(game, unit.x, unit.y, range, true);
+
+        if (unit.strategy_plan_callback) {
+            var resources = {
+                current_cell: current_cell,
+                neighbors: neighbors,
+                close_entities: close_entities,
+                ranged_range: ranged_unit_range
+            };
+            unit._game = null;  //Hide so functions can't access game object
+            var x = unit.x; //Make sure functions don't overwrite x,y
+            var y = unit.y;
+            var result = unit.strategy_plan_callback(resources);
+            unit._game = game;
+            unit.x = x;
+            unit.y = y;
+            return result;
+        }
+
+        unit._data.goals = unit._data.goals || {};
+
+        //Add in the current cell, then search through all to find out point values for the current strategy
+        neighbors = [current_cell].concat(neighbors);
+        var weighted_neighbors = [];
+        var current_cell_weight = 0;
+        _.each(neighbors, function (neighbor) {
+            var points = 0;
+
+            var is_pillaged_or_looted = _c.tile_has(neighbor, 'pillaged') || _c.tile_has(neighbor, 'looted');
+            var num_towers = (_c.tile_has(neighbor, 'tower')) ? 1 : 0;
+            var num_walls = Math.min(2, _c.tile_has(neighbor, 'wall', true));
+            var loot = (_.isObject(neighbor.loot) && !is_pillaged_or_looted) ? 1 : 0;
+            var is_city = (neighbor.type == 'city' && !is_pillaged_or_looted) ? 1 : 0;
+            var is_farm = (_c.tile_has(neighbor, 'farm') && !is_pillaged_or_looted) ? 1 : 0;
+            var is_populated = (neighbor.population && !is_pillaged_or_looted) ? 1 : 0;
+
+            points += (num_towers * (unit._data.goals.towers || 0));
+            points += (num_walls * (unit._data.goals.walls || 0));
+            points += (loot * (unit._data.goals.loot || 0));
+            points += (is_city * (unit._data.goals.city || 0));
+            points += (is_farm * (unit._data.goals.farm || 0));
+            points += (is_populated * (unit._data.goals.population || 0));
+
+            //TODO: How to incorporate weakness of enemy? Have a running power total?
+
+            //Modify for enemies if that matters
+            if (close_entities.target.length && (unit._data.goals.weak_enemies || unit._data.goals.all_enemies)) {
+                var enemies_here = _.filter(close_entities.target, function (enemy) {
+                    return (unit._data.side != enemy._data.side) && (enemy.x == neighbor.x) && (enemy.y == neighbor.y) && !enemy.is_dead;
+                });
+
+                //If there's a strong enemy in this cell, don't attack it
+                var stronger_here = false;
+                var weaker_here = false;
+                _.each(enemies_here, function (enemy_here) {
+                    if (enemy_here.base_strength > unit.base_defense) stronger_here = true;
+                    if (enemy_here.base_strength < unit.base_defense) weaker_here = true;
+
+                });
+                if (enemies_here.length > 0) {
+                    if (unit._data.goals.strong_enemies !== undefined && stronger_here) {
+                        points += unit._data.goals.strong_enemies;
+                    } else if (unit._data.goals.weak_enemies !== undefined && weaker_here) {
+                        points += unit._data.goals.weak_enemies;
+                    } else {
+                        points += unit._data.goals.all_enemies;
+                    }
+                }
+            }
+
+            //See if any enemies are within attack range
+            if (has_ranged_ability && close_entities.target.length) {
+                var enemies_ranged_here = _.filter(close_entities.target, function (enemy) {
+                    return neighbor.ring && (neighbor.ring < ranged_unit_range) && (unit._data.side != enemy._data.side) && (enemy.x == neighbor.x) && (enemy.y == neighbor.y) && !enemy.is_dead;
+                });
+                if (enemies_ranged_here && enemies_ranged_here.length) {
+                    ranged_enemy = ranged_enemy.concat({target: enemies_ranged_here, ring: neighbor.ring});
+                }
+            }
+
+            //Modify for friends if that matters (negative to stay away from friends, positive to follow)
+            if (close_entities.target.length && unit._data.goals.friendly_units) {
+                var friendly_units = _.filter(close_entities.target, function (friend) {
+                    return (unit._data.side == friend._data.side) && (friend.x == neighbor.x) && (friend.y == neighbor.y) && !friend.is_dead;
+                });
+                points += (friendly_units.length * Math.min(unit._data.goals.friendly_units, 2));
+            }
+
+            //Modify for exploration - will move away from cells
+            if (unit._data.goals.explore) {
+                points -= (unit.times_moved_to_tile(neighbor.x, neighbor.y) * unit._data.goals.explore);
+            }
+
+
+            //Reduce points by distance
+            points -= 2 * Math.max(0, (neighbor.ring || 0) - (unit._data.goals.explore || 0));
+
+            //Update the waypoint value to be closer to up to date (if you can see it)
+            if (unit.waypoint && unit.waypoint_weight && unit.waypoint.x == neighbor.x && unit.waypoint.y == neighbor.y) {
+                unit.waypoint_weight = Math.floor((unit.waypoint_weight + unit.waypoint_weight + points) / 3);
+            }
+            if (unit.x == neighbor.x && unit.y == neighbor.y) {
+                current_cell_weight = points;
+            }
+
+            //Only consider cells that are better than current mission
+            var point_target = unit.waypoint_weight || 0;
+            if (points > point_target) {
+                weighted_neighbors.push({x: neighbor.x, y: neighbor.y, weight: points});
+            }
+        });
+
+        var best_cell = false;
+
+        if (weighted_neighbors.length == 0 && unit.waypoint) {
+            best_cell = unit.waypoint;
+        } else if (weighted_neighbors.length > 0) {
+            //Sort to find highest points
+            weighted_neighbors.sort(function (a, b) {
+                return a.weight - b.weight;
+            });
+
+            best_cell = _.last(weighted_neighbors);
+
+            //Randomly pick one if highest is a tie.  NOTE: Sometimes this is better, sometimes not
+            weighted_neighbors = _.filter(weighted_neighbors, function (neighbor) {
+                return neighbor.weight == best_cell.weight;
+            });
+            best_cell = weighted_neighbors.random();
+        }
+
+        //TODO: Send message to others that there are important points or that a point is being taken care of?
+
+        //Find the last weighted cell, and move there if it has more points than current cell
+        if (weighted_neighbors && weighted_neighbors.length) {
+            if (!best_cell.weight) {
+                best_cell = false;
+            } else if (best_cell.weight <= current_cell_weight) {
+                best_cell = false;
+            } else if ((best_cell.x == current_cell.x) && (best_cell.y == current_cell.y)) {
+                best_cell = false;
+            }
+        }
+
+        //Find any targets on the current square for convenience
+        var enemy_here = _.find(close_entities.target, function (enemy) {
+            //TODO: Either find by weakest or strongest by options
+            return (unit._data.side != enemy._data.side) && (enemy.x == unit.x) && (enemy.y == unit.y);
+        });
+
+        //If any ranged attacks are permissible, find the closest
+        if (ranged_enemy && ranged_enemy.length) {
+            ranged_enemy.sort(function (a, b) {
+                return a.target.ring - b.target.ring;
+            });
+            ranged_enemy = _.first(ranged_enemy);
+            ranged_enemy = (ranged_enemy && ranged_enemy.target && ranged_enemy.target[0]) ? ranged_enemy.target[0] : null;
+        } else {
+            ranged_enemy = null;
+        }
+
+        //If there's a strong enemy in this cell, don't attack it
+        if (unit._data.run_if_ranged_and_overpowered && has_ranged_ability) {
+            if (enemy_here.base_strength > unit.base_defense) {
+                enemy_here = null;
+            }
+        }
+
+
+        //Closest cell with most points, and the first enemies within range
+        var result = {tile: best_cell, enemy: enemy_here, ranged_enemy: ranged_enemy};
+
+        //If the unit has a post-ai function, run it
+        if (unit.strategy_post_plan_callback) {
+            var resources = {
+                current_cell: current_cell,
+                neighbors: neighbors,
+                close_entities: close_entities,
+                ranged_range: ranged_unit_range
+            };
+            unit._game = null;  //Hide so functions can't access game object
+            x = unit.x; //Make sure functions don't overwrite x,y
+            y = unit.y;
+            var result = unit.strategy_post_plan_callback(result, resources);
+            unit._game = game;
+            unit.x = x;
+            unit.y = y;
+            return result;
+        }
+        return result;  //NOTE: If enemy is specified (on same tile, will attack that), then Ranged Enemy, then move to tile
+    };
+
+
     _c.path_from_to = function (game, from_x, from_y, to_x, to_y, weighting_callback) {
 
         var passableCallback = function (x, y) {
@@ -4373,8 +4667,8 @@ Battlebox.initializeOptions = function (option_type, options) {
             path.push([x, y]);
         };
         var weightingCallback = weighting_callback || function (x, y) {
-            return _c.tile_traversability_weight(game, x, y);
-        };
+                return _c.tile_traversability_weight(game, x, y);
+            };
         astar.compute(from_x, from_y, pathCallback, weightingCallback);
 //        astar.compute(from_x, from_y, pathCallback);
 
@@ -4633,7 +4927,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 side: 'enemy',
                 filter: 'closest',
                 range: unit.vision_range(),
-                plan: 'seek closest',
+                plan: options.when_arrive || 'seek closest',
                 backup_strategy: unit._data.backup_strategy
             };
             target_status = _c.find_unit_by_filters(game, unit, options);
@@ -4656,7 +4950,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                     side: 'enemy',
                     filter: 'closest',
                     range: unit.vision_range(),
-                    plan: 'invade city',
+                    plan: options.when_arrive || 'seek closest',
                     backup_strategy: unit._data.backup_strategy
                 };
                 var target_status = _c.find_unit_by_filters(game, unit, options);
@@ -4729,7 +5023,11 @@ Battlebox.initializeOptions = function (option_type, options) {
         turns_before_dying: 2,
         amount_dying_when_hungry: .02,
         eat_each_number_of_turns: 24,
-        fatigue_replenished_each_turn: .25
+        fatigue_replenished_each_turn: .25,
+        past_cells_to_remember: 40,
+        population_to_make_city_tile: 3000,
+        fatigue_replenished_from_pillaging: .15,
+        fatigue_replenished_from_looting: .5
     };
 
     //---------------
@@ -4824,7 +5122,11 @@ Battlebox.initializeOptions = function (option_type, options) {
                     unit.forces.push(force);
                 }
             }
+            _.each(unit.forces, function (force) {
+                force.side = unit._data.side;
+            });
             unit._data.troops = JSON.parse(JSON.stringify(unit.forces));
+
 
             //Vision is from the unit with the highest vision
             //Speed is from teh unit with the lowest speed
@@ -4883,18 +5185,21 @@ Battlebox.initializeOptions = function (option_type, options) {
             //TODO: consumes action points
 
             if (num_farms && !is_pillaged) {
-                unit.pickup_loot({food: (100 * num_farms), herbs: (20 * num_farms)})
+                unit.pickup_loot({food: (100 * num_farms), herbs: (20 * num_farms)});
+                unit.fatigue *= (1 - CONSTS.fatigue_replenished_from_pillaging);
                 cell.additions.push('pillaged');
 
             } else if (cell.type == 'city' && !is_pillaged) {
-                if ((cell.population > 3000) && (_c.random() > .8)) {
+                if ((cell.population > CONSTS.population_to_make_city_tile) && (_c.random() > .8)) {
                     unit.pickup_loot({gold: 1});
                 }
                 unit.pickup_loot({food: 10, wood: 10, metal: 10, skins: 10});
+                unit.fatigue *= (1 - CONSTS.fatigue_replenished_from_pillaging);
                 cell.additions.push('pillaged');
 
             } else if (cell.population) {
                 unit.pickup_loot({food: 3});
+                unit.fatigue *= (1 - CONSTS.fatigue_replenished_from_pillaging);
                 cell.additions.push('pillaged');
             }
 
@@ -4908,13 +5213,14 @@ Battlebox.initializeOptions = function (option_type, options) {
                 unit.pickup_loot({food: (25 * num_farms), herbs: (6 * num_farms)})
 
             } else if (cell.type == 'city' && !is_looted) {
-                if ((cell.population > 3000) && (_c.random() > .9)) {
+                if ((cell.population > CONSTS.population_to_make_city_tile) && (_c.random() > .9)) {
                     unit.pickup_loot({gold: 1});
                 }
                 unit.pickup_loot({food: 5, wood: 5, metal: 5, skins: 5});
             }
             if (!is_looted) {
                 cell.additions.push('looted');
+                unit.fatigue *= (1 - CONSTS.fatigue_replenished_from_looting);
             }
         }
     };
@@ -4946,206 +5252,6 @@ Battlebox.initializeOptions = function (option_type, options) {
 
             _c.draw_tile(game, x, y);
         }
-    };
-
-    /**
-     * Find tile that best meets goal values of unit
-     * @param {object} game class data
-     * @param {object} unit unit that is looking for cells to move to
-     * @returns {object} tile hex cell that best matches goals, and also enemy on tile and nearest enemy in range if ranged attacks are possible
-     */
-    _c.find_tile_by_unit_goals = function (game, unit) {
-        var range = unit.vision_range();
-
-        //TODO: Add in knowledge - where is a town or storage area or friendly unit
-
-        var current_cell = _c.tile(game, unit.x, unit.y);
-
-        var options = {
-            range: range,
-            return_multiple: true
-        };
-        var close_entities = _c.find_unit_by_filters(game, unit, options);
-
-
-        var has_ranged_ability = false;
-        var ranged_unit_range = 0;
-        _.each(unit.forces, function (force) {
-            if (force.ranged_strength || force.range > 1) {
-                has_ranged_ability = true;
-                if (force.range > ranged_unit_range) {
-                    ranged_unit_range = force.range;
-                }
-            }
-
-        });
-        var ranged_enemy = [];
-
-        //Find the neighboring cells
-        var neighbors = _c.surrounding_tiles(game, unit.x, unit.y, range, true);
-
-        if (unit.strategy_plan_callback) {
-            var resources = {
-                current_cell: current_cell,
-                neighbors: neighbors,
-                close_entities: close_entities,
-                ranged_range: ranged_unit_range
-            };
-            unit._game = null;  //Hide so functions can't access game object
-            var x = unit.x; //Make sure functions don't overwrite x,y
-            var y = unit.y;
-            var result = unit.strategy_plan_callback(resources);
-            unit._game = game;
-            unit.x = x;
-            unit.y = y;
-            return result;
-        }
-
-        unit._data.goals = unit._data.goals || {};
-
-        //Add in the current cell, then search through all to find out point values for the current strategy
-        neighbors = [current_cell].concat(neighbors);
-        var weighted_neighbors = [];
-        var current_cell_weight = 0;
-        _.each(neighbors, function (neighbor) {
-            var points = 0;
-
-            var is_pillaged_or_looted = _c.tile_has(neighbor, 'pillaged') || _c.tile_has(neighbor, 'looted');
-            var num_towers = (_c.tile_has(neighbor, 'tower')) ? 1 : 0;
-            var num_walls = Math.min(2, _c.tile_has(neighbor, 'wall', true));
-            var loot = (_.isObject(neighbor.loot) && !is_pillaged_or_looted) ? 1 : 0;
-            var is_city = (neighbor.type == 'city' && !is_pillaged_or_looted) ? 1 : 0;
-            var is_farm = (_c.tile_has(neighbor, 'farm') && !is_pillaged_or_looted) ? 1 : 0;
-            var is_populated = (neighbor.population && !is_pillaged_or_looted) ? 1 : 0;
-
-            points += (num_towers * (unit._data.goals.towers || 0));
-            points += (num_walls * (unit._data.goals.walls || 0));
-            points += (loot * (unit._data.goals.loot || 0));
-            points += (is_city * (unit._data.goals.city || 0));
-            points += (is_farm * (unit._data.goals.farm || 0));
-            points += (is_populated * (unit._data.goals.population || 0));
-
-            //TODO: How to incorporate weakness of enemy? Have a running power total?
-
-            //Modify for enemies if that matters
-            if (close_entities.target.length && (unit._data.goals.weak_enemies || unit._data.goals.all_enemies)) {
-                var enemies_here = _.filter(close_entities.target, function (enemy) {
-                    return (unit._data.side != enemy._data.side) && (enemy.x == neighbor.x) && (enemy.y == neighbor.y) && !enemy.is_dead;
-                });
-                points += (enemies_here.length * Math.min(unit._data.goals.all_enemies, 2));
-            }
-
-            //See if any enemies are within attack range
-            if (has_ranged_ability && close_entities.target.length) {
-                var enemies_ranged_here = _.filter(close_entities.target, function (enemy) {
-                    return neighbor.ring && (neighbor.ring < ranged_unit_range) && (unit._data.side != enemy._data.side) && (enemy.x == neighbor.x) && (enemy.y == neighbor.y) && !enemy.is_dead;
-                });
-                if (enemies_ranged_here && enemies_ranged_here.length) {
-                    ranged_enemy = ranged_enemy.concat({target: enemies_ranged_here, ring: neighbor.ring});
-                }
-            }
-
-            //Modify for friends if that matters (negative to stay away from friends, positive to follow)
-            if (close_entities.target.length && unit._data.goals.friendly_units) {
-                var friendly_units = _.filter(close_entities.target, function (friend) {
-                    return (unit._data.side == friend._data.side) && (friend.x == neighbor.x) && (friend.y == neighbor.y) && !friend.is_dead;
-                });
-                points += (friendly_units.length * Math.min(unit._data.goals.friendly_units, 2));
-            }
-
-            //Modify for exploration - will move away from cells
-            if (unit._data.goals.explore && points > 0) {
-                points -= (unit.times_moved_to_tile(neighbor.x, neighbor.y) * unit._data.goals.explore);
-            }
-
-            //Reduce points by distance
-            points -= 2 * Math.max(0, (neighbor.ring || 0) - (unit._data.goals.explore || 0));
-
-            //Update the waypoint value to be closer to up to date (if you can see it)
-            if (unit.waypoint && unit.waypoint.x == neighbor.x && unit.waypoint.y == neighbor.y) {
-                unit.waypoint_weight = Math.round((unit.waypoint_weight + unit.waypoint_weight + points) / 3);
-            }
-            if (unit.x == neighbor.x && unit.y == neighbor.y) {
-                current_cell_weight = points;
-            }
-
-            //Only consider cells that are better than current mission
-            var point_target = unit.waypoint_weight || 0;
-            if (points > point_target) {
-                weighted_neighbors.push({x: neighbor.x, y: neighbor.y, weight: points});
-            }
-        });
-
-        var best_cell = false;
-
-        if (weighted_neighbors.length == 0 && unit.waypoint) {
-            best_cell = unit.waypoint;
-        } else if (weighted_neighbors.length > 0) {
-            //Sort to find highest points
-            weighted_neighbors.sort(function (a, b) {
-                return a.weight - b.weight;
-            });
-
-            best_cell = _.last(weighted_neighbors);
-
-            //Randomly pick one if highest is a tie.  NOTE: Sometimes this is better, sometimes not
-            weighted_neighbors = _.filter(weighted_neighbors, function (neighbor) {
-                return neighbor.weight == best_cell.weight;
-            });
-            best_cell = weighted_neighbors.random();
-        }
-
-        //TODO: Send message to others that there are important points or that a point is being taken care of?
-
-        //Find the last weighted cell, and move there if it has more points than current cell
-        if (weighted_neighbors && weighted_neighbors.length) {
-            if (!best_cell.weight) {
-                best_cell = false;
-            } else if (best_cell.weight <= current_cell_weight) {
-                best_cell = false;
-            } else if ((best_cell.x == current_cell.x) && (best_cell.y == current_cell.y)) {
-                best_cell = false;
-            }
-        }
-
-        //Find any targets on the current square for convenience
-        var enemy_here = _.find(close_entities.target, function (enemy) {
-            //TODO: Either find by weakest or strongest by options
-            return (unit._data.side != enemy._data.side) && (enemy.x == unit.x) && (enemy.y == unit.y);
-        });
-
-        //If any ranged attacks are permissible, find the closest
-        if (ranged_enemy && ranged_enemy.length) {
-            ranged_enemy.sort(function (a, b) {
-                return a.target.ring - b.target.ring;
-            });
-            ranged_enemy = _.first(ranged_enemy);
-            ranged_enemy = (ranged_enemy && ranged_enemy.target && ranged_enemy.target[0]) ? ranged_enemy.target[0] : null;
-        } else {
-            ranged_enemy = null;
-        }
-
-        //Closest cell with most points, and the first enemies within range
-        var result = {tile: best_cell, enemy: enemy_here, ranged_enemy: ranged_enemy};
-
-        //If the unit has a post-ai function, run it
-        if (unit.strategy_post_plan_callback) {
-            var resources = {
-                current_cell: current_cell,
-                neighbors: neighbors,
-                close_entities: close_entities,
-                ranged_range: ranged_unit_range
-            };
-            unit._game = null;  //Hide so functions can't access game object
-            x = unit.x; //Make sure functions don't overwrite x,y
-            y = unit.y;
-            var result = unit.strategy_post_plan_callback(result, resources);
-            unit._game = game;
-            unit.x = x;
-            unit.y = y;
-            return result;
-        }
-        return result;
     };
 
     //--------------------
@@ -5261,21 +5367,22 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         return range;
     };
-    Entity.prototype.attack_range = function (force_name) {
-        //TODO: This should look at forces, not the overall unit
+    Entity.prototype.ranged_fighting_range = function () {
         var unit = this;
-        var range = unit.range || 1;
 
-        var is_ranged = (unit.ranged_strength) || (unit.range > 1);
+        var ranged_unit_range = 0;
+        _.each(unit.forces, function (force) {
+            if (force.ranged_strength || force.range > 1) {
+                if (force.range > ranged_unit_range) {
+                    ranged_unit_range = force.range;
+                }
+            }
+        });
 
-        if (is_ranged) {
-            var tile = unit.tile_on();
-            if (_c.tile_has(tile, 'tower')) range++;
-        }
-        return range;
+        var tile = unit.tile_on();
+        if (_c.tile_has(tile, 'tower')) ranged_unit_range += 1;
+        return ranged_unit_range;
     };
-
-
     Entity.prototype.tile_on = function () {
         var unit = this;
         if (unit.is_dead) {
@@ -5330,20 +5437,35 @@ Battlebox.initializeOptions = function (option_type, options) {
     Entity.prototype.eat = function () {
         var unit = this;
 
-        unit.fatigue *= (1 - CONSTS.fatigue_replenished_each_turn); // 10% of fatigue goes away
+        //Reduce Fatigue by 10%
+        unit.fatigue *= (1 - CONSTS.fatigue_replenished_each_turn);
 
-        if (this._game.tick_count % CONSTS.eat_each_number_of_turns) return; //Eats only once every 24 turns
+        var on_units_side = false;
+        if (unit._data.side == unit.tile_on().side) {
+            on_units_side = true;
+
+            //Unit fatigue further reduced
+            unit.fatigue *= (1 - CONSTS.fatigue_replenished_each_turn);
+        }
+
+        //Eats only once every 24 turns
+        if (this._game.tick_count % CONSTS.eat_each_number_of_turns) return;
 
         unit.loot = unit.loot || {};
 
         var total_eaters = unit.count_forces();
 
-        unit.loot.food -= (total_eaters * CONSTS.food_eat_ratio);
+        if (!on_units_side) {
+            //Unit only eats food they are carrying if not on their own tiles
+            unit.loot.food -= (total_eaters * CONSTS.food_eat_ratio);
+        }
+
         if (unit.loot.food < 0) {
             //Didn't have enough food.
             unit.loot.food = 0;
             unit.hungry = unit.hungry || 0;
             unit.hungry++;
+            unit.fatigue *= unit.hungry;
 
             if (unit.hungry > CONSTS.turns_before_dying) {
                 //Starving, start dying off
@@ -5356,13 +5478,15 @@ Battlebox.initializeOptions = function (option_type, options) {
                 });
             }
         }
+
+        unit.fatigue = Math.floor(unit.fatigue);
     };
 
 
     Entity.prototype.track_move = function (tile) {
         this.previous_tiles_visited.push(tile);
         //Only track last 40 moves;
-        this.previous_tiles_visited = _.last(this.previous_tiles_visited, 40);
+        this.previous_tiles_visited = _.last(this.previous_tiles_visited, CONSTS.past_cells_to_remember);
     };
     Entity.prototype.times_moved_to_tile = function (x, y) {
         var visited = _.filter(this.previous_tiles_visited, function (tile) {
@@ -5453,7 +5577,7 @@ Battlebox.initializeOptions = function (option_type, options) {
                 }
 
                 var num_walls = 0, num_towers = 0;
-                if (unit._side == cell.side) {
+                if (unit._data.side == cell.side) {
                     //The unit is on home territory
                     num_walls = _c.tile_has(cell, 'wall', true);
                     num_towers = _c.tile_has(cell, 'tower', true);
@@ -5462,10 +5586,12 @@ Battlebox.initializeOptions = function (option_type, options) {
                 unit.protected_by_walls = num_walls;
                 unit.in_towers = num_towers;
 
-                _c.draw_tile(game, previous_x, previous_y);
-                unit._draw();
                 unit.track_move(cell);
             }
+        }
+        _c.draw_tile(game, previous_x, previous_y);
+        if (!unit.is_dead) {
+            unit._draw();
         }
         return can_move_to;
     };
