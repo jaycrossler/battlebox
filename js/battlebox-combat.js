@@ -85,19 +85,33 @@
         var attacker_strength_fatigue_modifier = 1 - (Math.sqrt(Math.floor(attacker.fatigue)) / (attacker_strength));
         var defender_strength_fatigue_modifier = 1 - (Math.sqrt(Math.floor(defender.fatigue)) / (defender_strength));
 
-        //TODO: if tie, have both attack at same time, or defender first?
         //Sort from fastest to slowest
         var all_forces = [].concat(attacker.forces, defender.forces);
         all_forces.sort(function (a, b) {
             var a_initiative = a.initiative || a.speed || 40;
             var b_initiative = b.initiative || b.speed || 40;
 
+            //Break ties
             if (a_initiative == b_initiative) {
-                //If same initiative, defenders should go first
-                a_initiative--;
+                //Defenders and those in towers and walls should go first
+                if (a.mode == 'attacking') {
+                    a_initiative--;
+                    a_initiative += attacker.in_towers + attacker.protected_by_walls;
+                }
+                if (b.mode == 'attacking') {
+                    b_initiative--;
+                    b_initiative += attacker.in_towers + attacker.protected_by_walls;
+                }
+                if (a.mode == 'defending') {
+                    a_initiative += defender.in_towers + defender.protected_by_walls;
+                }
+                if (b.mode == 'attacking') {
+                    b_initiative += defender.in_towers + defender.protected_by_walls;
+                }
             }
 
-            return (a_initiative - b_initiative);
+
+            return (b_initiative - a_initiative);
         });
 
         //For each group of forces
@@ -135,11 +149,12 @@
                         if (enemy_killed) {
                             //------------------------------------------------
                             //If the attacked force is removed, take it off the unit
-                            target_force.count--;
+                            var enemies_dead = (force.area_attacks ? Math.ceil(to_hit_chance) : 1)
+                            target_force.count -= enemies_dead;
                             if (force.mode == 'attacking') {
-                                defenders_killed++;
+                                defenders_killed += enemies_dead;
                             } else {
-                                attackers_killed++;
+                                attackers_killed += enemies_dead;
                             }
                             if (target_force.count <= 0) {
                                 var f_i = _.indexOf(all_forces, target_force);
@@ -173,11 +188,13 @@
 
                                 //------------------------------------------------
                                 //If the returned-fire force is removed, take it off the unit
-                                force.count--;
+                                enemies_dead = (force.area_attacks ? Math.ceil(to_hit_chance) : 1)
+
+                                force.count -= enemies_dead;
                                 if (force.mode == 'attacking') {
-                                    attackers_killed++;
+                                    attackers_killed += enemies_dead;
                                 } else {
-                                    defenders_killed++;
+                                    defenders_killed += enemies_dead;
                                 }
 
                                 if (force.count <= 0) {

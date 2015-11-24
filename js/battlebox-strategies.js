@@ -51,17 +51,8 @@
         var close_entities = _c.find_unit_by_filters(game, unit, options);
 
 
-        var has_ranged_ability = false;
-        var ranged_unit_range = 0;
-        _.each(unit.forces, function (force) {
-            if (force.ranged_strength || force.range > 1) {
-                has_ranged_ability = true;
-                if (force.range > ranged_unit_range) {
-                    ranged_unit_range = force.range;
-                }
-            }
-
-        });
+        var ranged_unit_range = unit.ranged_fighting_range();
+        var has_ranged_ability = (ranged_unit_range > 1);
         var ranged_enemy = [];
 
         //Find the neighboring cells
@@ -163,8 +154,8 @@
             points -= 2 * Math.max(0, (neighbor.ring || 0) - (unit._data.goals.explore || 0));
 
             //Update the waypoint value to be closer to up to date (if you can see it)
-            if (unit.waypoint && unit.waypoint.x == neighbor.x && unit.waypoint.y == neighbor.y) {
-                unit.waypoint_weight = Math.round((unit.waypoint_weight + unit.waypoint_weight + points) / 3);
+            if (unit.waypoint && unit.waypoint_weight && unit.waypoint.x == neighbor.x && unit.waypoint.y == neighbor.y) {
+                unit.waypoint_weight = Math.floor((unit.waypoint_weight + unit.waypoint_weight + points) / 3);
             }
             if (unit.x == neighbor.x && unit.y == neighbor.y) {
                 current_cell_weight = points;
@@ -532,7 +523,7 @@
                 side: 'enemy',
                 filter: 'closest',
                 range: unit.vision_range(),
-                plan: 'seek closest',
+                plan: options.when_arrive || 'seek closest',
                 backup_strategy: unit._data.backup_strategy
             };
             target_status = _c.find_unit_by_filters(game, unit, options);
@@ -555,7 +546,7 @@
                     side: 'enemy',
                     filter: 'closest',
                     range: unit.vision_range(),
-                    plan: 'invade city',
+                    plan: options.when_arrive || 'seek closest',
                     backup_strategy: unit._data.backup_strategy
                 };
                 var target_status = _c.find_unit_by_filters(game, unit, options);

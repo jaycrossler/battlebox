@@ -53,7 +53,7 @@
                 starting_food: 5,
                 goals: {
                     towers: 6, walls: 5, city: 3,
-                    friendly_units: -8, weak_enemies: 7, all_enemies: 4 //,strong_enemies: -10 (//TODO: Strong_enemies Doesn't seem to matter)
+                    friendly_units: -8, weak_enemies: 7, all_enemies: 4, strong_enemies: -10 //TODO: Strong_enemies Doesn't seem to matter)
                 }
             }
         ],
@@ -99,7 +99,7 @@
         forces: [
             {
                 name: 'Attacker Main Army', side: 'Yellow', location: 'left', player: true,
-                troops: {soldiers: 500, cavalry: 200, siege: 100}
+                troops: {soldiers: 600, cavalry: 200, siege: 100}
                 //,strategy_post_plan_callback: function (move, unit_vision) {
                 //    var unit = this;
                 //    console.log("[" + unit._symbol + "] ");
@@ -119,61 +119,61 @@
                 troops: [
                     {name: 'soldiers', count: 10, experience: 'veteran', victories: 12},
                     {name: 'cavalry', count: 10, experience: 'veteran', victories: 13},
-                    {name: 'siege', count: 80, experience: 'master', victories: 23}
+                    {name: 'archers', count: 80, experience: 'master', victories: 23}
                 ]
             },
             {
                 name: 'Task Force Bravo', side: 'Yellow', symbol: '#B', location: 'left', player: true,
-                troops: {cavalry: 25}
+                troops: {cavalry: 125}
             },
             {
                 name: 'Task Force Charlie', side: 'Yellow', symbol: '#C', location: 'left', player: true,
-                troops: {cavalry: 25}
+                troops: {cavalry: 125}
             },
             {
                 name: 'Task Force Delta', side: 'Yellow', symbol: '#D', location: 'left', player: true,
-                troops: {cavalry: 25}
+                troops: {cavalry: 125}
             },
             {
                 name: 'Task Force Echo', side: 'Yellow', symbol: '#E', location: 'left', player: true,
-                troops: {cavalry: 25}
+                troops: {cavalry: 125}
             },
             //------------------------------
             {
                 name: 'Defender City Force', side: 'White', location: 'city', symbol: "!",
-                troops: {soldiers: 500, cavalry: 40, siege: 100}
+                troops: {soldiers: 500, cavalry: 40, archers: 100}
             },
             {
                 name: 'Defender Bowmen 1', side: 'White', symbol: '1', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Bowmen 2', side: 'White', symbol: '2', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Bowmen 3', side: 'White', symbol: '3', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Bowmen 4', side: 'White', symbol: '4', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Bowmen 5', side: 'White', symbol: '5', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Bowmen 6', side: 'White', symbol: '6', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Bowmen 7', side: 'White', symbol: '7', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Bowmen 8', side: 'White', symbol: '8', location: 'city',
-                troops: {soldiers: 20, siege: 20}
+                troops: {soldiers: 20, archers: 20}
             },
             {
                 name: 'Defender Catapults', side: 'White', symbol: '9', location: 'city',
@@ -239,6 +239,20 @@
                 carrying: 2
             },
             {
+                name: 'archers',
+                title: 'bowmen',
+                side: 'all',
+                range: 2,
+                vision: 5,
+                speed: 50,
+                initiative: 80,
+                ranged_strength: 3,
+                strength: .5,
+                defense: .8,
+                weapon: 'longbows',
+                carrying: 2
+            },
+            {
                 name: 'siege',
                 title: 'siege units',
                 side: 'all',
@@ -249,6 +263,7 @@
                 strength: .5,
                 defense: .5,
                 weapon: 'catapults',
+                area_attacks: true,
                 carrying: 1
             },
             {
@@ -276,6 +291,7 @@
                 defense: 300,
                 weapon: 'fire breath',
                 armor: 'impenetrable scales',
+                area_attacks: true,
                 carrying: 2000
             }
         ],

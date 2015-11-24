@@ -108,7 +108,11 @@
                     unit.forces.push(force);
                 }
             }
+            _.each(unit.forces, function (force) {
+                force.side = unit._data.side;
+            });
             unit._data.troops = JSON.parse(JSON.stringify(unit.forces));
+
 
             //Vision is from the unit with the highest vision
             //Speed is from teh unit with the lowest speed
@@ -349,6 +353,22 @@
 
         return range;
     };
+    Entity.prototype.ranged_fighting_range = function () {
+        var unit = this;
+
+        var ranged_unit_range = 0;
+        _.each(unit.forces, function (force) {
+            if (force.ranged_strength || force.range > 1) {
+                if (force.range > ranged_unit_range) {
+                    ranged_unit_range = force.range;
+                }
+            }
+        });
+
+        var tile = unit.tile_on();
+        if (_c.tile_has(tile, 'tower')) ranged_unit_range += 1;
+        return ranged_unit_range;
+    };
     Entity.prototype.tile_on = function () {
         var unit = this;
         if (unit.is_dead) {
@@ -543,7 +563,7 @@
                 }
 
                 var num_walls = 0, num_towers = 0;
-                if (unit._side == cell.side) {
+                if (unit._data.side == cell.side) {
                     //The unit is on home territory
                     num_walls = _c.tile_has(cell, 'wall', true);
                     num_towers = _c.tile_has(cell, 'tower', true);
