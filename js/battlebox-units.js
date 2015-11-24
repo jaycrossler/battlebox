@@ -9,7 +9,11 @@
         turns_before_dying: 2,
         amount_dying_when_hungry: .02,
         eat_each_number_of_turns: 24,
-        fatigue_replenished_each_turn: .25
+        fatigue_replenished_each_turn: .25,
+        past_cells_to_remember: 40,
+        population_to_make_city_tile: 3000,
+        fatigue_replenished_from_pillaging: .15,
+        fatigue_replenished_from_looting: .5
     };
 
     //---------------
@@ -163,18 +167,21 @@
             //TODO: consumes action points
 
             if (num_farms && !is_pillaged) {
-                unit.pickup_loot({food: (100 * num_farms), herbs: (20 * num_farms)})
+                unit.pickup_loot({food: (100 * num_farms), herbs: (20 * num_farms)});
+                unit.fatigue *= (1 - CONSTS.fatigue_replenished_from_pillaging);
                 cell.additions.push('pillaged');
 
             } else if (cell.type == 'city' && !is_pillaged) {
-                if ((cell.population > 3000) && (_c.random() > .8)) {
+                if ((cell.population > CONSTS.population_to_make_city_tile) && (_c.random() > .8)) {
                     unit.pickup_loot({gold: 1});
                 }
                 unit.pickup_loot({food: 10, wood: 10, metal: 10, skins: 10});
+                unit.fatigue *= (1 - CONSTS.fatigue_replenished_from_pillaging);
                 cell.additions.push('pillaged');
 
             } else if (cell.population) {
                 unit.pickup_loot({food: 3});
+                unit.fatigue *= (1 - CONSTS.fatigue_replenished_from_pillaging);
                 cell.additions.push('pillaged');
             }
 
@@ -188,13 +195,14 @@
                 unit.pickup_loot({food: (25 * num_farms), herbs: (6 * num_farms)})
 
             } else if (cell.type == 'city' && !is_looted) {
-                if ((cell.population > 3000) && (_c.random() > .9)) {
+                if ((cell.population > CONSTS.population_to_make_city_tile) && (_c.random() > .9)) {
                     unit.pickup_loot({gold: 1});
                 }
                 unit.pickup_loot({food: 5, wood: 5, metal: 5, skins: 5});
             }
             if (!is_looted) {
                 cell.additions.push('looted');
+                unit.fatigue *= (1 - CONSTS.fatigue_replenished_from_looting);
             }
         }
     };
@@ -226,206 +234,6 @@
 
             _c.draw_tile(game, x, y);
         }
-    };
-
-    /**
-     * Find tile that best meets goal values of unit
-     * @param {object} game class data
-     * @param {object} unit unit that is looking for cells to move to
-     * @returns {object} tile hex cell that best matches goals, and also enemy on tile and nearest enemy in range if ranged attacks are possible
-     */
-    _c.find_tile_by_unit_goals = function (game, unit) {
-        var range = unit.vision_range();
-
-        //TODO: Add in knowledge - where is a town or storage area or friendly unit
-
-        var current_cell = _c.tile(game, unit.x, unit.y);
-
-        var options = {
-            range: range,
-            return_multiple: true
-        };
-        var close_entities = _c.find_unit_by_filters(game, unit, options);
-
-
-        var has_ranged_ability = false;
-        var ranged_unit_range = 0;
-        _.each(unit.forces, function (force) {
-            if (force.ranged_strength || force.range > 1) {
-                has_ranged_ability = true;
-                if (force.range > ranged_unit_range) {
-                    ranged_unit_range = force.range;
-                }
-            }
-
-        });
-        var ranged_enemy = [];
-
-        //Find the neighboring cells
-        var neighbors = _c.surrounding_tiles(game, unit.x, unit.y, range, true);
-
-        if (unit.strategy_plan_callback) {
-            var resources = {
-                current_cell: current_cell,
-                neighbors: neighbors,
-                close_entities: close_entities,
-                ranged_range: ranged_unit_range
-            };
-            unit._game = null;  //Hide so functions can't access game object
-            var x = unit.x; //Make sure functions don't overwrite x,y
-            var y = unit.y;
-            var result = unit.strategy_plan_callback(resources);
-            unit._game = game;
-            unit.x = x;
-            unit.y = y;
-            return result;
-        }
-
-        unit._data.goals = unit._data.goals || {};
-
-        //Add in the current cell, then search through all to find out point values for the current strategy
-        neighbors = [current_cell].concat(neighbors);
-        var weighted_neighbors = [];
-        var current_cell_weight = 0;
-        _.each(neighbors, function (neighbor) {
-            var points = 0;
-
-            var is_pillaged_or_looted = _c.tile_has(neighbor, 'pillaged') || _c.tile_has(neighbor, 'looted');
-            var num_towers = (_c.tile_has(neighbor, 'tower')) ? 1 : 0;
-            var num_walls = Math.min(2, _c.tile_has(neighbor, 'wall', true));
-            var loot = (_.isObject(neighbor.loot) && !is_pillaged_or_looted) ? 1 : 0;
-            var is_city = (neighbor.type == 'city' && !is_pillaged_or_looted) ? 1 : 0;
-            var is_farm = (_c.tile_has(neighbor, 'farm') && !is_pillaged_or_looted) ? 1 : 0;
-            var is_populated = (neighbor.population && !is_pillaged_or_looted) ? 1 : 0;
-
-            points += (num_towers * (unit._data.goals.towers || 0));
-            points += (num_walls * (unit._data.goals.walls || 0));
-            points += (loot * (unit._data.goals.loot || 0));
-            points += (is_city * (unit._data.goals.city || 0));
-            points += (is_farm * (unit._data.goals.farm || 0));
-            points += (is_populated * (unit._data.goals.population || 0));
-
-            //TODO: How to incorporate weakness of enemy? Have a running power total?
-
-            //Modify for enemies if that matters
-            if (close_entities.target.length && (unit._data.goals.weak_enemies || unit._data.goals.all_enemies)) {
-                var enemies_here = _.filter(close_entities.target, function (enemy) {
-                    return (unit._data.side != enemy._data.side) && (enemy.x == neighbor.x) && (enemy.y == neighbor.y) && !enemy.is_dead;
-                });
-                points += (enemies_here.length * Math.min(unit._data.goals.all_enemies, 2));
-            }
-
-            //See if any enemies are within attack range
-            if (has_ranged_ability && close_entities.target.length) {
-                var enemies_ranged_here = _.filter(close_entities.target, function (enemy) {
-                    return neighbor.ring && (neighbor.ring < ranged_unit_range) && (unit._data.side != enemy._data.side) && (enemy.x == neighbor.x) && (enemy.y == neighbor.y) && !enemy.is_dead;
-                });
-                if (enemies_ranged_here && enemies_ranged_here.length) {
-                    ranged_enemy = ranged_enemy.concat({target: enemies_ranged_here, ring: neighbor.ring});
-                }
-            }
-
-            //Modify for friends if that matters (negative to stay away from friends, positive to follow)
-            if (close_entities.target.length && unit._data.goals.friendly_units) {
-                var friendly_units = _.filter(close_entities.target, function (friend) {
-                    return (unit._data.side == friend._data.side) && (friend.x == neighbor.x) && (friend.y == neighbor.y) && !friend.is_dead;
-                });
-                points += (friendly_units.length * Math.min(unit._data.goals.friendly_units, 2));
-            }
-
-            //Modify for exploration - will move away from cells
-            if (unit._data.goals.explore && points > 0) {
-                points -= (unit.times_moved_to_tile(neighbor.x, neighbor.y) * unit._data.goals.explore);
-            }
-
-            //Reduce points by distance
-            points -= 2 * Math.max(0, (neighbor.ring || 0) - (unit._data.goals.explore || 0));
-
-            //Update the waypoint value to be closer to up to date (if you can see it)
-            if (unit.waypoint && unit.waypoint.x == neighbor.x && unit.waypoint.y == neighbor.y) {
-                unit.waypoint_weight = Math.round((unit.waypoint_weight + unit.waypoint_weight + points) / 3);
-            }
-            if (unit.x == neighbor.x && unit.y == neighbor.y) {
-                current_cell_weight = points;
-            }
-
-            //Only consider cells that are better than current mission
-            var point_target = unit.waypoint_weight || 0;
-            if (points > point_target) {
-                weighted_neighbors.push({x: neighbor.x, y: neighbor.y, weight: points});
-            }
-        });
-
-        var best_cell = false;
-
-        if (weighted_neighbors.length == 0 && unit.waypoint) {
-            best_cell = unit.waypoint;
-        } else if (weighted_neighbors.length > 0) {
-            //Sort to find highest points
-            weighted_neighbors.sort(function (a, b) {
-                return a.weight - b.weight;
-            });
-
-            best_cell = _.last(weighted_neighbors);
-
-            //Randomly pick one if highest is a tie.  NOTE: Sometimes this is better, sometimes not
-            weighted_neighbors = _.filter(weighted_neighbors, function (neighbor) {
-                return neighbor.weight == best_cell.weight;
-            });
-            best_cell = weighted_neighbors.random();
-        }
-
-        //TODO: Send message to others that there are important points or that a point is being taken care of?
-
-        //Find the last weighted cell, and move there if it has more points than current cell
-        if (weighted_neighbors && weighted_neighbors.length) {
-            if (!best_cell.weight) {
-                best_cell = false;
-            } else if (best_cell.weight <= current_cell_weight) {
-                best_cell = false;
-            } else if ((best_cell.x == current_cell.x) && (best_cell.y == current_cell.y)) {
-                best_cell = false;
-            }
-        }
-
-        //Find any targets on the current square for convenience
-        var enemy_here = _.find(close_entities.target, function (enemy) {
-            //TODO: Either find by weakest or strongest by options
-            return (unit._data.side != enemy._data.side) && (enemy.x == unit.x) && (enemy.y == unit.y);
-        });
-
-        //If any ranged attacks are permissible, find the closest
-        if (ranged_enemy && ranged_enemy.length) {
-            ranged_enemy.sort(function (a, b) {
-                return a.target.ring - b.target.ring;
-            });
-            ranged_enemy = _.first(ranged_enemy);
-            ranged_enemy = (ranged_enemy && ranged_enemy.target && ranged_enemy.target[0]) ? ranged_enemy.target[0] : null;
-        } else {
-            ranged_enemy = null;
-        }
-
-        //Closest cell with most points, and the first enemies within range
-        var result = {tile: best_cell, enemy: enemy_here, ranged_enemy: ranged_enemy};
-
-        //If the unit has a post-ai function, run it
-        if (unit.strategy_post_plan_callback) {
-            var resources = {
-                current_cell: current_cell,
-                neighbors: neighbors,
-                close_entities: close_entities,
-                ranged_range: ranged_unit_range
-            };
-            unit._game = null;  //Hide so functions can't access game object
-            x = unit.x; //Make sure functions don't overwrite x,y
-            y = unit.y;
-            var result = unit.strategy_post_plan_callback(result, resources);
-            unit._game = game;
-            unit.x = x;
-            unit.y = y;
-            return result;
-        }
-        return result;
     };
 
     //--------------------
@@ -541,21 +349,6 @@
 
         return range;
     };
-    Entity.prototype.attack_range = function (force_name) {
-        //TODO: This should look at forces, not the overall unit
-        var unit = this;
-        var range = unit.range || 1;
-
-        var is_ranged = (unit.ranged_strength) || (unit.range > 1);
-
-        if (is_ranged) {
-            var tile = unit.tile_on();
-            if (_c.tile_has(tile, 'tower')) range++;
-        }
-        return range;
-    };
-
-
     Entity.prototype.tile_on = function () {
         var unit = this;
         if (unit.is_dead) {
@@ -610,20 +403,35 @@
     Entity.prototype.eat = function () {
         var unit = this;
 
-        unit.fatigue *= (1 - CONSTS.fatigue_replenished_each_turn); // 10% of fatigue goes away
+        //Reduce Fatigue by 10%
+        unit.fatigue *= (1 - CONSTS.fatigue_replenished_each_turn);
 
-        if (this._game.tick_count % CONSTS.eat_each_number_of_turns) return; //Eats only once every 24 turns
+        var on_units_side = false;
+        if (unit._data.side == unit.tile_on().side) {
+            on_units_side = true;
+
+            //Unit fatigue further reduced
+            unit.fatigue *= (1 - CONSTS.fatigue_replenished_each_turn);
+        }
+
+        //Eats only once every 24 turns
+        if (this._game.tick_count % CONSTS.eat_each_number_of_turns) return;
 
         unit.loot = unit.loot || {};
 
         var total_eaters = unit.count_forces();
 
-        unit.loot.food -= (total_eaters * CONSTS.food_eat_ratio);
+        if (!on_units_side) {
+            //Unit only eats food they are carrying if not on their own tiles
+            unit.loot.food -= (total_eaters * CONSTS.food_eat_ratio);
+        }
+
         if (unit.loot.food < 0) {
             //Didn't have enough food.
             unit.loot.food = 0;
             unit.hungry = unit.hungry || 0;
             unit.hungry++;
+            unit.fatigue *= unit.hungry;
 
             if (unit.hungry > CONSTS.turns_before_dying) {
                 //Starving, start dying off
@@ -636,13 +444,15 @@
                 });
             }
         }
+
+        unit.fatigue = Math.floor(unit.fatigue);
     };
 
 
     Entity.prototype.track_move = function (tile) {
         this.previous_tiles_visited.push(tile);
         //Only track last 40 moves;
-        this.previous_tiles_visited = _.last(this.previous_tiles_visited, 40);
+        this.previous_tiles_visited = _.last(this.previous_tiles_visited, CONSTS.past_cells_to_remember);
     };
     Entity.prototype.times_moved_to_tile = function (x, y) {
         var visited = _.filter(this.previous_tiles_visited, function (tile) {
@@ -742,10 +552,12 @@
                 unit.protected_by_walls = num_walls;
                 unit.in_towers = num_towers;
 
-                _c.draw_tile(game, previous_x, previous_y);
-                unit._draw();
                 unit.track_move(cell);
             }
+        }
+        _c.draw_tile(game, previous_x, previous_y);
+        if (!unit.is_dead) {
+            unit._draw();
         }
         return can_move_to;
     };

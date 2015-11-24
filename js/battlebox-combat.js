@@ -1,5 +1,11 @@
 (function (Battlebox) {
 
+    var CONSTS = {
+        fatigue_for_enemy_force: 0.5,
+        fatigue_for_friends_killed: 1
+    };
+
+
     //TODO: Game is over if all of the forces on a defender's side are killed.  How to handle monsters?
     //TODO: Should there be a list of sides that matter in a conflict?
 
@@ -51,6 +57,7 @@
             force.mode = 'defending';
         });
 
+
         //TODO: Run away if weaker?
 
         //Call for help if enemy is stronger
@@ -71,16 +78,26 @@
             });
         }
 
-        attacker.fatigue += ranged_only ? defender_ranged_strength : defender_strength;
-        defender.fatigue += ranged_only ? attacker_ranged_strength : attacker_strength;
+        var attackers_killed = 0;
+        var defenders_killed = 0;
 
 
+        var attacker_strength_fatigue_modifier = 1 - (Math.sqrt(Math.floor(attacker.fatigue)) / (attacker_strength));
+        var defender_strength_fatigue_modifier = 1 - (Math.sqrt(Math.floor(defender.fatigue)) / (defender_strength));
+
+        //TODO: if tie, have both attack at same time, or defender first?
         //Sort from fastest to slowest
         var all_forces = [].concat(attacker.forces, defender.forces);
         all_forces.sort(function (a, b) {
             var a_initiative = a.initiative || a.speed || 40;
             var b_initiative = b.initiative || b.speed || 40;
-            return (a_initiative < b_initiative);
+
+            if (a_initiative == b_initiative) {
+                //If same initiative, defenders should go first
+                a_initiative--;
+            }
+
+            return (a_initiative - b_initiative);
         });
 
         //For each group of forces
@@ -99,23 +116,31 @@
                     if (enemy_side.length) {
 
                         var target_force = _c.randOption(force.mode == 'attacking' ? defender.forces : attacker.forces);
-                        var defender_defense_val = target_force.defense || 1;
+                        var target_defense_val = target_force.defense || 1;
                         if (target_force.protected_by_walls) {
-                            defender_defense_val += (defender_defense_val * target_force.protected_by_walls * .5);
+                            target_defense_val += (target_defense_val * target_force.protected_by_walls * .5);
                         }
                         if (target_force.in_towers) {
-                            defender_defense_val += (defender_defense_val * target_force.in_towers * .2);
+                            target_defense_val += (target_defense_val * target_force.in_towers * .2);
                         }
-
 
                         //See if attack hit
                         var strength = (ranged_only ? force.ranged_strength : force.strength) || 1;
-                        var to_hit_chance = strength / defender_defense_val;
+                        //Attack reduced by fatigue
+                        strength *= maths.clamp((force.mode == 'attacking' ? attacker_strength_fatigue_modifier : defender_strength_fatigue_modifier), 0.95, 1);
+
+
+                        var to_hit_chance = strength / target_defense_val;
                         var enemy_killed = (to_hit_chance >= 1) ? true : (_c.random() <= to_hit_chance);
                         if (enemy_killed) {
                             //------------------------------------------------
                             //If the attacked force is removed, take it off the unit
                             target_force.count--;
+                            if (force.mode == 'attacking') {
+                                defenders_killed++;
+                            } else {
+                                attackers_killed++;
+                            }
                             if (target_force.count <= 0) {
                                 var f_i = _.indexOf(all_forces, target_force);
                                 if (f_i > -1) {
@@ -141,6 +166,7 @@
 
                             //TODO: Turn all bonuses into constants
                             var target_strength = (ranged_only ? target_force.ranged_strength : target_force.strength) || 1;
+                            target_strength *= maths.clamp((force.mode == 'attacking' ? defender_strength_fatigue_modifier : attacker_strength_fatigue_modifier), 0.95, 1);
 
                             var return_hit_chance = (.2 * target_strength) / attacker_defense_val;
                             if (_c.random() <= return_hit_chance) {
@@ -148,6 +174,12 @@
                                 //------------------------------------------------
                                 //If the returned-fire force is removed, take it off the unit
                                 force.count--;
+                                if (force.mode == 'attacking') {
+                                    attackers_killed++;
+                                } else {
+                                    defenders_killed++;
+                                }
+
                                 if (force.count <= 0) {
                                     var f_i = _.indexOf(all_forces, force);
                                     if (f_i > -1) {
@@ -170,6 +202,10 @@
                 }
             }
         }
+
+        //Gain fatigue for all enemies strength and also for teammates killed
+        attacker.fatigue += Math.max(0, ((ranged_only ? defender_ranged_strength : defender_strength) * CONSTS.fatigue_for_enemy_force) + (attackers_killed * CONSTS.fatigue_for_friends_killed));
+        defender.fatigue += Math.max(0, ((ranged_only ? attacker_ranged_strength : attacker_strength) * CONSTS.fatigue_for_enemy_force) + (defenders_killed * CONSTS.fatigue_for_friends_killed));
     };
     _c.entity_range_attacks_entity = function (game, attacker, defender, callback) {
         _c.entity_attacks_entity(game, attacker, defender, callback, true);

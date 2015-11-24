@@ -33,7 +33,6 @@
                 side: 'Yellow', player: true, plan: 'invade city', backup_strategy: 'vigilant',
                 face_options: {rand_seed: 42, race: 'Human'}, //TODO
                 morale: 10,  //TODO
-                communication_speed: 1, //TODO
                 communication_range: 10,
                 try_to_loot: true, try_to_pillage: true,
                 starting_food: 5,
@@ -52,7 +51,10 @@
                 side: 'White', home_city: 'Anchorage', face_options: {race: 'Elf'},
                 plan: 'defend city', backup_strategy: 'vigilant', morale: 15,
                 starting_food: 5,
-                goals: {weak_enemies: 7, towers: 6, walls: 5, all_enemies: 4, city: 3, friendly_units: -8}
+                goals: {
+                    towers: 6, walls: 5, city: 3,
+                    friendly_units: -8, weak_enemies: 7, all_enemies: 4 //,strong_enemies: -10 (//TODO: Strong_enemies Doesn't seem to matter)
+                }
             }
         ],
 
@@ -97,44 +99,49 @@
         forces: [
             {
                 name: 'Attacker Main Army', side: 'Yellow', location: 'left', player: true,
-                troops: {soldiers: 520, cavalry: 230, siege: 50},
-                strategy_post_plan_callback: function (move, resources) {
-                    console.log("[" + this._symbol + "] ");
-                    console.table(move);
-
-                    return move;
-                }
+                troops: {soldiers: 500, cavalry: 200, siege: 100}
+                //,strategy_post_plan_callback: function (move, unit_vision) {
+                //    var unit = this;
+                //    console.log("[" + unit._symbol + "] ");
+                //    //console.table(move);
+                //
+                //    if (unit.fatigue > 0) {
+                //        console.log('[' + battlebox.data.tick_count + '] Fatigue :' + unit.fatigue + ', Units:' + unit.unit_count);
+                //    }
+                //
+                //    return move;
+                //}
             },
             {
                 name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
                 leader: {name: 'General Vesuvius', face_options: {race: 'Demon', age: 120}}, //TODO
                 //goals: {weak_enemies: 7, loot: 4, all_enemies: 5, explore: 2, city: 3},
                 troops: [
-                    {name: 'soldiers', count: 80, experience: 'veteran', victories: 12},
-                    {name: 'cavalry', count: 20, experience: 'veteran', victories: 13},
-                    {name: 'siege', count: 10, experience: 'master', victories: 23}
+                    {name: 'soldiers', count: 10, experience: 'veteran', victories: 12},
+                    {name: 'cavalry', count: 10, experience: 'veteran', victories: 13},
+                    {name: 'siege', count: 80, experience: 'master', victories: 23}
                 ]
             },
             {
                 name: 'Task Force Bravo', side: 'Yellow', symbol: '#B', location: 'left', player: true,
-                troops: {cavalry: 20}
+                troops: {cavalry: 25}
             },
             {
                 name: 'Task Force Charlie', side: 'Yellow', symbol: '#C', location: 'left', player: true,
-                troops: {cavalry: 20}
+                troops: {cavalry: 25}
             },
             {
                 name: 'Task Force Delta', side: 'Yellow', symbol: '#D', location: 'left', player: true,
-                troops: {cavalry: 20}
+                troops: {cavalry: 25}
             },
             {
                 name: 'Task Force Echo', side: 'Yellow', symbol: '#E', location: 'left', player: true,
-                troops: {cavalry: 20}
+                troops: {cavalry: 25}
             },
             //------------------------------
             {
-                name: 'Defender City Force', side: 'White', location: 'city',
-                troops: {soldiers: 620, cavalry: 40, siege: 100}
+                name: 'Defender City Force', side: 'White', location: 'city', symbol: "!",
+                troops: {soldiers: 500, cavalry: 40, siege: 100}
             },
             {
                 name: 'Defender Bowmen 1', side: 'White', symbol: '1', location: 'city',

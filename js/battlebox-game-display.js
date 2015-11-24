@@ -521,8 +521,8 @@
         var is_pillaged = _c.tile_has(cell, 'pillaged');
         var is_looted = _c.tile_has(cell, 'looted');
         var has_loot = _.isObject(cell.loot);
-        var has_people = cell.population;
-        var has_food = cell.food;
+        var has_people = Math.round(cell.population);
+        var has_food = Math.round(cell.food);
 
         if (has_river) additions.push("River");
         if (has_farms) additions.push("Farms:" + has_farms);
