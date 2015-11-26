@@ -34,6 +34,19 @@
         $pointers.message_display = $('#message_display')
             .appendTo($pointers.canvas_holder);
 
+        game.data.initial_display_functions_run = false;
+
+
+        _.each(Avatar.getRaces(), function (race_name, i) {
+            //Pull a pointer to the current avatar template for that race
+            var AvatarRace = new Avatar('get_linked_template', race_name);
+            //Remove any existing decorations
+            AvatarRace.rendering_order = _.filter(AvatarRace.rendering_order, function (dec) {
+                return !dec.decoration
+            });
+            AvatarRace.use_content_packs = [];
+        });
+
         game.display = new ROT.Display({
             transpose: game.game_options.transpose,
             width: _c.cols(game),
@@ -580,14 +593,80 @@
         });
     };
 
+
+    //This function runs on first clock tick so as to add a bit of delay
+    _c.initial_display_functions = function (game) {
+
+        _.each(Avatar.getRaces(), function (race_name, i) {
+            //Pull a pointer to the current avatar template for that race
+            var AvatarRace = new Avatar('get_linked_template', race_name);
+            //Remove any existing decorations
+            AvatarRace.rendering_order = _.filter(AvatarRace.rendering_order, function (dec) {
+                return !dec.decoration
+            });
+            AvatarRace.use_content_packs = [];
+        });
+
+
+        //Add each leader info to the canvas already created
+        _.each(game.entities, function (unit, i) {
+            if (unit.forces && unit.leader_face_options && unit.$trump_leader_canvas) {
+
+                setTimeout(function () {
+                    var canvas = unit.$trump_leader_canvas[0];
+
+                    game.engine.lock();
+                    unit.avatar = new Avatar(unit.leader_face_options, {$canvas: unit.$trump_leader_canvas}, canvas);
+                    console.log("Avatar " + unit._id + " made");
+                    console.log(" - " + JSON.stringify(unit.leader_face_options));
+                    game.engine.unlock();
+
+                }, Math.random() * 1000);
+            }
+        });
+
+    };
+
     _c.add_unit_ui_to_main_ui = function (game, unit) {
         var unit_name = _.str.titleize(unit._data.title || unit._data.name);
+
+        unit.$trump_holder = $('<div>')
+            .css({display: 'inline-block'})
+            .appendTo($pointers.unit_holder);
 
         unit.$trump = $('<div>')
             .text(unit_name)
             .addClass('unit_trump')
             .css({backgroundColor: unit._data.side})
-            .appendTo($pointers.unit_holder);
+            .appendTo(unit.$trump_holder);
+
+        if (unit._data.leader) {
+            var name = unit._data.leader.name || 'Leader';
+            unit.$trump_leader = $('<div>')
+            //.text(name)
+                .addClass('unit_leader_trump')
+                .appendTo(unit.$trump_holder);
+
+            var width = unit.$trump_leader.width();
+            var height = unit.$trump_leader.height();
+            unit.$trump_leader_canvas = $("<canvas>")
+                .attr({width: width, height: height, id: 'avatar_leader_' + unit._id})
+                .css({width: width, height: height})
+                .appendTo(unit.$trump_leader);
+
+            //Merge in any side_data face_options with leader-specific ones
+            var side_data = _.find(game.game_options.sides, function (tt) {
+                    return (tt.side == unit._data.side);
+                }) || {};
+            unit.leader_face_options = $.extend({}, side_data.face_options || {}, unit._data.leader.face_options || {});
+            if (!unit.leader_face_options.rand_seed) {
+                var seed = game.getSeed();
+                if (seed && seed.rand_seed) {
+                    unit.leader_face_options.rand_seed = parseInt(game.getSeed().rand_seed) + unit._id
+                }
+            }
+
+        }
     };
 
     _c.update_unit_ui = function (game, unit) {
@@ -658,11 +737,15 @@
             .html(text);
 
         if (unit.is_dead) {
-            if (unit.$trump.parent() != $pointers.unit_dead_holder) {
+            if (unit.$trump_holder.parent() != $pointers.unit_dead_holder) {
                 $pointers.unit_dead_holder_title.show();
-                unit.$trump
-                    .css({backgroundColor: 'lightgray', color: 'red'})
+                unit.$trump_holder
                     .appendTo($pointers.unit_dead_holder);
+                unit.$trump
+                    .css({backgroundColor: 'lightgray', color: 'red'});
+                if (unit.$trump_leader) {
+                    unit.$trump_leader.hide();
+                }
             }
         }
     };

@@ -51,7 +51,7 @@ h1{
     border-radius: 10px;
     margin: 51px 0px 0px 0px;
     padding: 0px;
-    opacity: 0.75;
+    opacity: 0.9;
     overflow-y: hidden;
 }
 #message_display{
@@ -91,4 +91,19 @@ h1{
 .unit_trump hr {
     margin-top: -2px;
     margin-bottom: 0px;
+}
+
+.unit_leader_trump {
+    vertical-align: top;
+    position: absolute;
+    height: 80px;
+    overflow-y: hidden;
+    width: 64px;
+    /*border: 2px solid gold;*/
+    /*background-color: gold;*/
+    margin: 3px 3px 3px 50px;
+    top: 48px;
+    opacity: 1;
+    border-radius: 4px;
+    font-size: .7em;
 }

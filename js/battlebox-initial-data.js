@@ -31,8 +31,8 @@
         sides: [
             {
                 side: 'Yellow', player: true, plan: 'invade city', backup_strategy: 'vigilant',
-                face_options: {rand_seed: 42, race: 'Human'}, //TODO
-                morale: 10,  //TODO
+                face_options: {race: 'Human'}, //TODO
+                morale: 10,  //TODO - Should it also take morale from leaders?
                 communication_range: 10,
                 try_to_loot: true, try_to_pillage: true,
                 starting_food: 5,
@@ -99,6 +99,7 @@
         forces: [
             {
                 name: 'Attacker Main Army', side: 'Yellow', location: 'left', player: true,
+                leader: {name: 'Athena', face_options: {gender: 'Female', age: 50}},
                 troops: {soldiers: 600, cavalry: 200, siege: 100}
                 //,strategy_post_plan_callback: function (move, unit_vision) {
                 //    var unit = this;
@@ -114,10 +115,10 @@
             },
             {
                 name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
-                leader: {name: 'General Vesuvius', face_options: {race: 'Demon', age: 120}}, //TODO
+                leader: {name: 'Vesuvius', face_options: {race: 'Demon', age: 120}},
                 //goals: {weak_enemies: 7, loot: 4, all_enemies: 5, explore: 2, city: 3},
                 troops: [
-                    {name: 'soldiers', count: 10, experience: 'veteran', victories: 12},
+                    {name: 'soldiers', count: 10, experience: 'veteran', victories: 12}, //TODO: Experience, victories
                     {name: 'cavalry', count: 10, experience: 'veteran', victories: 13},
                     {name: 'archers', count: 80, experience: 'master', victories: 23}
                 ]
@@ -141,6 +142,7 @@
             //------------------------------
             {
                 name: 'Defender City Force', side: 'White', location: 'city', symbol: "!",
+                leader: {name: 'Protectron', face_options: {race: 'Navi', age: 120}},
                 troops: {soldiers: 500, cavalry: 40, archers: 100}
             },
             {

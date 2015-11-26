@@ -288,6 +288,10 @@
         //Allow game to be paused
         //TODO: Needs to be reengineered, as it resumes the clock twice - and doubles game speed
         var next_tick = function (done) {
+            if (!game.data.initial_display_functions_run) {
+                _c.initial_display_functions(game);
+                game.data.initial_display_functions_run = true;
+            }
             if (game.data.in_progress) {
                 done();
             } else {
