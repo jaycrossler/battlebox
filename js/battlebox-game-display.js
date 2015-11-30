@@ -37,6 +37,7 @@
         game.data.initial_display_functions_run = false;
 
 
+        //Initialize some avatar settings to not show decorations/names over face and not use content packs
         _.each(Avatar.getRaces(), function (race_name, i) {
             //Pull a pointer to the current avatar template for that race
             var AvatarRace = new Avatar('get_linked_template', race_name);
@@ -608,22 +609,29 @@
         });
 
 
-        //Add each leader info to the canvas already created
-        _.each(game.entities, function (unit, i) {
-            if (unit.forces && unit.leader_face_options && unit.$trump_leader_canvas) {
+        //Draw each avatar in turn
+        if (game.entities && game.entities.length) {
+            var make_avatar_callback = function (entity_id) {
 
-                setTimeout(function () {
+                var unit = game.entities[entity_id];
+                if (unit && unit.forces && unit.leader_face_options && unit.$trump_leader_canvas) {
+
                     var canvas = unit.$trump_leader_canvas[0];
 
-                    game.engine.lock();
-                    unit.avatar = new Avatar(unit.leader_face_options, {$canvas: unit.$trump_leader_canvas}, canvas);
-                    console.log("Avatar " + unit._id + " made");
-                    console.log(" - " + JSON.stringify(unit.leader_face_options));
-                    game.engine.unlock();
+                    var face_options = unit.leader_face_options;
+                    face_options.callback_after_building = function () {
+                        setTimeout(function () {
+                            var next_entity = entity_id += 1;
+                            make_avatar_callback(next_entity);
+                        }, 1);
+                    };
 
-                }, Math.random() * 1000);
-            }
-        });
+                    unit.avatar = new Avatar(face_options, {$canvas: unit.$trump_leader_canvas}, canvas);
+
+                }
+            };
+            make_avatar_callback(0);
+        }
 
     };
 
@@ -632,41 +640,52 @@
 
         unit.$trump_holder = $('<div>')
             .css({display: 'inline-block'})
+            .addClass('unit_trump_holder')
+            .css({backgroundColor: unit._data.side})
             .appendTo($pointers.unit_holder);
 
         unit.$trump = $('<div>')
             .text(unit_name)
             .addClass('unit_trump')
-            .css({backgroundColor: unit._data.side})
             .appendTo(unit.$trump_holder);
 
+        //Build the leader face
+        var name, width, height, face_options, class_type;
         if (unit._data.leader) {
-            var name = unit._data.leader.name || 'Leader';
-            unit.$trump_leader = $('<div>')
-            //.text(name)
-                .addClass('unit_leader_trump')
-                .appendTo(unit.$trump_holder);
-
-            var width = unit.$trump_leader.width();
-            var height = unit.$trump_leader.height();
-            unit.$trump_leader_canvas = $("<canvas>")
-                .attr({width: width, height: height, id: 'avatar_leader_' + unit._id})
-                .css({width: width, height: height})
-                .appendTo(unit.$trump_leader);
-
-            //Merge in any side_data face_options with leader-specific ones
-            var side_data = _.find(game.game_options.sides, function (tt) {
-                    return (tt.side == unit._data.side);
-                }) || {};
-            unit.leader_face_options = $.extend({}, side_data.face_options || {}, unit._data.leader.face_options || {});
-            if (!unit.leader_face_options.rand_seed) {
-                var seed = game.getSeed();
-                if (seed && seed.rand_seed) {
-                    unit.leader_face_options.rand_seed = parseInt(game.getSeed().rand_seed) + unit._id
-                }
-            }
-
+            name = unit._data.leader.name || 'Leader';
+            class_type = 'unit_leader_trump';
+            face_options = unit._data.leader.face_options;
+        } else {
+            name = 'Unit';
+            class_type = 'unit_troops_trump';
+            face_options = unit._data.face_options || {};
         }
+
+        unit.$trump_leader = $('<div>')
+            .attr('title', name)
+            .addClass(class_type)
+            .appendTo(unit.$trump_holder);
+
+        width = unit.$trump_leader.width();
+        height = unit.$trump_leader.height();
+        unit.$trump_leader_canvas = $("<canvas>")
+            .attr({width: width, height: height, id: 'avatar_leader_' + unit._id})
+            .css({width: width, height: height})
+            .appendTo(unit.$trump_leader);
+
+        //Merge in any side_data face_options with leader-specific ones
+        var side_data = _.find(game.game_options.sides, function (tt) {
+                return (tt.side == unit._data.side);
+            }) || {};
+
+        unit.leader_face_options = $.extend({}, side_data.face_options || {}, face_options);
+        if (!unit.leader_face_options.rand_seed) {
+            var seed = game.getSeed();
+            if (seed && seed.rand_seed) {
+                unit.leader_face_options.rand_seed = parseInt(game.getSeed().rand_seed) + unit._id;
+            }
+        }
+
     };
 
     _c.update_unit_ui = function (game, unit) {

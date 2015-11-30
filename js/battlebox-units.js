@@ -39,10 +39,10 @@
     // Attackers with range > 1 can attack enemies in nearby squares by using some action points
     // Have units communicate with each other, sending enemy positions
     // Units can have their own strategy functions that replace or augment the built-in ones
+    // Units have a fatigue variable that improves every turn
 
     // TODO: Have a strategy system for picking what to do when (big force don't move in until archers killed for def, attackers wait for vanguard
     // TODO: Have archers move back from attacks if possible
-    // TODO: HAve a fatigue that improves every turn
 
     // TODO: When looting or pillaging land, small chance of new defenders spawning a defense force
 
@@ -54,6 +54,14 @@
     // TODO: Have unit morale based on skill of commander - every losing fight might decrease morale, every lopsided victory, pillaging, finding treasure
     // TODO: Specify a number of copies of a certain unit
     // TODO: Specify details like 'brutality' that define how to treat pillaging and prisoners
+
+    // TODO: Units should have a max size (480?) that a commander can change
+    // TODO: Each force in a unit should have a power rating (maybe the strength+defense?) that pushes up to a max of the number that can attack per turn
+    // TODO: Have something like 480 max troops, 120 melee can fight and 120 ranged can fight, then rest as "support lines" that provide bonuses
+    // TODO: Should allow 3 trolls, 1 dragon, or 12000 rats or 48000 ants (or something), again with only a portion attackable
+    // TODO: if 3 trolls attack 12000 rats, how should that play out?
+    // TODO: Have morale rolls for breaking and running away (back to starting point)?
+    // TODO: Forces should rarely fight past 60% unit deaths
 
     // TODO: Have attacker starting side be random
     // TODO: When placing troops, make sure there is a path from starting site to city. If not, make a path

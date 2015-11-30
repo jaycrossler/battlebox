@@ -75,17 +75,21 @@ h1{
     font-weight: bold;
 }
 
-.unit_trump {
+.unit_trump_holder {
     display: inline-block;
     vertical-align: top;
     height: 130px;
     overflow-y: scroll;
     width: 110px;
     border: 1px solid black;
+    border-radius: 4px;
     padding: 4px;
     margin: 2px;
-    border-radius: 4px;
     font-size: .7em;
+    position: relative;
+}
+
+.unit_trump {
 }
 
 .unit_trump hr {
@@ -103,6 +107,19 @@ h1{
     /*background-color: gold;*/
     margin: 3px 3px 3px 50px;
     top: 48px;
+    opacity: 1;
+    border-radius: 4px;
+    font-size: .7em;
+}
+
+.unit_troops_trump {
+    vertical-align: top;
+    position: absolute;
+    height: 50px;
+    overflow-y: hidden;
+    width: 44px;
+    margin: 3px 3px 3px 70px;
+    top: 78px;
     opacity: 1;
     border-radius: 4px;
     font-size: .7em;

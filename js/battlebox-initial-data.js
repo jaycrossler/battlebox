@@ -115,7 +115,7 @@
             },
             {
                 name: 'Task Force Alpha', side: 'Yellow', symbol: '#A', location: 'left', player: true,
-                leader: {name: 'Vesuvius', face_options: {race: 'Demon', age: 120}},
+                leader: {name: 'Vesuvius', face_options: {race: 'Ogre', age: 120}},
                 //goals: {weak_enemies: 7, loot: 4, all_enemies: 5, explore: 2, city: 3},
                 troops: [
                     {name: 'soldiers', count: 10, experience: 'veteran', victories: 12}, //TODO: Experience, victories
@@ -190,6 +190,7 @@
                 not_part_of_victory: true,
                 plan: 'wander',
                 backup_strategy: 'wait',
+                face_options: {race: 'Demon', age: 120},
                 size: 3,
                 move_through_impassable: true,
                 try_to_loot: true,
