@@ -20,7 +20,7 @@
 
         cols: 260,
         rows: 90,
-        cell_size: 10,
+        cell_size: 12,
         cell_spacing: 1,
         cell_border: 0,
         transpose: false, //TODO: If using transpose, a number of other functions for placement should be tweaked

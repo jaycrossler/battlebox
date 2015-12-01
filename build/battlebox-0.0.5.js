@@ -1,6 +1,6 @@
 /*
 ------------------------------------------------------------------------------------
--- battlebox.js - v0.0.4 - Built on 2015-12-01 by Jay Crossler using Grunt.js
+-- battlebox.js - v0.0.5 - Built on 2015-12-01 by Jay Crossler using Grunt.js
 ------------------------------------------------------------------------------------
 -- Using rot.js (ROguelike Toolkit) which is Copyright (c) 2012-2015 by Ondrej Zara 
 -- Packaged with color.js - Copyright (c) 2008-2013, Andrew Brehaut, Tim Baumann,  
@@ -949,7 +949,7 @@ var Battlebox = (function ($, _, Helpers, maths) {
 
     //-----------------------------
     //Private Global variables
-    var version = '0.0.4',
+    var version = '0.0.5',
         summary = 'HTML game engine to simulate a battlefield for multiple troops to combat upon.',
         author = 'Jay Crossler - http://github.com/jaycrossler',
         file_name = 'battlebox.js';
@@ -1583,12 +1583,6 @@ Battlebox.initializeOptions = function (option_type, options) {
 
     _c.initialize_ui_display = function (game) {
         var canvas = _c.draw_initial_display(game, {});
-
-        canvas.addEventListener("mousemove", function (ev) {
-            var loc = game.display.eventToPosition(ev);
-            _c.highlight_position(game, loc);
-            _c.show_info(game, loc);
-        });
     };
 
     _c.update_ui_display = function (game) {
@@ -1597,6 +1591,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
     _c.draw_initial_display = function (game, options) {
         $pointers.canvas_holder = $('#container');
+        $pointers.canvas_minimap_holder = $('#container_minimap');
 
         $pointers.message_display = $('#message_display')
             .appendTo($pointers.canvas_holder);
@@ -1615,20 +1610,74 @@ Battlebox.initializeOptions = function (option_type, options) {
             AvatarRace.use_content_packs = [];
         });
 
+        //TODO: Update numbers to pull from init file
+        var win_height = Math.floor($(window).height() / 25.5);
+        var win_width = Math.floor($(window).width() / 25.8) * 2;
+
+        //Full-screen zoomed map
         game.display = new ROT.Display({
+            transpose: game.game_options.transpose,
+            width: win_width,
+            height: win_height,
+            fontSize: 22,
+            layout: "hex",
+            border: 0.1,
+            spacing:  1
+        });
+
+        //TODO: Get resizing to redraw main display
+        //$(window).on('resize',function(){
+        //    var win_width = $(window).width();
+        //    var win_height = $(window).height();
+        //    game.display.width = Math.floor(win_width / 24) * 2;
+        //    game.display.height = Math.floor(win_height / 24);
+        //    _c.draw_whole_map(game);
+        //});
+
+        //Mini-map
+        game.display_minimap = new ROT.Display({
             transpose: game.game_options.transpose,
             width: _c.cols(game),
             height: _c.rows(game),
-            fontSize: game.game_options.cell_size,
+            fontSize: 3,
             layout: "hex",
 //            fontFamily: "droid sans mono",
             border: (game.game_options.cell_border !== undefined) ? game.game_options.cell_border : null,
             spacing: game.game_options.cell_spacing || .88
         });
+
+        //Pointers to the main and minimap canvas
         var container_canvas = game.display.getContainer();
+        var container_minimap_canvas = game.display_minimap.getContainer();
+
+        //Used to determine if/where the main map should draw
+        game.display_center = {
+            x:_c.cols(game)/2,
+            y:_c.rows(game)/2,
+            win_width: win_width,
+            win_height: win_height
+        };
 
         $pointers.canvas_holder
             .append(container_canvas);
+
+        $pointers.canvas_minimap_holder
+            .append(container_minimap_canvas);
+
+
+        container_canvas.addEventListener("mousemove", function (ev) {
+            var loc = game.display.eventToPosition(ev);
+            loc[0] += (game.display_center.x - game.display_center.win_width/2);
+            loc[1] += Math.floor(game.display_center.y - game.display_center.win_height/2);
+
+            _c.highlight_position(game, loc);
+            _c.show_info(game, loc);
+        });
+
+        container_minimap_canvas.addEventListener("mousedown", function (ev) {
+            var loc = game.display_minimap.eventToPosition(ev);
+            change_main_display_center(game, loc[0], loc[1]);
+        });
 
 
         $pointers.info_box = $('<div>')
@@ -1916,9 +1965,61 @@ Battlebox.initializeOptions = function (option_type, options) {
         if (draw_callback) {
             draw_callback(x, y, text, color, bg);
         } else {
-            game.display.draw(x, y, text, color, bg);
+            draw_if_on_main_display(game, x, y, text, color, bg);
+            game.display_minimap.draw(x, y, text, color, bg);
         }
     };
+
+    function draw_if_on_main_display(game, x, y, text, color, bg) {
+        var y_start = game.display_center.y - Math.round(game.display_center.win_height/2);
+        var y_end = y_start + game.display_center.win_height;
+        var x_start = game.display_center.x - Math.round(game.display_center.win_width/2);
+        //x_start += (y_start % 2);
+
+        var x_end = x_start + game.display_center.win_width;
+
+        if (x <= x_end && x >= x_start && y <= y_end && y >= y_start) {
+            game.display.draw(x - x_start, y - y_start, text, color, bg);
+        }
+    }
+
+    var last_center = {x:0, y:0};
+    function change_main_display_center(game, x_new, y_new) {
+        var half_height = Math.round(game.display_center.win_height/2);
+        var half_width = Math.round(game.display_center.win_width/2);
+
+        if (x_new < half_width) x_new = half_width;
+        if (x_new > _c.cols(game)-half_width) x_new = _c.cols(game)-half_width;
+
+        if (y_new < half_height) y_new = half_height;
+        if (y_new > _c.rows(game)-half_height) y_new = _c.rows(game)-half_height;
+
+        if ((y_new %2) != (x_new %2)) x_new += 1;
+
+        if (last_center.x == x_new && last_center.y == y_new) {
+            return;
+        }
+        last_center.x = x_new;
+        last_center.y = y_new;
+
+        game.display_center.y = y_new;
+        game.display_center.x = x_new;
+
+        var x_start = x_new - half_width;
+        var x_end = x_start + game.display_center.win_width;
+        var y_start = y_new - half_height;
+        var y_end = y_start + game.display_center.win_height;
+
+        game.display.clear();
+        for (var y = y_start; y < y_end; y++) {
+            for (var x = x_start + (y % 2); x < x_end; x += 2) {
+                if ((y %2) != (x %2)) x += 1;
+
+                _c.draw_tile(game, x, y);
+                //TODO: Highlight covered area on minimap
+            }
+        }
+    }
 
     _c.log_display = function (game) {
         if (!$pointers.logs) {
@@ -2456,7 +2557,7 @@ Battlebox.initializeOptions = function (option_type, options) {
 
         cols: 260,
         rows: 90,
-        cell_size: 3,
+        cell_size: 12,
         cell_spacing: 1,
         cell_border: 0,
         transpose: false, //TODO: If using transpose, a number of other functions for placement should be tweaked

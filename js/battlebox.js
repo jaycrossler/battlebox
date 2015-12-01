@@ -8,7 +8,7 @@ var Battlebox = (function ($, _, Helpers, maths) {
 
     //-----------------------------
     //Private Global variables
-    var version = '0.0.4',
+    var version = '0.0.5',
         summary = 'HTML game engine to simulate a battlefield for multiple troops to combat upon.',
         author = 'Jay Crossler - http://github.com/jaycrossler',
         file_name = 'battlebox.js';

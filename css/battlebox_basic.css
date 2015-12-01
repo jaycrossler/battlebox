@@ -38,9 +38,11 @@ h1{
     margin-top: 50px;
     display: block;
     position: relative;
-    width: 1583px;
 }
 
+body {
+    overflow-x: hidden;
+}
 #unit_list {
     display: inline-block;
     position: absolute;
@@ -59,7 +61,7 @@ h1{
     position: absolute;
     background-color: black;
     width: 300px;
-    right: 100px;
+    right: 20px;
     vertical-align: top;
     max-height: inherit;
     border-radius: 10px;
@@ -73,6 +75,15 @@ h1{
     margin: 6px;
     padding: 6px;
     font-weight: bold;
+}
+
+#container_minimap {
+    position: absolute;
+    right: 20px;
+    bottom: 90px;
+    border-radius: 10px;
+    padding: 4px 2px 0px 6px;
+    background-color: black;
 }
 
 .unit_trump_holder {

@@ -6,7 +6,7 @@
   "repository": {
     "private": true
   },
-  "version": "0.0.4",
+  "version": "0.0.5",
   "license": "(MIT OR Apache-2.0)",
   "devDependencies": {
     "grunt": "^0.4.5",
