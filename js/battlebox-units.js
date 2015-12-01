@@ -49,7 +49,6 @@
     // TODO: Also communicate storage locations, or what else?  Make sure defenders respond properly
     // TODO: Move faster over roads, and slower over water - have an action point amount to spend, and a buffer towards moving into a terrain
 
-    // TODO: Each unit type and side can have face_options that combine to create avatars
     // TODO: Each unit has commanders in it that learn and grow, and keep array items
     // TODO: Have unit morale based on skill of commander - every losing fight might decrease morale, every lopsided victory, pillaging, finding treasure
     // TODO: Specify a number of copies of a certain unit

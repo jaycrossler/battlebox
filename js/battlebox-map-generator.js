@@ -6,6 +6,13 @@
     var overlay_lines = []; //Lines for testing or showing information after canvas is drawn
     //TODO: Update rot.js to have a draw_after_dirty function
 
+    //TODO: City2 has a few generation issues
+    //TODO: Have city tiles track a Commercial/Industrial/Residential breakout
+    //TODO: Have cities generate building types and building names
+    //TODO: Have cities better manage population distribution based on land value
+    //TODO: Have cities be able to grow exactly the same based on previous population
+    //TODO: Have cities generate "religions" or centers of important zones
+
     //TODO: Pass in a color set to try out different images/rendering techniques
     //TODO: Use hex images for terrain
     //TODO: Use colored large circle characters for forces, not full hex colors
@@ -604,23 +611,53 @@
 
         });
     };
-    _c.population_counter = function (game, city_cells) {
-        var count = 0;
-        if (city_cells && city_cells.length) {
-            _.each(city_cells, function (cell) {
-                if (cell) {
-                    count += game.cells[cell.x][cell.y].population || 0;
-                }
-            })
-        } else {
-            _.each(game.cells, function (x) {
-                _.each(x, function (cell) {
-                    if (cell) count += cell.population || 0;
-                })
-            });
+    _c.population_counter = function (game) {
+
+        var count_in_city_cells = 0;
+        var count_in_game_cells = 0;
+        var number_of_populated_cells = 0;
+
+        var distribution = [];
+        for (var i = 0; i < 1000; i++) {
+            var segment = Math.floor(i / 10);
+            distribution[segment] = 0;
         }
-        return count;
+
+        var city_cells = game.data.buildings;
+        if (city_cells && city_cells[0]) city_cells = city_cells[0];
+        if (city_cells && city_cells.tiles) {
+            city_cells = city_cells.tiles;
+
+            _.each(city_cells, function (cell) {
+                if (cell && cell.x !== undefined && cell.y !== undefined) {
+                    var pop = game.cells[cell.x][cell.y].population || 0;
+                    count_in_city_cells += Math.max(0, pop);
+                }
+            });
+
+        }
+
+        _.each(game.cells, function (x) {
+            _.each(x, function (cell) {
+                if (cell && cell.population) {
+                    var pop = Math.max(cell.population, 0);
+                    count_in_game_cells += pop;
+                    number_of_populated_cells += 1;
+
+                    var segment = Math.floor(pop / 10);
+                    distribution[segment] += 1;
+                }
+            });
+        });
+        return {
+            number_of_populated_cells: number_of_populated_cells,
+            count_in_game_cells: count_in_game_cells,
+            number_of_city_cells: city_cells.length,
+            count_in_city_cells: count_in_city_cells,
+            distribution: distribution
+        };
     };
+
     //¬-----------------------------------------------------
     function screen_xy_from_tile_xy(game, x, y) {
         var be = game.display._backend;
@@ -1022,7 +1059,8 @@
             }
         }
 
-        var pop_count = city_info.population - _c.population_counter(game, city_cells);
+        var current_pop = _c.population_counter(game, city_cells);
+        var pop_count = city_info.population - current_pop.count_in_game_cells;
         if (pop_count > 0) {
             city_cells[0].population += Math.round(pop_count);
         }

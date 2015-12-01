@@ -11,7 +11,20 @@
         }
         _c.generate_buildings(game);
         _c.draw_whole_map(game);
-        console.log("Pop now at: " + game._private_functions.population_counter(game));
+        //console.log("Pop now at: " + JSON.stringify(game._private_functions.population_counter(game)));
+
+        var pop = game._private_functions.population_counter(game);
+        //console.log(pop);
+        //console.table({dist:pop.distribution});
+
+        console.log("Population Total on map: " + pop.count_in_game_cells + " (" + pop.number_of_populated_cells + " cells)");
+        _.each(pop.distribution, function (p, i) {
+            if (p > 0) {
+                console.log(" Pop: " + (i * 10) + "-" + ((i + 1) * 10) + ": " + p);
+            }
+        });
+        console.log("Population Total in 'City cells': " + pop.count_in_city_cells + " (" + pop.number_of_city_cells + " cells)");
+
     };
 
     _c.initialize_ui_display = function (game) {
@@ -123,6 +136,12 @@
                 .appendTo($pointers.canvas_holder);
         });
 
+        $('<button>')
+            .text('Add 0 people')
+            .on('click', function () {
+                _c.add_main_city_population(game, 0);
+            })
+            .appendTo($pointers.canvas_holder);
 
         $('<button>')
             .text('Add 100 people')
