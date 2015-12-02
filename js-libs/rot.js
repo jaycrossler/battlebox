@@ -856,10 +856,10 @@ ROT.Display.prototype.eventToPosition = function(e) {
  * @param {string} [fg] foreground color
  * @param {string} [bg] background color
  */
-ROT.Display.prototype.draw = function(x, y, ch, fg, bg) {
+ROT.Display.prototype.draw = function(x, y, ch, fg, bg, canvas) {
 	if (!fg) { fg = this._options.fg; }
 	if (!bg) { bg = this._options.bg; }
-	this._data[x+","+y] = [x, y, ch, fg, bg];
+	this._data[x+","+y] = [x, y, ch, fg, bg, canvas];
 
 	if (this._dirty === true) { return; } /* will already redraw everything */
 	if (!this._dirty) { this._dirty = {}; } /* first! */
@@ -1150,6 +1150,7 @@ ROT.Display.Hex.prototype.draw = function(data, clearBefore) {
 	var ch = data[2];
 	var fg = data[3];
 	var bg = data[4];
+	var canvas = data[5];
 
 	var px = [
 		(x+1) * this._spacingX,
@@ -1160,6 +1161,17 @@ ROT.Display.Hex.prototype.draw = function(data, clearBefore) {
 	if (clearBefore) {
 		this._context.fillStyle = bg;
 		this._fill(px[0], px[1]);
+	}
+
+	if (canvas) {
+		var width = this._hexSize * 1.9;
+		this._context.drawImage(
+				canvas,
+				px[0] - (width *.5),
+				px[1] - (width *.5),
+				width,
+				width
+		)
 	}
 
 	if (!ch) { return; }

@@ -85,7 +85,7 @@
             transpose: game.game_options.transpose,
             width: _c.cols(game),
             height: _c.rows(game),
-            fontSize: 3,
+            fontSize: 2.5,
             layout: "hex",
 //            fontFamily: "droid sans mono",
             border: (game.game_options.cell_border !== undefined) ? game.game_options.cell_border : null,
@@ -114,15 +114,22 @@
             .append(container_minimap_canvas);
 
 
+        var last_mouseover = {x: 0, y: 0};
         container_canvas.addEventListener("mousemove", function (ev) {
             var loc = game.display.eventToPosition(ev);
-            loc[0] += (game.display_center.x - game.display_center.win_width / 2);
-            loc[1] += Math.floor(game.display_center.y - game.display_center.win_height / 2);
+            loc[0] += Math.round(game.display_center.x - (game.display_center.win_width / 2));
+            loc[1] += Math.floor(game.display_center.y - (game.display_center.win_height / 2));
 
-            if ((loc[1] % 2) != (loc[0] % 2)) loc[0] += 1;
+            if ((loc[1] % 2) != (loc[0] % 2)) {
+                loc[0] -= 1;
+            }
 
-            _c.highlight_position(game, loc);
-            _c.show_info(game, loc);
+            if (last_mouseover.x != loc[0] || last_mouseover.y != loc[1]) {
+                last_mouseover.x = loc[0];
+                last_mouseover.y = loc[1];
+                _c.highlight_position(game, loc);
+                _c.show_info(game, loc);
+            }
         });
 
         var zoom_size = 24;
@@ -358,10 +365,10 @@
                     text = '▄';
                     population_darken_amount = .3;
                 } else if (cell.population > 50) {
-                    text = '▒';
+                    //text = '▒';
                     population_darken_amount = .2;
                 } else if (cell.population > 10) {
-                    text = '░';
+                    //text = '░';
                     population_darken_amount = .1;
                 }
             }
@@ -383,7 +390,6 @@
             if (!color && _c.tile_has(cell, 'unit corpse')) {
                 text = "x";
             }
-
 
             var bridge = false, gate = false;
             var path_info = _c.tile_has(cell, 'path');
@@ -439,6 +445,10 @@
                 bg = net.brehaut.Color(bg).blend(net.brehaut.Color('brown'), population_darken_amount).toString();
             }
             if (bg.toString) bg = bg.toString();
+
+            if (cell.canvas !== null) {
+                build_and_assign_canvas_to_cell(game, cell);
+            }
         }
         color = color || "#000";
 
@@ -455,12 +465,68 @@
         if (draw_callback) {
             draw_callback(x, y, text, color, bg);
         } else {
-            draw_if_on_main_display(game, x, y, text, color, bg);
-            game.display_minimap.draw(x, y, text, color, bg);
+            draw_if_on_main_display(game, x, y, text, color, bg, cell);
+            game.display_minimap.draw(x, y, null, null, bg);
         }
     };
 
-    function draw_if_on_main_display(game, x, y, text, color, bg) {
+    var tile_canvases = null;
+
+    function build_and_assign_canvas_to_cell(game, cell) {
+
+        if (tile_canvases === null) {
+            tile_canvases = {};
+
+            //Pre-build images
+            var canvas = document.createElement('canvas');
+            canvas.width = 20;
+            canvas.height = 20;
+            var context = canvas.getContext('2d');
+            context.beginPath();
+            regular_polygon(context, 10, 10, 9.5, 6, -Math.PI / 2);
+            context.fillStyle = "rgba(51,128,255,0.75)";
+            context.fill();
+            context.stroke();
+            tile_canvases.city_1 = canvas;
+
+            var canvas = document.createElement('canvas');
+            canvas.width = 20;
+            canvas.height = 20;
+            var context = canvas.getContext('2d');
+            context.beginPath();
+            regular_polygon(context, 10, 10, 9.5, 3, -Math.PI / 2);
+            context.fillStyle = "rgba(128,128,81,0.5)";
+            context.fill();
+            context.stroke();
+            tile_canvases.farm_1 = canvas;
+        }
+
+        var canvas = null;
+        if (cell.type == 'city') {
+            //TODO: Dynamically build a tile canvas with info
+            canvas = tile_canvases.city_1;
+        } else if (_c.tile_has(cell, 'farm')) {
+            canvas = tile_canvases.farm_1;
+        }
+        game.cells[cell.x][cell.y].canvas = canvas;
+    }
+
+    function regular_polygon(ctx, x, y, radius, sides, startAngle, anticlockwise) {
+        if (sides < 3) return;
+        var a = (Math.PI * 2) / sides;
+        a = anticlockwise ? -a : a;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(startAngle);
+        ctx.moveTo(radius, 0);
+        for (var i = 1; i < sides; i++) {
+            ctx.lineTo(radius * Math.cos(a * i), radius * Math.sin(a * i));
+        }
+        ctx.closePath();
+        ctx.restore();
+    }
+
+    function draw_if_on_main_display(game, x, y, text, color, bg, cell) {
         var y_start = game.display_center.y - Math.round(game.display_center.win_height / 2);
         var y_end = y_start + game.display_center.win_height;
         var x_start = game.display_center.x - Math.round(game.display_center.win_width / 2);
@@ -469,7 +535,7 @@
         var x_end = x_start + game.display_center.win_width;
 
         if (x <= x_end && x >= x_start && y <= y_end && y >= y_start) {
-            game.display.draw(x - x_start, y - y_start, text, color, bg);
+            game.display.draw(x - x_start, y - y_start, text, color, bg, cell.canvas);
         }
     }
 

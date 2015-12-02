@@ -1,5 +1,6 @@
 (function (Battlebox) {
     var _c = new Battlebox('get_private_functions');
+    //TODO: At some zoom levels, all hexes are off on mouseover by .5, not sure when/why
 
     _c.initialize_data = function (game, data) {
         game.data = game.data || {};
