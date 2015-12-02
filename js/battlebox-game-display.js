@@ -28,7 +28,7 @@
     };
 
     _c.initialize_ui_display = function (game) {
-        var canvas = _c.draw_initial_display(game, {});
+        _c.draw_initial_display(game, {});
     };
 
     _c.update_ui_display = function (game) {
@@ -98,11 +98,14 @@
 
         //Used to determine if/where the main map should draw
         game.display_center = {
-            x: _c.cols(game) / 2,
-            y: _c.rows(game) / 2,
+            x: Math.floor(_c.cols(game) / 2),
+            y: Math.floor(_c.rows(game) / 2),
             win_width: win_width,
             win_height: win_height
         };
+        if ((game.display_center.x % 2) != (game.display_center.y % 2)) {
+            game.display_center.x += 1;
+        }
 
         $pointers.canvas_holder
             .append(container_canvas);
@@ -116,15 +119,56 @@
             loc[0] += (game.display_center.x - game.display_center.win_width / 2);
             loc[1] += Math.floor(game.display_center.y - game.display_center.win_height / 2);
 
+            if ((loc[1] % 2) != (loc[0] % 2)) loc[0] += 1;
+
             _c.highlight_position(game, loc);
             _c.show_info(game, loc);
         });
+
+        var zoom_size = 24;
+        var debounce_zoom = _.debounce(function () {
+
+            var win_height = Math.floor($(window).height() / (zoom_size + 1.5));
+            var win_width = Math.floor($(window).width() / (zoom_size + 1.8)) * 2;
+
+            game.display_center.win_width = win_width;
+            game.display_center.win_height = win_height;
+
+            var opts = battlebox.display._options;
+            opts.width = win_width;
+            opts.height = win_height;
+            opts.fontSize = zoom_size;
+            battlebox.display.clear();
+            battlebox.display.setOptions(opts);
+            change_main_display_center(game, game.display_center.x, game.display_center.y);
+            _c.draw_whole_map(game);
+
+        }, 250);
+
+
+        var handleScroll = function (evt) {
+            if (!evt) evt = event;
+            evt = evt.originalEvent || {};
+            var direction = (evt.detail < 0 || evt.wheelDelta > 0) ? 1 : -1;
+
+            zoom_size += direction / 10;
+            zoom_size = maths.clamp(zoom_size, 10, 30);
+
+            evt.preventDefault();
+
+            debounce_zoom();
+        };
+
+        $(container_canvas).on("mousewheel", handleScroll);
+
+
 
         container_minimap_canvas.addEventListener("mousedown", function (ev) {
             var loc = game.display_minimap.eventToPosition(ev);
             change_main_display_center(game, loc[0], loc[1]);
         });
 
+        //change_main_display_center(game, game.display_center.x, game.display_center.y);
 
         $pointers.info_box = $('<div>')
             .appendTo($pointers.canvas_holder);
